@@ -5,7 +5,6 @@ Création : July 7th, 2015
 @author: Eric Lapouyade
 '''
 
-import sys
 import telnetlib
 import re
 import spur
