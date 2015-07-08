@@ -24,7 +24,7 @@ News
 """ % read('README', 'CHANGES')
 
 setup(name='python-nagios-helpers',
-      version='0.0.1',
+      version='0.0.2',
       description='Helper Classes for plugin development and nagios management.',
       long_description=long_description,
       classifiers=[
