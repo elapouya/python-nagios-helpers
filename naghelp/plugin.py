@@ -34,11 +34,22 @@ class ActivePlugin(Plugin):
     def get_cmd_usage(self):
         return self.usage
 
-    def add_cmd_options(self, parser):
+    def init_cmd_options(self):
+        pass
+
+    def add_custom_cmd_options(self):
         pass
         
-    def manage_cmd_options(self, parser, options, args):
+    def handle_cmd_options(self):
+        self.handle_custom_cmd_options()
+
+    def handle_custom_cmd_options(self):
         pass        
 
+    def manage_cmd_options(self):
+        self.init_cmd_options()
+        self.add_cmd_options()
+        self.handle_cmd_options()
+
     def run(self):
-        pass
+        self.manage_cmd_options()
