@@ -42,7 +42,7 @@ class Plugin(object):
                                    default=False, help='Debug : display debug messages')
         self._cmd_parser.add_option('-l', action='store', dest='logfile', metavar="LOG_FILE",
                                    help='Redirect logs into a file')
-        self._cmd_parser.add_option('-i', action='store_true', dest='description',
+        self._cmd_parser.add_option('-i', action='store_true', dest='show_description',
                                    default=False, help='Display plugin description')
         for param,desc in self.host.get_plugin_params_desc().items():
             self._cmd_parser.add_option('--%s' % param, action='store', type='string', dest=param, help=desc)
@@ -127,6 +127,12 @@ class ActivePlugin(Plugin):
 
     def __init__(self, hostname):
         self.response = response_class()
+
+    def handle_cmd_options(self):
+        super(ActivePlugin,self).handle_cmd_options()
+        if self.options.show_description:
+            print self.get_plugin_desc()
+            UNKNOWN.exit()
 
     def error(self,msg):
         self.logger.error(msg)

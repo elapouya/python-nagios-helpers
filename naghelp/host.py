@@ -5,15 +5,13 @@ Création : July 8th, 2015
 @author: Eric Lapouyade
 '''
 
-import logging
-logger = logging.getLogger('naghelp')
-import pprint
-pprint = pprint.PrettyPrinter(indent=4).pprint
-
 class Host(object):
     def __init__(self, cmd_options):
-        self._options = cmd_options
-        self._params = self._get_params_from_db()
+        self._params = dict([(k[7:],v) for k,v in os.environ.items() if k.startswith('NAGIOS_') and v ])
+        self._params['hostname'] = self._params.get('HOSTNAME')
+        self._params['ip'] = self._params.get('HOSTADDRESS')
+        self._params.update(self._get_params_from_db())
+        self._params.update(vars(cmd_options))
 
     def __getattr__(self, name):
         return self._params.get(name)
@@ -26,3 +24,6 @@ class Host(object):
 
     def _get_params_from_db(self):
         return {}
+
+    def __repr__(self):
+        return '\n'.join([ '%s : %s' % (k,v) for k,v in self._params.items() ])
