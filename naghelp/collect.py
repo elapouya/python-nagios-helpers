@@ -42,10 +42,10 @@ def telnet_cmd(cmd, host,user,password,port=0,timeout=10):
         raise Exception('Bad login/password')
     return out
 
-def ssh_cmd(cmd, host, user, **kwargs):
+def ssh_cmd(cmd, host, user, timeout=10, **kwargs):
     if isinstance(cmd, basestring):
         cmd = cmd.split(' ')
-    shell = spur.SshShell(hostname=host, username=user, connect_timeout=10, **kwargs)
+    shell = spur.SshShell(hostname=host, username=user, connect_timeout=timeout, **kwargs)
     with shell:
         result = shell.run(cmd)
     return result.output
