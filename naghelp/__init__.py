@@ -4,6 +4,7 @@
 # Copyright (C) 2015 Eric Lapouyade
 #
 
-from collect import *
+from collect import telnet_cmd, ssh_cmd
+from plugin import ActivePlugin, OK, CRITICAL, WARNING, UNKNOWN
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
