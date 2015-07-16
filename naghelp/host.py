@@ -11,18 +11,18 @@ import pprint
 pprint = pprint.PrettyPrinter(indent=4).pprint
 
 class Host(object):
-    def __init__(self, hostname):
-        self._hostname = hostname
+    def __init__(self, cmd_options):
+        self._options = cmd_options
         self._params = self._get_params_from_db()
-             
+
     def __getattr__(self, name):
-        return self._params.get(name)    
-     
+        return self._params.get(name)
+
     def __setattr__(self, name, value):
         if not hasattr(self, name):
             object.__setattr__(self, name, value)
         else:
             self._params[name] = value
-            
+
     def _get_params_from_db(self):
         return {}
