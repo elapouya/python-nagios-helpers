@@ -31,9 +31,6 @@ class Plugin(object):
     def get_plugin_desc(self):
         return ''
 
-    def get_plugin_params_desc(self):
-        return {}
-
     def init_cmd_options(self):
         self._cmd_parser = OptionParser(usage = self.get_cmd_usage())
         self._cmd_parser.add_option('-v', action='store_true', dest='verbose',
@@ -44,8 +41,6 @@ class Plugin(object):
                                    help='Redirect logs into a file')
         self._cmd_parser.add_option('-i', action='store_true', dest='show_description',
                                    default=False, help='Display plugin description')
-        for param,desc in self.host.get_plugin_params_desc().items():
-            self._cmd_parser.add_option('--%s' % param, action='store', type='string', dest=param, help=desc)
 
     def add_custom_cmd_options(self):
         pass
@@ -128,6 +123,20 @@ class ActivePlugin(Plugin):
     def __init__(self, hostname):
         self.response = response_class()
 
+    def get_plugin_host_params_desc(self):
+        return {    'name'  : 'Hostname',
+                    'ip'    : 'Host IP address',
+                }
+
+    def init_cmd_options(self):
+        super(ActivePlugin,self).init_cmd_options()
+        for param,desc in self.get_plugin_host_params_desc().items():
+            self._cmd_parser.add_option('--host%s' % param, action='store', type='string', dest="host__%s" % param, help=desc)
+        self._cmd_parser.add_option('-s', action='store_true', dest='save_collected',
+                                   default=False, help='Save collected data in a temporary file')
+        self._cmd_parser.add_option('-r', action='store_true', dest='restore_collected',
+                                   default=False, help='Use saved collected data (option -s)')
+
     def handle_cmd_options(self):
         super(ActivePlugin,self).handle_cmd_options()
         if self.options.show_description:
@@ -143,10 +152,24 @@ class ActivePlugin(Plugin):
         self.logger.warning(msg)
         self.response.add(msg,WARNING)
 
+    def save_collected_data(self):
+        pass
+
+    def restore_collected_data(self):
+        pass
+
     def run(self):
         self.manage_cmd_options()
         self.host = host_class(self.options)
+
+        if self.options.restore_collected:
+            self.restore_collected_data()
+
         self.collect_data()
+
+        if self.options.save_collected:
+            self.save_collected_data()
+
         self.parse_data()
         self.build_response()
         self.response.send()

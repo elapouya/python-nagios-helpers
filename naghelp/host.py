@@ -6,12 +6,11 @@ Création : July 8th, 2015
 '''
 
 class Host(object):
+
     def __init__(self, cmd_options):
-        self._params = dict([(k[7:],v) for k,v in os.environ.items() if k.startswith('NAGIOS_') and v ])
-        self._params['hostname'] = self._params.get('HOSTNAME')
-        self._params['ip'] = self._params.get('HOSTADDRESS')
+        self._params = self._get_params_from_env()
         self._params.update(self._get_params_from_db())
-        self._params.update(vars(cmd_options))
+        self._params.update(self._get_params_from_cmd_options())
 
     def __getattr__(self, name):
         return self._params.get(name)
@@ -22,8 +21,28 @@ class Host(object):
         else:
             self._params[name] = value
 
+    def _get_env_to_param(self):
+        return {
+           'NAGIOS_HOSTNAME'        : 'name',
+           'NAGIOS_HOSTALIAS'       : 'alias',
+           'NAGIOS_HOSTADDRESS'     : 'ip',
+           'NAGIOS_HOSTGROUPNAMES'  : 'groups',
+           'NAGIOS_HOSTGROUPNAME'   : 'group',
+        }
+
+    def _get_params_from_env(self):
+        dct = dict([(k[8:].lower(),v) for k,v in os.environ.items() if k.startswith('NAGIOS__') ])
+        for e,p in self._get_env_to_param():
+            v = os.environ.get(e)
+            if v is not None:
+                dct[p] = v
+        return dct
+
     def _get_params_from_db(self):
         return {}
 
+    def _get_params_from_cmd_options(self,cmd_options):
+        return dict([(k[6:],v) for k,v in vars(cmd_options).items() if k.startswith('host__')])
+
     def __repr__(self):
-        return '\n'.join([ '%s : %s' % (k,v) for k,v in self._params.items() ])
+        return '\n'.join([ '%20s : %s' % (k,v) for k,v in self._params.items() ])
