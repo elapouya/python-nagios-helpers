@@ -7,7 +7,8 @@ Création : July 8th, 2015
 
 class Host(object):
 
-    def __init__(self, cmd_options):
+    def __init__(self, plugin):
+        self._plugin = plugin
         self._params = self._get_params_from_env()
         self._params.update(self._get_params_from_db())
         self._params.update(self._get_params_from_cmd_options())
@@ -41,8 +42,8 @@ class Host(object):
     def _get_params_from_db(self):
         return {}
 
-    def _get_params_from_cmd_options(self,cmd_options):
-        return dict([(k[6:],v) for k,v in vars(cmd_options).items() if k.startswith('host__')])
+    def _get_params_from_cmd_options(self):
+        return dict([(k[6:],v) for k,v in vars(self._plugin.cmd_options).items() if k.startswith('host__')])
 
     def __repr__(self):
         return '\n'.join([ '%20s : %s' % (k,v) for k,v in self._params.items() ])

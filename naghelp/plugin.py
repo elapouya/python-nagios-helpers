@@ -14,6 +14,7 @@ import logging
 import pprint
 from .host import Host
 from .response import PluginResponse, OK, WARNING, CRITICAL, UNKNOWN
+import tempfile
 
 pprint = pprint.PrettyPrinter(indent=4).pprint
 pformat = pprint.PrettyPrinter(indent=4).pformat
@@ -119,6 +120,7 @@ class ActivePlugin(Plugin):
     host_class = Host
     response_class = PluginResponse
     usage = 'usage: \n%prog [options]'
+    collected_data_basedir = 'tmp'
 
     def __init__(self, hostname):
         self.response = response_class()
@@ -152,6 +154,9 @@ class ActivePlugin(Plugin):
         self.logger.warning(msg)
         self.response.add(msg,WARNING)
 
+    def get_collected_data_filename(self):
+        hostname = self.host.name or 'unknown_host'
+
     def save_collected_data(self):
         pass
 
@@ -160,7 +165,7 @@ class ActivePlugin(Plugin):
 
     def run(self):
         self.manage_cmd_options()
-        self.host = host_class(self.options)
+        self.host = host_class(self)
 
         if self.options.restore_collected:
             self.restore_collected_data()
