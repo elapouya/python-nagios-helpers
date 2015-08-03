@@ -5,12 +5,18 @@ Création : July 8th, 2015
 @author: Eric Lapouyade
 '''
 
+from addicted import NoAttrDict
+
 class Host(object):
 
     def __init__(self, plugin):
         self._plugin = plugin
-        self._params = self._get_params_from_env()
-        self._params.update(self._get_params_from_db())
+        _params_from_env = self._get_params_from_env()
+        _params_from_cmd_options = self._get_params_from_cmd_options()
+        _hostname = _params_from_cmd_options.host__name or _params_from_env.name
+        self._params = _params_from_env
+        if _hostname:
+            self._params.update(self._get_params_from_db(_hostname))
         self._params.update(self._get_params_from_cmd_options())
 
     def __getattr__(self, name):
@@ -32,18 +38,18 @@ class Host(object):
         }
 
     def _get_params_from_env(self):
-        dct = dict([(k[8:].lower(),v) for k,v in os.environ.items() if k.startswith('NAGIOS__') ])
+        dct = NoAttrDict([(k[8:].lower(),v) for k,v in os.environ.items() if k.startswith('NAGIOS__') ])
         for e,p in self._get_env_to_param():
             v = os.environ.get(e)
             if v is not None:
                 dct[p] = v
         return dct
 
-    def _get_params_from_db(self):
+    def _get_params_from_db(self,hostname):
         return {}
 
     def _get_params_from_cmd_options(self):
-        return dict([(k[6:],v) for k,v in vars(self._plugin.cmd_options).items() if k.startswith('host__')])
+        return NoAttrDict([(k[6:],v) for k,v in vars(self._plugin.cmd_options).items() if k.startswith('host__')])
 
     def __repr__(self):
         return '\n'.join([ '%20s : %s' % (k,v) for k,v in self._params.items() ])
