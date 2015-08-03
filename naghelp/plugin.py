@@ -17,8 +17,7 @@ from .response import PluginResponse, OK, WARNING, CRITICAL, UNKNOWN
 import tempfile
 from addicted import *
 
-pprint = pprint.PrettyPrinter(indent=4).pprint
-pformat = pprint.PrettyPrinter(indent=4).pformat
+pp = pprint.PrettyPrinter(indent=4)
 
 class Plugin(object):
     plugin_type = 'abstract'
@@ -123,8 +122,8 @@ class ActivePlugin(Plugin):
     usage = 'usage: \n%prog <module.plugin_class> [options]'
     collected_data_basedir = 'tmp'
 
-    def __init__(self, hostname):
-        self.response = response_class()
+    def __init__(self):
+        self.response = self.response_class()
 
     def get_plugin_host_params_desc(self):
         return {    'name'  : 'Hostname',
