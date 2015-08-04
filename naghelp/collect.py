@@ -7,7 +7,6 @@ Création : July 7th, 2015
 
 import telnetlib
 import re
-import spur
 
 def telnet_cmd(cmd, host,user,password,port=0,timeout=10):
     try:
@@ -42,6 +41,7 @@ def telnet_cmd(cmd, host,user,password,port=0,timeout=10):
     return out
 
 def ssh_cmd(cmd, host, user, timeout=10, **kwargs):
+    import spur
     if isinstance(cmd, basestring):
         cmd = cmd.split(' ')
     shell = spur.SshShell(hostname=host, username=user, connect_timeout=timeout, **kwargs)

@@ -15,6 +15,9 @@ class ResponseLevel(object):
     def __repr__(self):
         return self.name
 
+    def info(self):
+        return '%s (exit_code=%s)' % (self.name,self.exit_code)
+
     def exit(self):
         sys.exit(self.exit_code)
 
@@ -24,8 +27,9 @@ CRITICAL = ResponseLevel('CRITICAL',2)
 UNKNOWN  = ResponseLevel('UNKNOWN',3)
 
 class PluginResponse(object):
-    def __init__(self):
-        self.level = None
+    def __init__(self,plugin):
+        self.plugin = plugin
+        self.level = UNKNOWN
         self.synopsis = None
         self.level_msgs = { OK:[], WARNING:[], CRITICAL:[], UNKNOWN:[] }
         self.begin_msgs = []
@@ -37,20 +41,21 @@ class PluginResponse(object):
         if self.level in [ None, UNKNOWN ] or level == CRITICAL or self.level == OK and level == WARNING:
             self.level = level
 
-    def add(self,msg,level=None):
-        if level is None:
-            self.begin_msgs.append(msg)
-        elif isinstance(level,ResponseLevel):
+    def add_begin(self,msg):
+        self.begin_msgs.append(msg)
+
+    def add(self,level,msg):
+        if isinstance(level,ResponseLevel):
             self.level_msgs[level].append(msg)
         else:
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
-    def add_if(self,test,msg,level=None):
+    def add_if(self,test,level,msg):
             if test:
-                self.add(msg,level)
+                self.add(level,msg)
 
     def add_end(self,msg):
-        self.begin_msgs.append(msg)
+        self.end_msgs.append(msg)
 
     def set_synopsis(self,msg):
         self.synopsis = msg
@@ -59,17 +64,18 @@ class PluginResponse(object):
         nb_ok = len(self.level_msgs[OK])
         nb_nok = len(self.level_msgs[WARNING]) + len(self.level_msgs[CRITICAL]) + len(self.level_msgs[UNKNOWN])
         if nb_ok + nb_nok == 0:
-            return self.level
+            return str(self.level)
         if nb_ok and not nb_nok:
-            return OK
-        return ', '.join([ '%s:%s' % (level,len(msgs)) for level,msgs in self.level_msgs.items() if msgs ])
+            return str(OK)
+        return 'Errors : ' + ' '.join([ '%s:%s' % (level,len(msgs)) for level,msgs in self.level_msgs.items() if msgs ])
 
     def level_msgs_render(self):
-        out = '\n'
-        for level in [CRITICAL, WARNING, UNKNOWN ]:
+        out = ''
+        for level in [CRITICAL, WARNING, UNKNOWN, OK ]:
             msgs = self.level_msgs[level]
             if msgs:
-                out += '%s :\n--------------------------------\n'
+                out += '\n'
+                out += '%s :\n--------------------------------\n' % level
                 out += '\n'.join(msgs)
                 out += '\n'
         return out
@@ -85,5 +91,8 @@ class PluginResponse(object):
         out += self.level_msgs_render()
         out += '\n'.join(self.end_msgs)
 
+        self.plugin.debug('plugin output :\n' + '#' * 80 + '\n' + out + '\n'+ '#' * 80)
         print out
+
+        self.plugin.info('Exiting plugin with response level : %s' % self.level.info())
         self.level.exit()

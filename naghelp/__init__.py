@@ -5,8 +5,6 @@
 #
 
 from collect import telnet_cmd, ssh_cmd
-from plugin import ActivePlugin, OK, CRITICAL, WARNING, UNKNOWN
-from host import Host
-from response import PluginResponse
+from plugin import ActivePlugin, OK, CRITICAL, WARNING, UNKNOWN, Host, PluginResponse
 
 __version__ = '0.0.2'
