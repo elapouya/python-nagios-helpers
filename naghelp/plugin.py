@@ -53,15 +53,18 @@ class Plugin(object):
     def get_logger_format(self):
         return self.logger_format
 
-    def get_logger_file_level(self):
+    def get_logger_level(self):
         if self.options.debug:
             return logging.DEBUG
         elif self.options.verbose:
             return logging.INFO
         return logging.CRITICAL
 
+    def get_logger_file_level(self):
+        return self.get_logger_level()
+
     def get_logger_console_level(self):
-        return self.get_logger_file_level()
+        return self.get_logger_level()
 
     def get_logger_file_logfile(self):
         return self.options.logfile
@@ -75,6 +78,7 @@ class Plugin(object):
             formatter = logging.Formatter(self.logger_format)
             fh.setFormatter(formatter)
             self.logger.addHandler(fh)
+            self.debug('Debug log file = %s' % logfile)
 
     def add_logger_console_handler(self):
         ch = logging.StreamHandler()
@@ -86,8 +90,8 @@ class Plugin(object):
     def init_logger(self):
         self.logger = logging.getLogger(self.get_logger_name())
         self.logger.setLevel(logging.DEBUG)
-        self.add_logger_file_handler()
         self.add_logger_console_handler()
+        self.add_logger_file_handler()
 
     def handle_cmd_options(self):
         (options, args) = self._cmd_parser.parse_args()
@@ -188,9 +192,9 @@ class ActivePlugin(Plugin):
     def run(self):
         self.manage_cmd_options()
         self.init_logger()
-        self.info('Start plugin %s' % self.__class__.__name__)
-
         self.host = self.host_class(self)
+
+        self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
         self.debug('Host informations:\n\n%r\n' % self.host)
 
         if self.options.restore_collected:

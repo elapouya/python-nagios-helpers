@@ -47,12 +47,17 @@ class PluginResponse(object):
     def add(self,level,msg):
         if isinstance(level,ResponseLevel):
             self.level_msgs[level].append(msg)
+            self.set_level(level)
         else:
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
     def add_if(self,test,level,msg):
+        if isinstance(level,ResponseLevel):
             if test:
                 self.add(level,msg)
+                self.set_level(level)
+        else:
+            raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
     def add_end(self,msg):
         self.end_msgs.append(msg)
@@ -67,7 +72,7 @@ class PluginResponse(object):
             return str(self.level)
         if nb_ok and not nb_nok:
             return str(OK)
-        return 'Errors : ' + ' '.join([ '%s:%s' % (level,len(msgs)) for level,msgs in self.level_msgs.items() if msgs ])
+        return 'Status : ' + ' '.join([ '%s:%s' % (level,len(msgs)) for level,msgs in self.level_msgs.items() if msgs ])
 
     def level_msgs_render(self):
         out = ''
@@ -86,12 +91,15 @@ class PluginResponse(object):
         if self.synopsis is None:
             self.synopsis = self.get_default_synopsis()
 
+        self.plugin.info('Plugin output summary : %s' % self.synopsis)
+
         out = self.synopsis + '\n'
         out += '\n'.join(self.begin_msgs)
         out += self.level_msgs_render()
         out += '\n'.join(self.end_msgs)
 
-        self.plugin.debug('plugin output :\n' + '#' * 80 + '\n' + out + '\n'+ '#' * 80)
+        self.plugin.debug('Plugin output :\n' + '#' * 80 + '\n' + out + '\n'+ '#' * 80)
+        
         print out
 
         self.plugin.info('Exiting plugin with response level : %s' % self.level.info())

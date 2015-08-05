@@ -6,18 +6,24 @@ Création : July 8th, 2015
 '''
 
 import os
+from noattr import NoAttr
 
 class Host(object):
 
     def __init__(self, plugin):
         self._plugin = plugin
         _params_from_env = self._get_params_from_env()
+        plugin.debug('_params_from_env = %s' % _params_from_env)
         _params_from_cmd_options = self._get_params_from_cmd_options()
-        _hostname = _params_from_cmd_options.get('host__name') or _params_from_env.get('name')
+        plugin.debug('_params_from_cmd_options = %s' % _params_from_cmd_options)
+        _hostname = _params_from_cmd_options.get('name') or _params_from_env.get('name')
+        plugin.debug('_hostname = %s' % _hostname)
         self._params = _params_from_env
         if _hostname:
-            self._params.update(self._get_params_from_db(_hostname))
-        self._params.update(self._get_params_from_cmd_options())
+            _params_from_db = self._get_params_from_db(_hostname)
+            plugin.debug('_params_from_db = %s' % _params_from_db)
+            self._merge(_params_from_db)
+        self._merge(self._get_params_from_cmd_options())
 
     def __getattr__(self, name):
         return self._params.get(name)
@@ -27,6 +33,9 @@ class Host(object):
             object.__setattr__(self, name, value)
         else:
             self._params[name] = value
+
+    def _merge(self,dct):
+        self._params.update([ (k,v) for k,v in dct.items() if v not in [None,NoAttr] ])
 
     def _get_env_to_param(self):
         return {
@@ -43,6 +52,7 @@ class Host(object):
             v = os.environ.get(e)
             if v is not None:
                 dct[p] = v
+        print 'dct = %s' % dct
         return dct
 
     def _get_params_from_db(self,hostname):
