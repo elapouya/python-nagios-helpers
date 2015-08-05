@@ -52,7 +52,6 @@ class Host(object):
             v = os.environ.get(e)
             if v is not None:
                 dct[p] = v
-        print 'dct = %s' % dct
         return dct
 
     def _get_params_from_db(self,hostname):
