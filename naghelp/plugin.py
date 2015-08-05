@@ -199,15 +199,19 @@ class ActivePlugin(Plugin):
 
         if self.options.restore_collected:
             self.restore_collected_data()
-
-        self.collect_data()
-        self.info('Data are collected')
+            self.info('Collected data are restored')
+        else:
+            self.collect_data()
+            self.info('Data are collected')
+        self.debug('Collected Data = %s' % pp.pformat(self.cdata))
 
         if self.options.save_collected:
             self.save_collected_data()
+            self.info('Collected data are saved')
 
         self.parse_data()
         self.info('Data are parsed')
+        self.debug('Parsed Data = %s' % pp.pformat(self.pdata))
 
         self.build_response()
         self.response.send()
