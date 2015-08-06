@@ -128,6 +128,9 @@ class ActivePlugin(Plugin):
     cmd_params = ''
     required_params = ''
     ports_to_check = ''
+    nagios_status_on_error = WARNING
+    cdata = NoAttrDict()
+    pdata = NoAttrDict()
 
 
     def __init__(self):
@@ -165,9 +168,15 @@ class ActivePlugin(Plugin):
             UNKNOWN.exit()
 
     def error(self,msg):
+        import traceback
+        msg += '\n\n' + traceback.format_exc() + '\n\n'
+        if self.cdata:
+            msg += 'Collected Data = %s\n\n' % pp.pformat(self.cdata)
+        if self.pdata:
+            msg += 'Parsed Data = %s' % pp.pformat(self.pdata)
         self.logger.error(msg)
-        print 'Plugin Error :',msg
-        UNKNOWN.exit()
+        print 'Plugin internal Error :',msg
+        nagios_status_on_error.exit()
 
     def warning(self,msg):
         self.logger.warning(msg)
@@ -188,46 +197,52 @@ class ActivePlugin(Plugin):
             self.response.send(CRITICAL,'Port %s is unreachable, please check your firewall for tcp ports : %s' % (invalid_port,self.ports_to_check))
 
     def collect_data(self):
-        self.cdata = NoAttrDict()
+        pass
 
     def parse_data(self):
-        self.pdata = NoAttrDict()
+        pass
 
     def build_response(self):
         pass
 
     def run(self):
-        self.manage_cmd_options()
-        self.init_logger()
-        self.host = self.host_class(self)
+        try:
+            self.manage_cmd_options()
+            self.init_logger()
+            self.host = self.host_class(self)
 
-        self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
-        self.debug('Host informations:\n\n%r\n' % self.host)
+            self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
+            self.debug('Host informations:\n\n%r\n' % self.host)
 
-        if self.ports_to_check:
-            self.info('Checking TCP ports %s ...' % self.ports_to_check)
-            self.check_ports()
-            self.info('All TCP ports are reachable')
-        else:
-            self.info('No port to check')
+            if self.options.restore_collected:
+                self.restore_collected_data()
+                self.info('Collected data are restored')
+            else:
+                try:
+                    self.collect_data()
+                except Exception,e:
+                    if self.ports_to_check:
+                        self.info('Checking TCP ports %s ...' % self.ports_to_check)
+                        self.check_ports()
+                        self.info('All TCP ports are reachable')
+                    else:
+                        self.info('No port to check')
+                    self.error('Failed to collect equipment status : %s' % e)
 
-        if self.options.restore_collected:
-            self.restore_collected_data()
-            self.info('Collected data are restored')
-        else:
-            self.collect_data()
-            self.info('Data are collected')
-        self.debug('Collected Data = %s' % pp.pformat(self.cdata))
+                self.info('Data are collected')
+            self.debug('Collected Data = %s' % pp.pformat(self.cdata))
 
-        if self.options.save_collected:
-            self.save_collected_data()
-            self.info('Collected data are saved')
+            if self.options.save_collected:
+                self.save_collected_data()
+                self.info('Collected data are saved')
 
-        self.parse_data()
-        self.info('Data are parsed')
-        self.debug('Parsed Data = %s' % pp.pformat(self.pdata))
+            self.parse_data()
+            self.info('Data are parsed')
+            self.debug('Parsed Data = %s' % pp.pformat(self.pdata))
 
-        self.build_response()
-        self.response.send()
+            self.build_response()
+            self.response.send()
+        except Exception,e:
+            self.error('Plugin internal error : %s' % e)
 
         self.error('Should never reach this point')
