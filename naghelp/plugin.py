@@ -17,6 +17,7 @@ from .host import Host
 from .response import PluginResponse, OK, WARNING, CRITICAL, UNKNOWN
 import tempfile
 from addicted import *
+from collect import telnet_cmd, ssh_cmd, search_invalid_port
 #
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -126,6 +127,7 @@ class ActivePlugin(Plugin):
     collected_data_basedir = '/tmp'
     cmd_params = ''
     required_params = ''
+    ports_to_check = ''
 
 
     def __init__(self):
@@ -180,6 +182,11 @@ class ActivePlugin(Plugin):
     def restore_collected_data(self):
         pass
 
+    def check_ports(self):
+        invalid_port = search_invalid_port(self.host.ip,self.ports_to_check)
+        if invalid_port:
+            self.response.send(CRITICAL,'Port %s is unreachable, please check your firewall for tcp ports : %s' % (invalid_port,self.ports_to_check))
+
     def collect_data(self):
         self.cdata = NoAttrDict()
 
@@ -196,6 +203,13 @@ class ActivePlugin(Plugin):
 
         self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
         self.debug('Host informations:\n\n%r\n' % self.host)
+
+        if self.ports_to_check:
+            self.info('Checking TCP ports %s ...' % self.ports_to_check)
+            self.check_ports()
+            self.info('All TCP ports are reachable')
+        else:
+            self.info('No port to check')
 
         if self.options.restore_collected:
             self.restore_collected_data()

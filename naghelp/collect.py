@@ -7,6 +7,21 @@ Création : July 7th, 2015
 
 import telnetlib
 import re
+import socket
+
+def search_invalid_port(ip,ports):
+    """Returns the first invalid port encountered or None if all are reachable"""
+    if isinstance(ports, basestring):
+        ports = [ int(n) for n in ports.split(',') ]
+    for port in ports:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(1)
+            s.connect((ip, port))
+            s.close()
+        except:
+            return port
+    return None
 
 def telnet_cmd(cmd, host,user,password,port=0,timeout=10):
     try:

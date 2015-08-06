@@ -85,7 +85,13 @@ class PluginResponse(object):
                 out += '\n'
         return out
 
-    def send(self):
+    def send(self, level=None, synopsis='', msg=''):
+        if isinstance(level,ResponseLevel):
+            if synopsis:
+                self.synopsis = synopsis
+                self.set_level(level)
+            if msg:
+                self.add(level,msg)
         if self.level is None:
             self.level = UNKNOWN
         if self.synopsis is None:
@@ -99,7 +105,7 @@ class PluginResponse(object):
         out += '\n'.join(self.end_msgs)
 
         self.plugin.debug('Plugin output :\n' + '#' * 80 + '\n' + out + '\n'+ '#' * 80)
-        
+
         print out
 
         self.plugin.info('Exiting plugin with response level : %s' % self.level.info())
