@@ -7,6 +7,8 @@ Création : July 8th, 2015
 
 import sys
 
+__all__ = [ 'ResponseLevel', 'PluginResponse', 'OK', 'WARNING', 'CRITICAL', 'UNKNOWN' ]
+
 class ResponseLevel(object):
     def __init__(self, name, exit_code):
         self.name = name

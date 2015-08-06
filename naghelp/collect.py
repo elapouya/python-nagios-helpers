@@ -9,6 +9,8 @@ import telnetlib
 import re
 import socket
 
+__all__ = ['search_invalid_port', 'telnet_cmd', 'ssh_cmd']
+
 def search_invalid_port(ip,ports):
     """Returns the first invalid port encountered or None if all are reachable"""
     if isinstance(ports, basestring):

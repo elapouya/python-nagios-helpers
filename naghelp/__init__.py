@@ -4,9 +4,9 @@
 # Copyright (C) 2015 Eric Lapouyade
 #
 
-from plugin import  ActivePlugin,
-                    OK, CRITICAL, WARNING, UNKNOWN,
-                    Host, PluginResponse,
-                    telnet_cmd, ssh_cmd, search_invalid_port
+from plugin import *
+from host import *
+from response import *
+from collect import *
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'

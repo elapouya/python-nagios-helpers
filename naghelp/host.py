@@ -8,6 +8,8 @@ Création : July 8th, 2015
 import os
 from noattr import NoAttr
 
+__all__ = ['Host']
+
 class Host(object):
 
     def __init__(self, plugin):

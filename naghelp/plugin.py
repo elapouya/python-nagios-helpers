@@ -16,10 +16,12 @@ import pprint
 from .host import Host
 from .response import PluginResponse, OK, WARNING, CRITICAL, UNKNOWN
 import tempfile
-from addicted import *
-from collect import telnet_cmd, ssh_cmd, search_invalid_port
+from addicted import NoAttrDict, NoAttr
+from collect import search_invalid_port
 #
 pp = pprint.PrettyPrinter(indent=4)
+
+__all__ = [ 'ActivePlugin' ]
 
 class Plugin(object):
     plugin_type = 'abstract'
@@ -127,7 +129,8 @@ class ActivePlugin(Plugin):
     collected_data_basedir = '/tmp'
     cmd_params = ''
     required_params = ''
-    ports_to_check = ''
+    tcp_ports = ''
+    udp_ports = ''
     nagios_status_on_error = WARNING
     cdata = NoAttrDict()
     pdata = NoAttrDict()
@@ -169,14 +172,14 @@ class ActivePlugin(Plugin):
 
     def error(self,msg):
         import traceback
-        msg += '\n\n' + traceback.format_exc() + '\n\n'
+        msg += '\n\n' + traceback.format_exc() + '\n'
         if self.cdata:
-            msg += 'Collected Data = %s\n\n' % pp.pformat(self.cdata)
+            msg += 'Collected Data = \n%s\n\n' % pp.pformat(self.cdata)
         if self.pdata:
-            msg += 'Parsed Data = %s' % pp.pformat(self.pdata)
+            msg += 'Parsed Data = \n%s' % pp.pformat(self.pdata)
         self.logger.error(msg)
-        print 'Plugin internal Error :',msg
-        nagios_status_on_error.exit()
+        print msg
+        self.nagios_status_on_error.exit()
 
     def warning(self,msg):
         self.logger.warning(msg)
@@ -192,9 +195,9 @@ class ActivePlugin(Plugin):
         pass
 
     def check_ports(self):
-        invalid_port = search_invalid_port(self.host.ip,self.ports_to_check)
+        invalid_port = search_invalid_port(self.host.ip,self.tcp_ports)
         if invalid_port:
-            self.response.send(CRITICAL,'Port %s is unreachable, please check your firewall for tcp ports : %s' % (invalid_port,self.ports_to_check))
+            self.response.send(CRITICAL,'Port %s is unreachable, please check your firewall for tcp ports : %s' % (invalid_port,self.tcp_ports))
 
     def collect_data(self):
         pass
@@ -221,13 +224,18 @@ class ActivePlugin(Plugin):
                 try:
                     self.collect_data()
                 except Exception,e:
-                    if self.ports_to_check:
-                        self.info('Checking TCP ports %s ...' % self.ports_to_check)
+                    if self.tcp_ports:
+                        self.info('Checking TCP ports %s ...' % self.tcp_ports)
                         self.check_ports()
                         self.info('All TCP ports are reachable')
                     else:
                         self.info('No port to check')
-                    self.error('Failed to collect equipment status : %s' % e)
+                    msg = 'Failed to collect equipment status : %s\n' % e
+                    if self.tcp_ports:
+                        msg += 'Please check your firewall for TCP ports : %s' % self.tcp_ports
+                    if self.tcp_ports:
+                        msg += 'Please check your firewall for UDP ports : %s' % self.udp_ports
+                    self.error(msg)
 
                 self.info('Data are collected')
             self.debug('Collected Data = %s' % pp.pformat(self.cdata))
