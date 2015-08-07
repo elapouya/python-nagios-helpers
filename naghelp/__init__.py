@@ -9,4 +9,4 @@ from host import *
 from response import *
 from collect import *
 
-__version__ = '0.0.3'
+__version__ = '0.0.4'

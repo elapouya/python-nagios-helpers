@@ -24,7 +24,7 @@ News
 """ % read('README', 'CHANGES')
 
 setup(name='python-nagios-helpers',
-      version='0.0.3',
+      version='0.0.4',
       description='Helper Classes for plugin development and nagios management.',
       long_description=long_description,
       classifiers=[
@@ -41,7 +41,7 @@ setup(name='python-nagios-helpers',
       packages=['naghelp'],
       install_requires = ['Sphinx<1.3b',
                           'sphinxcontrib-napoleon',
-                          'spur',
+                          'paramiko',
                           'python-textops',
                           'addicted',
                           ],

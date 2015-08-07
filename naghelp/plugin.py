@@ -131,7 +131,7 @@ class ActivePlugin(Plugin):
     required_params = ''
     tcp_ports = ''
     udp_ports = ''
-    nagios_status_on_error = WARNING
+    nagios_status_on_error = CRITICAL
     cdata = NoAttrDict()
     pdata = NoAttrDict()
 
