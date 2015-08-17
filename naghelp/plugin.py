@@ -211,8 +211,8 @@ class ActivePlugin(Plugin):
     def run(self):
         try:
             self.manage_cmd_options()
-            self.init_logger()
             self.host = self.host_class(self)
+            self.init_logger()
 
             self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
             self.debug('Host informations:\n\n%r\n' % self.host)

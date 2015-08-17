@@ -6,11 +6,12 @@ Création : July 8th, 2015
 '''
 
 import os
-from noattr import NoAttr
+from addicted import NoAttrDict, NoAttr
 
 __all__ = ['Host']
 
 class Host(object):
+    persistent_filename_pattern = '/tmp/naghelp/%s_persistent_data.json'
 
     def __init__(self, plugin):
         self._plugin = plugin
@@ -64,3 +65,21 @@ class Host(object):
 
     def __repr__(self):
         return '\n'.join([ '%-12s : %s' % (k,v) for k,v in self._params.items() ])
+
+    def _get_persistent_filename(self):
+        return self.persistent_filename_pattern % self.name
+
+    def _load_persistent_data(self):
+        try:
+            with open(self._get_persistent_filename()) as fh:
+                self.pdata = NoAttrDict(json.load(fh))
+        except IOError:
+            self.pdata = NoAttrDict()
+
+    def save(self):
+        filename = self._get_persistent_filename()
+        filedir = os.path.dirname(filename)
+        if not os.path.exists(filedir):
+            os.makedirs(filedir)
+        with open(self._get_persistent_filename(),'w') as fh:
+            json.save(fh,self.pdata)
