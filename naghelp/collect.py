@@ -11,7 +11,6 @@ import socket
 import signal
 import paramiko
 from addicted import NoAttrDict
-from wx import DCTextColourChanger
 
 __all__ = ['search_invalid_port', 'telnet', 'ssh', 'Timeout', 'TimeoutError']
 

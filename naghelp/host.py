@@ -15,27 +15,35 @@ class Host(object):
 
     def __init__(self, plugin):
         self._plugin = plugin
-        _params_from_env = self._get_params_from_env()
-        plugin.debug('_params_from_env = %s' % _params_from_env)
-        _params_from_cmd_options = self._get_params_from_cmd_options()
-        plugin.debug('_params_from_cmd_options = %s' % _params_from_cmd_options)
-        _hostname = _params_from_cmd_options.get('name') or _params_from_env.get('name')
-        plugin.debug('_hostname = %s' % _hostname)
-        self._params = _params_from_env
-        if _hostname:
-            _params_from_db = self._get_params_from_db(_hostname)
-            plugin.debug('_params_from_db = %s' % _params_from_db)
-            self._merge(_params_from_db)
-        self._merge(self._get_params_from_cmd_options())
+        self._params = {}
+
+        self._params_from_env = self._get_params_from_env()
+        self._params_from_cmd_options = self._get_params_from_cmd_options()
+        self.name = ( self._params_from_cmd_options.get('name') or
+                    self._params_from_env.get('name') or
+                    self._params_from_cmd_options.get('ip') or
+                    self._params_from_env.get('ip') )
+        self._params_from_db = self._get_params_from_db(self.name)
+
+        self._merge(self._params_from_env)
+        self._merge(self._params_from_db)
+        self._merge(self._params_from_cmd_options)
+
+    def debug(self):
+        self._plugin.debug('Host informations :')
+        self._plugin.debug('_params_from_env = %s',self._params_from_env)
+        self._plugin.debug('_params_from_db = %s', self._params_from_db)
+        self._plugin.debug('_params_from_cmd_options = %s', self._params_from_cmd_options)
+        self._plugin.debug('\n' + '-'*60 + '\n%r\n' + '-'*60, self)
 
     def __getattr__(self, name):
         return self._params.get(name)
 
     def __setattr__(self, name, value):
-        if not hasattr(self, name):
-            object.__setattr__(self, name, value)
-        else:
+        if not name.startswith('_'):
             self._params[name] = value
+        else:
+            object.__setattr__(self, name, value)
 
     def _merge(self,dct):
         self._params.update([ (k,v) for k,v in dct.items() if v not in [None,NoAttr] ])

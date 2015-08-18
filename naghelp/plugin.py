@@ -109,17 +109,17 @@ class Plugin(object):
         self.add_cmd_options()
         self.handle_cmd_options()
 
-    def error(self,msg):
-        self.logger.error(msg)
+    def error(self,msg,*args,**kwargs):
+        self.logger.error(msg,*args,**kwargs)
 
-    def warning(self,msg):
-        self.logger.warning(msg)
+    def warning(self,msg,*args,**kwargs):
+        self.logger.warning(msg,*args,**kwargs)
 
-    def info(self,msg):
-        self.logger.info(msg)
+    def info(self,msg,*args,**kwargs):
+        self.logger.info(msg,*args,**kwargs)
 
-    def debug(self,msg):
-        self.logger.debug(msg)
+    def debug(self,msg,*args,**kwargs):
+        self.logger.debug(msg,*args,**kwargs)
 
 class ActivePlugin(Plugin):
     plugin_type = 'active'
@@ -170,20 +170,20 @@ class ActivePlugin(Plugin):
             print self.get_plugin_desc()
             UNKNOWN.exit()
 
-    def error(self,msg):
+    def error(self,msg,*args,**kwargs):
         import traceback
         msg += '\n\n' + traceback.format_exc() + '\n'
         if self.cdata:
             msg += 'Collected Data = \n%s\n\n' % pp.pformat(self.cdata)
         if self.pdata:
             msg += 'Parsed Data = \n%s' % pp.pformat(self.pdata)
-        self.logger.error(msg)
-        print msg
+        self.logger.error(msg,*args,**kwargs)
+        print msg % args
         self.nagios_status_on_error.exit()
 
-    def warning(self,msg):
-        self.logger.warning(msg)
-        self.response.add(msg,WARNING)
+    def warning(self,msg,*args,**kwargs):
+        self.logger.warning(msg,*args,**kwargs)
+        self.response.add(msg % args,WARNING)
 
     def get_collected_data_filename(self):
         hostname = self.host.name or 'unknown_host'
@@ -213,9 +213,8 @@ class ActivePlugin(Plugin):
             self.manage_cmd_options()
             self.host = self.host_class(self)
             self.init_logger()
-
             self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
-            self.debug('Host informations:\n\n%r\n' % self.host)
+            self.host.debug()
 
             if self.options.restore_collected:
                 self.restore_collected_data()
@@ -251,6 +250,10 @@ class ActivePlugin(Plugin):
             self.build_response()
             self.response.send()
         except Exception,e:
+            if not hasattr(self,'logger'):
+                import traceback
+                msg = 'Plugin internal error %s\n\n%s' % (e,traceback.format_exc())
+                print msg
             self.error('Plugin internal error : %s' % e)
 
         self.error('Should never reach this point')
