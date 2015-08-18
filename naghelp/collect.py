@@ -9,7 +9,6 @@ import telnetlib
 import re
 import socket
 import signal
-import paramiko
 from addicted import NoAttrDict
 
 __all__ = ['search_invalid_port', 'telnet', 'ssh', 'Timeout', 'TimeoutError']
@@ -123,6 +122,7 @@ class telnet(object):
 
 class ssh(object):
     def __init__(self,host, user, password=None, timeout=10, *args,**kwargs):
+        import paramiko
         self.in_with = False
         self.is_connected = False
         self.client = paramiko.SSHClient()

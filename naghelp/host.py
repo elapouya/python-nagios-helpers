@@ -6,7 +6,7 @@ Création : July 8th, 2015
 '''
 
 import os
-from addicted import NoAttrDict, NoAttr
+from textops import DictExt,NoAttr
 
 __all__ = ['Host']
 
@@ -19,10 +19,10 @@ class Host(object):
 
         self._params_from_env = self._get_params_from_env()
         self._params_from_cmd_options = self._get_params_from_cmd_options()
-        self.name = ( self._params_from_cmd_options.get('name') or
+        self.set('name', ( self._params_from_cmd_options.get('name') or
                     self._params_from_env.get('name') or
                     self._params_from_cmd_options.get('ip') or
-                    self._params_from_env.get('ip') )
+                    self._params_from_env.get('ip') ) )
         self._params_from_db = self._get_params_from_db(self.name)
 
         self._merge(self._params_from_env)
@@ -39,11 +39,8 @@ class Host(object):
     def __getattr__(self, name):
         return self._params.get(name)
 
-    def __setattr__(self, name, value):
-        if not name.startswith('_'):
-            self._params[name] = value
-        else:
-            object.__setattr__(self, name, value)
+    def set(self, name, value):
+        self._params[name] = value
 
     def _merge(self,dct):
         self._params.update([ (k,v) for k,v in dct.items() if v not in [None,NoAttr] ])
@@ -77,17 +74,8 @@ class Host(object):
     def _get_persistent_filename(self):
         return self.persistent_filename_pattern % self.name
 
-    def _load_persistent_data(self):
-        try:
-            with open(self._get_persistent_filename()) as fh:
-                self.pdata = NoAttrDict(json.load(fh))
-        except IOError:
-            self.pdata = NoAttrDict()
+    def load_persistent_data(self):
+        self.persist = self._plugin.load_data(self._get_persistent_filename()) or DictExt()
 
-    def save(self):
-        filename = self._get_persistent_filename()
-        filedir = os.path.dirname(filename)
-        if not os.path.exists(filedir):
-            os.makedirs(filedir)
-        with open(self._get_persistent_filename(),'w') as fh:
-            json.save(fh,self.pdata)
+    def save_persistent_data(self):
+        self._plugin.save_data(self._get_persistent_filename(), self.persist)

@@ -8,6 +8,7 @@ Création : July 8th, 2015
 import os
 import sys
 import re
+import json
 from optparse import OptionParser
 import traceback
 import logging
@@ -16,8 +17,9 @@ import pprint
 from .host import Host
 from .response import PluginResponse, OK, WARNING, CRITICAL, UNKNOWN
 import tempfile
-from addicted import NoAttrDict, NoAttr
+from textops import DictExt, NoAttr
 from collect import search_invalid_port
+import datetime
 #
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -121,6 +123,32 @@ class Plugin(object):
     def debug(self,msg,*args,**kwargs):
         self.logger.debug(msg,*args,**kwargs)
 
+    def save_data(self,filename,data, ignore_error = True):
+        self.debug('Saving data to %s :',filename)
+        self.debug(pp.pformat(data))
+        try:
+            filedir = os.path.dirname(filename)
+            if not os.path.exists(filedir):
+                os.makedirs(filedir)
+            with open(filename,'w') as fh:
+                json.dump(data,fh,indent=4,default=datetime_handler)
+        except Exception,e:
+            self.debug('Exception : %s',e)
+            if not ignore_error:
+                raise
+
+    def load_data(self,filename):
+        self.debug('Loading data from %s :',filename)
+        try:
+            with open(filename) as fh:
+                data = DictExt(json.load(fh))
+                self.debug(pp.pformat(data))
+                return data
+        except (IOError, OSError, ValueError),e:
+            self.debug('Exception : %s',e)
+        self.debug('No data found')
+        return NoAttr
+
 class ActivePlugin(Plugin):
     plugin_type = 'active'
     host_class = Host
@@ -132,8 +160,8 @@ class ActivePlugin(Plugin):
     tcp_ports = ''
     udp_ports = ''
     nagios_status_on_error = CRITICAL
-    cdata = NoAttrDict()
-    pdata = NoAttrDict()
+    cdata = DictExt()
+    pdata = DictExt()
 
 
     def __init__(self):
@@ -214,6 +242,7 @@ class ActivePlugin(Plugin):
             self.host = self.host_class(self)
             self.init_logger()
             self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
+            self.host.load_persistent_data()
             self.host.debug()
 
             if self.options.restore_collected:
@@ -248,6 +277,7 @@ class ActivePlugin(Plugin):
             self.debug('Parsed Data = %s' % pp.pformat(self.pdata))
 
             self.build_response()
+            self.host.save_persistent_data()
             self.response.send()
         except Exception,e:
             if not hasattr(self,'logger'):
@@ -257,3 +287,9 @@ class ActivePlugin(Plugin):
             self.error('Plugin internal error : %s' % e)
 
         self.error('Should never reach this point')
+
+def datetime_handler(obj):
+    if isinstance(obj, (datetime.datetime,datetime.date)):
+        return obj.isoformat()
+    return None
+
