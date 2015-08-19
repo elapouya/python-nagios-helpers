@@ -44,9 +44,13 @@ class PluginResponse(object):
             self.level = level
 
     def add_begin(self,msg):
+        if not isinstance(msg,basestring):
+            msg = str(msg)
         self.begin_msgs.append(msg)
 
     def add(self,level,msg):
+        if not isinstance(msg,basestring):
+            msg = str(msg)
         if isinstance(level,ResponseLevel):
             self.level_msgs[level].append(msg)
             self.set_level(level)
@@ -54,6 +58,8 @@ class PluginResponse(object):
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
     def add_if(self,test,level,msg):
+        if not isinstance(msg,basestring):
+            msg = str(msg)
         if isinstance(level,ResponseLevel):
             if test:
                 self.add(level,msg)
@@ -62,9 +68,13 @@ class PluginResponse(object):
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
     def add_end(self,msg):
+        if not isinstance(msg,basestring):
+            msg = str(msg)
         self.end_msgs.append(msg)
 
     def set_synopsis(self,msg):
+        if not isinstance(msg,basestring):
+            msg = str(msg)
         self.synopsis = msg
 
     def get_default_synopsis(self):

@@ -9,7 +9,7 @@ import os
 import sys
 import re
 import json
-from optparse import OptionParser
+from optparse import OptionParser, OptionGroup
 import traceback
 import logging
 import logging.handlers
@@ -44,7 +44,7 @@ class Plugin(object):
                                    default=False, help='Verbose : display informational messages')
         self._cmd_parser.add_option('-d', action='store_true', dest='debug',
                                    default=False, help='Debug : display debug messages')
-        self._cmd_parser.add_option('-l', action='store', dest='logfile', metavar="LOG_FILE",
+        self._cmd_parser.add_option('-l', action='store', dest='logfile', metavar="FILE",
                                    help='Redirect logs into a file')
         self._cmd_parser.add_option('-i', action='store_true', dest='show_description',
                                    default=False, help='Display plugin description')
@@ -124,8 +124,7 @@ class Plugin(object):
         self.logger.debug(msg,*args,**kwargs)
 
     def save_data(self,filename,data, ignore_error = True):
-        self.debug('Saving data to %s :',filename)
-        self.debug(pp.pformat(data))
+        self.debug('Saving data to %s :\n%s',filename,pp.pformat(data))
         try:
             filedir = os.path.dirname(filename)
             if not os.path.exists(filedir):
@@ -160,9 +159,8 @@ class ActivePlugin(Plugin):
     tcp_ports = ''
     udp_ports = ''
     nagios_status_on_error = CRITICAL
-    cdata = DictExt()
-    pdata = DictExt()
-
+    collected_data_filename_pattern = '/tmp/naghelp/%s_collected_data.json'
+    data = DictExt()
 
     def __init__(self):
         self.response = self.response_class(self)
@@ -185,8 +183,12 @@ class ActivePlugin(Plugin):
 
     def init_cmd_options(self):
         super(ActivePlugin,self).init_cmd_options()
+
+        group = OptionGroup(self._cmd_parser, 'Host attributes','To be used to force host attributes values')
         for param,desc in self.get_plugin_host_params_desc().items():
-            self._cmd_parser.add_option('--%s' % param, action='store', type='string', dest="host__%s" % param, metavar=param.upper(), help=desc)
+            group.add_option('--%s' % param, action='store', type='string', dest="host__%s" % param, metavar=param.upper(), help=desc)
+        self._cmd_parser.add_option_group(group)
+
         self._cmd_parser.add_option('-s', action='store_true', dest='save_collected',
                                    default=False, help='Save collected data in a temporary file')
         self._cmd_parser.add_option('-r', action='store_true', dest='restore_collected',
@@ -201,10 +203,8 @@ class ActivePlugin(Plugin):
     def error(self,msg,*args,**kwargs):
         import traceback
         msg += '\n\n' + traceback.format_exc() + '\n'
-        if self.cdata:
-            msg += 'Collected Data = \n%s\n\n' % pp.pformat(self.cdata)
-        if self.pdata:
-            msg += 'Parsed Data = \n%s' % pp.pformat(self.pdata)
+        if self.data:
+            msg += 'Data = \n%s\n\n' % pp.pformat(self.data)
         self.logger.error(msg,*args,**kwargs)
         print msg % args
         self.nagios_status_on_error.exit()
@@ -217,23 +217,23 @@ class ActivePlugin(Plugin):
         hostname = self.host.name or 'unknown_host'
 
     def save_collected_data(self):
-        pass
+        self.save_data(self.collected_data_filename_pattern % self.host.name, self.data)
 
     def restore_collected_data(self):
-        pass
+        self.data = self.load_data(self.collected_data_filename_pattern % self.host.name)
 
     def check_ports(self):
         invalid_port = search_invalid_port(self.host.ip,self.tcp_ports)
         if invalid_port:
             self.response.send(CRITICAL,'Port %s is unreachable, please check your firewall for tcp ports : %s' % (invalid_port,self.tcp_ports))
 
-    def collect_data(self):
+    def collect_data(self,data):
         pass
 
-    def parse_data(self):
+    def parse_data(self,data):
         pass
 
-    def build_response(self):
+    def build_response(self,data):
         pass
 
     def run(self):
@@ -250,7 +250,7 @@ class ActivePlugin(Plugin):
                 self.info('Collected data are restored')
             else:
                 try:
-                    self.collect_data()
+                    self.collect_data(self.data)
                 except Exception,e:
                     if self.tcp_ports:
                         self.info('Checking TCP ports %s ...' % self.tcp_ports)
@@ -266,17 +266,18 @@ class ActivePlugin(Plugin):
                     self.error(msg)
 
                 self.info('Data are collected')
-            self.debug('Collected Data = %s' % pp.pformat(self.cdata))
+            self.debug('Collected Data = \n%s' % pp.pformat(self.data))
+            collected_keys = self.data.keys()
 
             if self.options.save_collected:
                 self.save_collected_data()
                 self.info('Collected data are saved')
 
-            self.parse_data()
+            self.parse_data(self.data)
             self.info('Data are parsed')
-            self.debug('Parsed Data = %s' % pp.pformat(self.pdata))
+            self.debug('Parsed Data = \n%s' % pp.pformat(self.data.exclude(collected_keys)))
 
-            self.build_response()
+            self.build_response(self.data)
             self.host.save_persistent_data()
             self.response.send()
         except Exception,e:
