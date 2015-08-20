@@ -153,7 +153,6 @@ class ActivePlugin(Plugin):
     host_class = Host
     response_class = PluginResponse
     usage = 'usage: \n%prog <module.plugin_class> [options]'
-    collected_data_basedir = '/tmp'
     cmd_params = ''
     required_params = ''
     tcp_ports = ''
