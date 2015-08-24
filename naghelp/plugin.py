@@ -274,7 +274,7 @@ class ActivePlugin(Plugin):
 
             self.parse_data(self.data)
             self.info('Data are parsed')
-            self.debug('Parsed Data = \n%s' % pp.pformat(self.data.exclude(collected_keys)))
+            self.debug('Parsed Data = \n%s' % pp.pformat(self.data.exclude_keys(collected_keys)))
 
             self.build_response(self.data)
             self.host.save_persistent_data()
