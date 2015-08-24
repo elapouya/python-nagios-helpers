@@ -169,3 +169,53 @@ class ssh(object):
                 dct['%s_err' % k] = None
         self.close()
         return dct
+    
+class snmp(object):
+    def __init__(self,host, community='public', version=2, timeout=10, *args,**kwargs):
+        import pysnmp
+        self.session = pysnmp.session(host,Retries)
+        self.is_connected = False
+        self.client = paramiko.SSHClient()
+        self.client.load_system_host_keys()
+        self.client.connect(host,username=user,password=password, timeout=timeout, **kwargs)
+        self.is_connected = True
+
+    def __enter__(self):
+        self.in_with = True
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.in_with = False
+        self.close()
+
+    def close(self):
+        if not self.in_with:
+            self.client.close()
+            self.is_connected = False
+
+    def run(self, cmd, timeout=30, **kwargs):
+        if not self.is_connected:
+            raise NotConnected('No ssh connection to run your command.')
+        out = None
+        try:
+            stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout)
+            out = stdout.read()
+        except socket.timeout:
+            pass
+        self.close()
+        return out
+
+    def mrun(self, cmds, timeout=30, **kwargs):
+        if not self.is_connected:
+            raise NotConnected('No ssh connection to run your command.')
+        dct = NoAttrDict()
+        for k,cmd in cmds.items():
+            try:
+                stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout)
+                dct[k] = stdout.read()
+                dct['%s_err' % k] = stderr.read()
+            except socket.timeout:
+                dct[k] = None
+                dct['%s_err' % k] = None
+        self.close()
+        return dct
