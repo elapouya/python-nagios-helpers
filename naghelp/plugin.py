@@ -17,9 +17,12 @@ import pprint
 from .host import Host
 from .response import PluginResponse, OK, WARNING, CRITICAL, UNKNOWN
 import tempfile
-from textops import DictExt, NoAttr
+from addicted import NoAttr
+import textops
 from collect import search_invalid_port
 import datetime
+import naghelp
+
 #
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -27,7 +30,6 @@ __all__ = [ 'ActivePlugin' ]
 
 class Plugin(object):
     plugin_type = 'abstract'
-    logger_name = 'naghelp'
     logger_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logger_logsize = 1000000
     logger_logbackup = 5
@@ -51,9 +53,6 @@ class Plugin(object):
 
     def add_cmd_options(self):
         pass
-
-    def get_logger_name(self):
-        return self.logger_name
 
     def get_logger_format(self):
         return self.logger_format
@@ -82,7 +81,8 @@ class Plugin(object):
             fh.setLevel(self.get_logger_file_level())
             formatter = logging.Formatter(self.logger_format)
             fh.setFormatter(formatter)
-            self.logger.addHandler(fh)
+            naghelp.logger.addHandler(fh)
+            textops.logger.addHandler(fh)
             self.debug('Debug log file = %s' % logfile)
 
     def add_logger_console_handler(self):
@@ -90,11 +90,12 @@ class Plugin(object):
         ch.setLevel(self.get_logger_console_level())
         formatter = logging.Formatter(self.logger_format)
         ch.setFormatter(formatter)
-        self.logger.addHandler(ch)
+        naghelp.logger.addHandler(ch)
+        textops.logger.addHandler(ch)
 
     def init_logger(self):
-        self.logger = logging.getLogger(self.get_logger_name())
-        self.logger.setLevel(logging.DEBUG)
+        naghelp.logger.setLevel(logging.DEBUG)
+        textops.logger.setLevel(logging.DEBUG)
         self.add_logger_console_handler()
         self.add_logger_file_handler()
 
@@ -112,16 +113,16 @@ class Plugin(object):
         self.handle_cmd_options()
 
     def error(self,msg,*args,**kwargs):
-        self.logger.error(msg,*args,**kwargs)
+        naghelp.logger.error(msg,*args,**kwargs)
 
     def warning(self,msg,*args,**kwargs):
-        self.logger.warning(msg,*args,**kwargs)
+        naghelp.logger.warning(msg,*args,**kwargs)
 
     def info(self,msg,*args,**kwargs):
-        self.logger.info(msg,*args,**kwargs)
+        naghelp.logger.info(msg,*args,**kwargs)
 
     def debug(self,msg,*args,**kwargs):
-        self.logger.debug(msg,*args,**kwargs)
+        naghelp.logger.debug(msg,*args,**kwargs)
 
     def save_data(self,filename,data, ignore_error = True):
         self.debug('Saving data to %s :\n%s',filename,pp.pformat(data))
@@ -140,15 +141,19 @@ class Plugin(object):
         self.debug('Loading data from %s :',filename)
         try:
             with open(filename) as fh:
-                data = DictExt(json.load(fh))
+                data = textops.DictExt(json.load(fh))
                 self.debug(pp.pformat(data))
                 return data
         except (IOError, OSError, ValueError),e:
             self.debug('Exception : %s',e)
         self.debug('No data found')
-        return NoAttr
+        return textops.NoAttr
 
 class ActivePlugin(Plugin):
+    """ ActivePlugin
+
+    This is the base class for developping Active Nagios plugin with the naghelp module
+    """
     plugin_type = 'active'
     host_class = Host
     response_class = PluginResponse
@@ -159,7 +164,7 @@ class ActivePlugin(Plugin):
     udp_ports = ''
     nagios_status_on_error = CRITICAL
     collected_data_filename_pattern = '/tmp/naghelp/%s_collected_data.json'
-    data = DictExt()
+    data = textops.DictExt()
 
     def __init__(self):
         self.response = self.response_class(self)
@@ -173,7 +178,7 @@ class ActivePlugin(Plugin):
         params_tab = self.get_plugin_host_params_tab()
         cmd_params = self.cmd_params.split(',') if isinstance(self.cmd_params,basestring) else self.cmd_params
         cmd_params = set(cmd_params).union(['name','ip'])
-        return dict([(k,params_tab.get(k,k.title())) for k in cmd_params ])
+        return dict([(k,params_tab.get(k,k.title())) for k in cmd_params if k ])
 
     def get_plugin_required_params(self):
         required_params = self.required_params.split(',') if isinstance(self.required_params,basestring) else self.required_params
@@ -183,18 +188,25 @@ class ActivePlugin(Plugin):
     def init_cmd_options(self):
         super(ActivePlugin,self).init_cmd_options()
 
-        group = OptionGroup(self._cmd_parser, 'Host attributes','To be used to force host attributes values')
-        for param,desc in self.get_plugin_host_params_desc().items():
-            group.add_option('--%s' % param, action='store', type='string', dest="host__%s" % param, metavar=param.upper(), help=desc)
-        self._cmd_parser.add_option_group(group)
+        host_params_desc = self.get_plugin_host_params_desc()
+        if host_params_desc:
+            group = OptionGroup(self._cmd_parser, 'Host attributes','To be used to force host attributes values')
+            for param,desc in host_params_desc.items():
+                group.add_option('--%s' % param, action='store', type='string', dest="host__%s" % param, metavar=param.upper(), help=desc)
+            self._cmd_parser.add_option_group(group)
 
         self._cmd_parser.add_option('-s', action='store_true', dest='save_collected',
                                    default=False, help='Save collected data in a temporary file')
         self._cmd_parser.add_option('-r', action='store_true', dest='restore_collected',
                                    default=False, help='Use saved collected data (option -s)')
 
+    def handle_plugin_name(self):
+        if not self.args:
+            self._cmd_parser.error('*** You must specify the plugin name ***')
+
     def handle_cmd_options(self):
         super(ActivePlugin,self).handle_cmd_options()
+        self.handle_plugin_name()
         if self.options.show_description:
             print self.get_plugin_desc()
             UNKNOWN.exit()
@@ -204,12 +216,11 @@ class ActivePlugin(Plugin):
         msg += '\n\n' + traceback.format_exc() + '\n'
         if self.data:
             msg += 'Data = \n%s\n\n' % pp.pformat(self.data)
-        self.logger.error(msg,*args,**kwargs)
-        print msg % args
+        naghelp.logger.error(msg,*args,**kwargs)
         self.nagios_status_on_error.exit()
 
     def warning(self,msg,*args,**kwargs):
-        self.logger.warning(msg,*args,**kwargs)
+        naghelp.logger.warning(msg,*args,**kwargs)
         self.response.add(msg % args,WARNING)
 
     def get_collected_data_filename(self):
@@ -224,7 +235,7 @@ class ActivePlugin(Plugin):
     def check_ports(self):
         invalid_port = search_invalid_port(self.host.ip,self.tcp_ports)
         if invalid_port:
-            self.response.send(CRITICAL,'Port %s is unreachable, please check your firewall for tcp ports : %s' % (invalid_port,self.tcp_ports))
+            self.response.send(CRITICAL,'Port %s is unreachable' % invalid_port, 'please check your firewall :\ntcp ports : %s\nudp ports' % (self.tcp_ports or '-', self.udp_ports or '-'))
 
     def collect_data(self,data):
         pass
@@ -240,7 +251,9 @@ class ActivePlugin(Plugin):
             self.manage_cmd_options()
             self.host = self.host_class(self)
             self.init_logger()
+
             self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
+
             self.host.load_persistent_data()
             self.host.debug()
 
