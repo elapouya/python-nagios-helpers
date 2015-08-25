@@ -67,6 +67,18 @@ class PluginResponse(object):
         else:
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
+    def add_elif(self,*add_ifs):
+        for test,level,msg in add_ifs:
+            if not isinstance(msg,basestring):
+                msg = str(msg)
+            if isinstance(level,ResponseLevel):
+                if test:
+                    self.add(level,msg)
+                    self.set_level(level)
+                    break
+            else:
+                raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
+
     def add_end(self,msg):
         if not isinstance(msg,basestring):
             msg = str(msg)

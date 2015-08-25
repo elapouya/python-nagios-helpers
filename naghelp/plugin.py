@@ -29,7 +29,7 @@ pp = pprint.PrettyPrinter(indent=4)
 __all__ = [ 'ActivePlugin' ]
 
 class Plugin(object):
-    plugin_type = 'abstract'
+    plugin_type = 'plugin'
     logger_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logger_logsize = 1000000
     logger_logbackup = 5
