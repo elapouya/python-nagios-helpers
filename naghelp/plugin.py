@@ -168,6 +168,7 @@ class ActivePlugin(Plugin):
     default_level = OK
 
     def __init__(self):
+        self.starttime = datetime.datetime.now()
         self.response = self.response_class()
 
     def get_plugin_host_params_tab(self):
@@ -196,6 +197,8 @@ class ActivePlugin(Plugin):
                 group.add_option('--%s' % param, action='store', type='string', dest="host__%s" % param, metavar=param.upper(), help=desc)
             self._cmd_parser.add_option_group(group)
 
+        self._cmd_parser.add_option('-n', action='store_true', dest='in_nagios_env',
+                                   default=False, help='Must be used when the plugin is started by nagios')
         self._cmd_parser.add_option('-s', action='store_true', dest='save_collected',
                                    default=False, help='Save collected data in a temporary file')
         self._cmd_parser.add_option('-r', action='store_true', dest='restore_collected',
@@ -218,6 +221,8 @@ class ActivePlugin(Plugin):
         if self.data:
             msg += 'Data = \n%s\n\n' % pp.pformat(self.data)
         msg += '__sublevel__=%s\n' % sublevel
+        if self.options.in_nagios_env:
+            print msg
         naghelp.logger.error(msg,*args,**kwargs)
         self.nagios_status_on_error.exit()
 
@@ -242,6 +247,7 @@ class ActivePlugin(Plugin):
                                sublevel=2)
 
     def collect_data(self,data):
+        i = 1/0
         pass
 
     def parse_data(self,data):
@@ -255,6 +261,8 @@ class ActivePlugin(Plugin):
         out += 'Plugin name : %s.%s\n' % (self.__class__.__module__.split('.')[-1],self.__class__.__name__)
         out += 'Description : %s\n' % ( self.__class__.__doc__ or '' ).splitlines()[0].strip()
         out += 'Ports used : tcp = %s, udp = %s\n' % (self.tcp_ports or 'none',self.udp_ports or 'none')
+        delta = datetime.datetime.now() - self.starttime
+        out += 'Execution time : %s' % delta
         return out
 
     def run(self):
@@ -305,10 +313,6 @@ class ActivePlugin(Plugin):
             self.response.add_end(self.get_plugin_informations())
             self.response.send(default_level=self.default_level)
         except Exception,e:
-            if not hasattr(self,'logger'):
-                import traceback
-                msg = 'Plugin internal error %s\n\n%s' % (e,traceback.format_exc())
-                print msg
             self.error('Plugin internal error : %s' % e)
 
         self.error('Should never reach this point')

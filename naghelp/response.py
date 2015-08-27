@@ -116,21 +116,24 @@ class PluginResponse(object):
         return 'STATUS : ' + ', '.join([ '%s:%s' % (level,len(self.level_msgs[level])) for level in [CRITICAL, WARNING, UNKNOWN, OK ] if self.level_msgs[level] ])
 
     def section_format(self,title):
-        return '{:=^80}'.format('[ {:^8} ]'.format(title))
+        return '{0:=^80}'.format('[ {0:^8} ]'.format(title))
 
     def subsection_format(self,title):
-        return '----' + '{:-<76}'.format('( %s )' % title)
+        return '----' + '{0:-<76}'.format('( %s )' % title)
 
     def level_msgs_render(self):
         out = self.section_format('STATUS') + '\n'
+        have_status = False
         for level in [CRITICAL, WARNING, UNKNOWN, OK ]:
             msgs = self.level_msgs[level]
             if msgs:
+                have_status = True
                 out += '\n'
                 out += self.subsection_format(level) + '\n'
                 out += '\n'.join(msgs)
                 out += '\n'
-        else:
+
+        if not have_status:
             out += '\nNo error detected\n'
         out += '\n'
         return out
