@@ -8,6 +8,7 @@ from plugin import *
 from host import *
 from response import *
 from collect import *
+from perf import *
 
 import logging
 try:  # Python 2.7+
@@ -20,4 +21,4 @@ except ImportError:
 logger = logging.getLogger(__name__)
 logger.addHandler(NullHandler())
 
-__version__ = '0.0.4'
+__version__ = '0.0.5'

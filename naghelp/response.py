@@ -6,6 +6,7 @@ Création : July 8th, 2015
 '''
 
 import sys
+import naghelp
 
 __all__ = [ 'ResponseLevel', 'PluginResponse', 'OK', 'WARNING', 'CRITICAL', 'UNKNOWN' ]
 
@@ -29,13 +30,13 @@ CRITICAL = ResponseLevel('CRITICAL',2)
 UNKNOWN  = ResponseLevel('UNKNOWN',3)
 
 class PluginResponse(object):
-    def __init__(self,plugin):
-        self.plugin = plugin
+    def __init__(self):
         self.level = UNKNOWN
         self.synopsis = None
         self.level_msgs = { OK:[], WARNING:[], CRITICAL:[], UNKNOWN:[] }
         self.begin_msgs = []
         self.end_msgs = []
+        self.perf_items = []
 
     def set_level(self, level):
         if not isinstance(level,ResponseLevel):
@@ -84,6 +85,12 @@ class PluginResponse(object):
             msg = str(msg)
         self.end_msgs.append(msg)
 
+
+    def add_perf_data(self,data):
+        if not isinstance(data,basestring):
+            data = str(data)
+        self.perf_items.append(data)
+
     def set_synopsis(self,msg):
         if not isinstance(msg,basestring):
             msg = str(msg)
@@ -109,6 +116,27 @@ class PluginResponse(object):
                 out += '\n'
         return out
 
+    def escape_msg(self,msg):
+        return msg.replace('|','!')
+
+    def get_output(self):
+        if self.synopsis is None:
+            synopsis = self.get_default_synopsis()
+
+        out = self.escape_msg(synopsis)
+        out +=  '|%s' % self.perf_items[0] if self.perf_items else '\n'
+
+        body = '\n'.join(self.begin_msgs)
+        body += self.level_msgs_render()
+        body += '\n'.join(self.end_msgs)
+
+        out += self.escape_msg(body)
+        out +=  '|%s' % '\n'.join(self.perf_items[1:]) if len(self.perf_items)>1 else ''
+        return out
+
+    def __str__(self):
+        return self.get_output()
+
     def send(self, level=None, synopsis='', msg=''):
         if isinstance(level,ResponseLevel):
             if synopsis:
@@ -116,21 +144,14 @@ class PluginResponse(object):
                 self.set_level(level)
             if msg:
                 self.add(level,msg)
-        if self.level is None:
-            self.level = UNKNOWN
-        if self.synopsis is None:
-            self.synopsis = self.get_default_synopsis()
 
-        self.plugin.info('Plugin output summary : %s' % self.synopsis)
+        naghelp.logger.info('Plugin output summary : %s' % self.synopsis)
 
-        out = self.synopsis + '\n'
-        out += '\n'.join(self.begin_msgs)
-        out += self.level_msgs_render()
-        out += '\n'.join(self.end_msgs)
+        out = self.get_output()
 
-        self.plugin.debug('Plugin output :\n' + '#' * 80 + '\n' + out + '\n'+ '#' * 80)
+        naghelp.logger.debug('Plugin output :\n' + '#' * 80 + '\n' + out + '\n'+ '#' * 80)
 
         print out
 
-        self.plugin.info('Exiting plugin with response level : %s' % self.level.info())
+        naghelp.logger.info('Exiting plugin with response level : %s' % self.level.info())
         self.level.exit()

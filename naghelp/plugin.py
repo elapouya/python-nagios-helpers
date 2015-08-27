@@ -167,7 +167,7 @@ class ActivePlugin(Plugin):
     data = textops.DictExt()
 
     def __init__(self):
-        self.response = self.response_class(self)
+        self.response = self.response_class()
 
     def get_plugin_host_params_tab(self):
         return {    'name'  : 'Hostname',
