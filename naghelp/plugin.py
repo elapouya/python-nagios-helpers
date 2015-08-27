@@ -291,9 +291,9 @@ class ActivePlugin(Plugin):
                         self.info('No port to check')
                     msg = 'Failed to collect equipment status : %s\n' % e
                     if self.tcp_ports:
-                        msg += 'Please check your firewall for TCP ports : %s' % self.tcp_ports
+                        msg += 'Please check your firewall for TCP ports : %s\n' % self.tcp_ports
                     if self.tcp_ports:
-                        msg += 'Please check your firewall for UDP ports : %s' % self.udp_ports
+                        msg += 'Please check your firewall for UDP ports : %s\n' % self.udp_ports
                     self.error(msg, sublevel=1)
 
                 self.info('Data are collected')
