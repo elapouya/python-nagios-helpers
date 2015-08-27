@@ -7,6 +7,8 @@ Création : July 8th, 2015
 
 import sys
 import naghelp
+from types import NoneType
+import re
 
 __all__ = [ 'ResponseLevel', 'PluginResponse', 'OK', 'WARNING', 'CRITICAL', 'UNKNOWN' ]
 
@@ -31,7 +33,8 @@ UNKNOWN  = ResponseLevel('UNKNOWN',3)
 
 class PluginResponse(object):
     def __init__(self):
-        self.level = UNKNOWN
+        self.level = None
+        self.sublevel = 0
         self.synopsis = None
         self.level_msgs = { OK:[], WARNING:[], CRITICAL:[], UNKNOWN:[] }
         self.begin_msgs = []
@@ -43,6 +46,11 @@ class PluginResponse(object):
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
         if self.level in [ None, UNKNOWN ] or level == CRITICAL or self.level == OK and level == WARNING:
             self.level = level
+
+    def set_sublevel(self, sublevel):
+        if not isinstance(level,int):
+            raise Exception('A response sublevel must be an integer')
+        self.sublevel = sublevel
 
     def add_begin(self,msg):
         if not isinstance(msg,basestring):
@@ -103,17 +111,33 @@ class PluginResponse(object):
             return str(self.level)
         if nb_ok and not nb_nok:
             return str(OK)
-        return 'Status : ' + ' '.join([ '%s:%s' % (level,len(msgs)) for level,msgs in self.level_msgs.items() if msgs ])
+        if nb_nok == 1:
+            return re.sub(r'^(.{75}).*$', '\g<1>...',(self.level_msgs[WARNING] + self.level_msgs[CRITICAL] + self.level_msgs[UNKNOWN])[0])
+        return 'STATUS : ' + ', '.join([ '%s:%s' % (level,len(self.level_msgs[level])) for level in [CRITICAL, WARNING, UNKNOWN, OK ] if self.level_msgs[level] ])
+
+    def section_format(self,title):
+        return '{:=^80}'.format('[ {:^8} ]'.format(title))
+
+    def subsection_format(self,title):
+        return '----' + '{:-<76}'.format('( %s )' % title)
 
     def level_msgs_render(self):
-        out = ''
+        out = self.section_format('STATUS') + '\n'
         for level in [CRITICAL, WARNING, UNKNOWN, OK ]:
             msgs = self.level_msgs[level]
             if msgs:
                 out += '\n'
-                out += '%s :\n--------------------------------\n' % level
+                out += self.subsection_format(level) + '\n'
                 out += '\n'.join(msgs)
                 out += '\n'
+        else:
+            out += '\nNo error detected\n'
+        out += '\n'
+        return out
+
+    def sublevel_render(self):
+        out = self.section_format('Exit code') + '\n'
+        out += 'The plugin returned : %s, __sublevel__=%s\n\n' % (self.level.info(),self.sublevel)
         return out
 
     def escape_msg(self,msg):
@@ -128,6 +152,7 @@ class PluginResponse(object):
 
         body = '\n'.join(self.begin_msgs)
         body += self.level_msgs_render()
+        body += self.sublevel_render()
         body += '\n'.join(self.end_msgs)
 
         out += self.escape_msg(body)
@@ -137,13 +162,20 @@ class PluginResponse(object):
     def __str__(self):
         return self.get_output()
 
-    def send(self, level=None, synopsis='', msg=''):
+    def send(self, level=None, synopsis='', msg='', default_level = None, sublevel = None):
         if isinstance(level,ResponseLevel):
             if synopsis:
                 self.synopsis = synopsis
-                self.set_level(level)
+                if level:
+                    self.set_level(level)
             if msg:
                 self.add(level,msg)
+
+        if self.level is None:
+            self.level = default_level or UNKNOWN
+
+        if sublevel is not None:
+            self.set_sublevel(sublevel)
 
         naghelp.logger.info('Plugin output summary : %s' % self.synopsis)
 

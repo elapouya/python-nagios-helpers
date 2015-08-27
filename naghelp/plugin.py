@@ -62,7 +62,7 @@ class Plugin(object):
             return logging.DEBUG
         elif self.options.verbose:
             return logging.INFO
-        return logging.CRITICAL
+        return logging.ERROR
 
     def get_logger_file_level(self):
         return self.get_logger_level()
@@ -150,7 +150,7 @@ class Plugin(object):
         return textops.NoAttr
 
 class ActivePlugin(Plugin):
-    """ ActivePlugin
+    """ Python base class for active nagios plugins
 
     This is the base class for developping Active Nagios plugin with the naghelp module
     """
@@ -165,6 +165,7 @@ class ActivePlugin(Plugin):
     nagios_status_on_error = CRITICAL
     collected_data_filename_pattern = '/tmp/naghelp/%s_collected_data.json'
     data = textops.DictExt()
+    default_level = OK
 
     def __init__(self):
         self.response = self.response_class()
@@ -211,11 +212,12 @@ class ActivePlugin(Plugin):
             print self.get_plugin_desc()
             UNKNOWN.exit()
 
-    def error(self,msg,*args,**kwargs):
+    def error(self, msg, sublevel=3,*args,**kwargs):
         import traceback
         msg += '\n\n' + traceback.format_exc() + '\n'
         if self.data:
             msg += 'Data = \n%s\n\n' % pp.pformat(self.data)
+        msg += '__sublevel__=%s\n' % sublevel
         naghelp.logger.error(msg,*args,**kwargs)
         self.nagios_status_on_error.exit()
 
@@ -235,7 +237,9 @@ class ActivePlugin(Plugin):
     def check_ports(self):
         invalid_port = search_invalid_port(self.host.ip,self.tcp_ports)
         if invalid_port:
-            self.response.send(CRITICAL,'Port %s is unreachable' % invalid_port, 'please check your firewall :\ntcp ports : %s\nudp ports' % (self.tcp_ports or '-', self.udp_ports or '-'))
+            self.response.send(CRITICAL,'Port %s is unreachable' % invalid_port,
+                               'please check your firewall :\ntcp ports : %s\nudp ports' % (self.tcp_ports or '-', self.udp_ports or '-'),
+                               sublevel=2)
 
     def collect_data(self,data):
         pass
@@ -245,6 +249,13 @@ class ActivePlugin(Plugin):
 
     def build_response(self,data):
         pass
+
+    def get_plugin_informations(self):
+        out = self.response.section_format('Plugin Informations') + '\n'
+        out += 'Plugin name : %s.%s\n' % (self.__class__.__module__.split('.')[-1],self.__class__.__name__)
+        out += 'Description : %s\n' % ( self.__class__.__doc__ or '' ).splitlines()[0].strip()
+        out += 'Ports used : tcp = %s, udp = %s\n' % (self.tcp_ports or 'none',self.udp_ports or 'none')
+        return out
 
     def run(self):
         try:
@@ -275,7 +286,7 @@ class ActivePlugin(Plugin):
                         msg += 'Please check your firewall for TCP ports : %s' % self.tcp_ports
                     if self.tcp_ports:
                         msg += 'Please check your firewall for UDP ports : %s' % self.udp_ports
-                    self.error(msg)
+                    self.error(msg, sublevel=1)
 
                 self.info('Data are collected')
             self.debug('Collected Data = \n%s' % pp.pformat(self.data))
@@ -291,7 +302,8 @@ class ActivePlugin(Plugin):
 
             self.build_response(self.data)
             self.host.save_persistent_data()
-            self.response.send()
+            self.response.add_end(self.get_plugin_informations())
+            self.response.send(default_level=self.default_level)
         except Exception,e:
             if not hasattr(self,'logger'):
                 import traceback
