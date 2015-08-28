@@ -262,7 +262,7 @@ class ActivePlugin(Plugin):
         out += 'Description : %s\n' % ( self.__class__.__doc__ or '' ).splitlines()[0].strip()
         out += 'Ports used : tcp = %s, udp = %s\n' % (self.tcp_ports or 'none',self.udp_ports or 'none')
         delta = datetime.datetime.now() - self.starttime
-        out += 'Execution time : %s' % delta
+        out += 'Execution time : %s\n' % delta
         out += 'Exit code : %s (%s), __sublevel__=%s' % (self.response.level.exit_code,self.response.level.name,self.response.sublevel)
         return out
 
