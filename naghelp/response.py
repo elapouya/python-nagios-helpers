@@ -32,8 +32,9 @@ CRITICAL = ResponseLevel('CRITICAL',2)
 UNKNOWN  = ResponseLevel('UNKNOWN',3)
 
 class PluginResponse(object):
-    def __init__(self):
+    def __init__(self,default_level):
         self.level = None
+        self.default_level = default_level
         self.sublevel = 0
         self.synopsis = None
         self.level_msgs = { OK:[], WARNING:[], CRITICAL:[], UNKNOWN:[] }
@@ -48,7 +49,7 @@ class PluginResponse(object):
             self.level = level
 
     def set_sublevel(self, sublevel):
-        if not isinstance(level,int):
+        if not isinstance(sublevel,int):
             raise Exception('A response sublevel must be an integer')
         self.sublevel = sublevel
 
@@ -142,8 +143,7 @@ class PluginResponse(object):
         return msg.replace('|','!')
 
     def get_output(self):
-        if self.synopsis is None:
-            synopsis = self.get_default_synopsis()
+        synopsis = self.synopsis or self.get_default_synopsis()
 
         out = self.escape_msg(synopsis)
         out +=  '|%s' % self.perf_items[0] if self.perf_items else '\n'
@@ -159,18 +159,15 @@ class PluginResponse(object):
     def __str__(self):
         return self.get_output()
 
-    def send(self, level=None, synopsis='', msg='', default_level = None, sublevel = None):
+    def send(self, level=None, synopsis='', msg='', sublevel = None):
         if isinstance(level,ResponseLevel):
-            if synopsis:
-                self.synopsis = synopsis
-                if level:
-                    self.set_level(level)
-            if msg:
-                self.add(level,msg)
-
+            self.set_level(level)
         if self.level is None:
-            self.level = default_level or UNKNOWN
-
+            self.level = self.default_level or UNKNOWN
+        if synopsis:
+            self.synopsis = synopsis
+        if msg:
+            self.add(level,msg)
         if sublevel is not None:
             self.set_sublevel(sublevel)
 

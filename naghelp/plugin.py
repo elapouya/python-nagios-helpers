@@ -132,6 +132,7 @@ class Plugin(object):
                 os.makedirs(filedir)
             with open(filename,'w') as fh:
                 json.dump(data,fh,indent=4,default=datetime_handler)
+            os.chmod(filename, 0o666)
         except Exception,e:
             self.debug('Exception : %s',e)
             if not ignore_error:
@@ -169,7 +170,7 @@ class ActivePlugin(Plugin):
 
     def __init__(self):
         self.starttime = datetime.datetime.now()
-        self.response = self.response_class()
+        self.response = self.response_class(default_level=self.default_level)
 
     def get_plugin_host_params_tab(self):
         return {    'name'  : 'Hostname',
@@ -216,17 +217,16 @@ class ActivePlugin(Plugin):
             UNKNOWN.exit()
 
     def error(self, msg, sublevel=3,*args,**kwargs):
-        self.response.level = self.nagios_status_on_error
-        self.response.sublevel = sublevel
         import traceback
         msg += '\n\n' + traceback.format_exc() + '\n'
         if self.data:
             msg += 'Data = \n%s\n\n' % pp.pformat(self.data)
-        msg += self.get_plugin_informations()
-        if self.options.in_nagios_env:
-            print msg.replace('|','!')
         naghelp.logger.error(msg,*args,**kwargs)
-        self.nagios_status_on_error.exit()
+        self.response.level = self.nagios_status_on_error
+        self.response.sublevel = sublevel
+        self.response.add_begin(msg)
+        self.response.add_end(self.get_plugin_informations())
+        self.response.send()
 
     def warning(self,msg,*args,**kwargs):
         naghelp.logger.warning(msg,*args,**kwargs)
@@ -244,9 +244,11 @@ class ActivePlugin(Plugin):
     def check_ports(self):
         invalid_port = search_invalid_port(self.host.ip,self.tcp_ports)
         if invalid_port:
-            self.response.send(CRITICAL,'Port %s is unreachable' % invalid_port,
-                               'please check your firewall :\ntcp ports : %s\nudp ports' % (self.tcp_ports or '-', self.udp_ports or '-'),
-                               sublevel=2)
+            self.response.sublevel = 2
+            self.response.add(CRITICAL,'Port %s is unreachable' % invalid_port,
+                               'please check your firewall :\ntcp ports : %s' % (self.tcp_ports or '-'))
+            self.response.add_end(self.get_plugin_informations())
+            self.response.send()
 
     def collect_data(self,data):
         pass
@@ -309,7 +311,7 @@ class ActivePlugin(Plugin):
             self.build_response(self.data)
             self.host.save_persistent_data()
             self.response.add_end(self.get_plugin_informations())
-            self.response.send(default_level=self.default_level)
+            self.response.send()
         except Exception,e:
             self.error('Plugin internal error : %s' % e)
 
