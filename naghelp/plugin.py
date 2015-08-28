@@ -218,13 +218,14 @@ class ActivePlugin(Plugin):
 
     def error(self, msg, sublevel=3,*args,**kwargs):
         import traceback
-        msg += '\n\n' + traceback.format_exc() + '\n'
+        body = traceback.format_exc() + '\n'
         if self.data:
-            msg += 'Data = \n%s\n\n' % pp.pformat(self.data)
+            body += 'Data = \n%s\n\n' % pp.pformat(self.data)
         naghelp.logger.error(msg,*args,**kwargs)
         self.response.level = self.nagios_status_on_error
         self.response.sublevel = sublevel
-        self.response.add_begin(msg)
+        self.response.set_synopsis(msg)
+        self.response.add_begin(body)
         self.response.add_end(self.get_plugin_informations())
         self.response.send()
 
@@ -244,9 +245,10 @@ class ActivePlugin(Plugin):
     def check_ports(self):
         invalid_port = search_invalid_port(self.host.ip,self.tcp_ports)
         if invalid_port:
+            self.response.level = CRITICAL
             self.response.sublevel = 2
-            self.response.add(CRITICAL,'Port %s is unreachable' % invalid_port,
-                               'please check your firewall :\ntcp ports : %s' % (self.tcp_ports or '-'))
+            self.response.set_synopsis('Port %s is unreachable' % invalid_port)
+            self.response.add_begin('please check your firewall\n\n')
             self.response.add_end(self.get_plugin_informations())
             self.response.send()
 
@@ -321,4 +323,3 @@ def datetime_handler(obj):
     if isinstance(obj, (datetime.datetime,datetime.date)):
         return obj.isoformat()
     return None
-

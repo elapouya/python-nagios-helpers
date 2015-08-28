@@ -135,7 +135,7 @@ class PluginResponse(object):
                 out += '\n'
 
         if not have_status:
-            out += '\nNo error detected\n'
+            return ''
         out += '\n'
         return out
 
