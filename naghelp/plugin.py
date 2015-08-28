@@ -216,6 +216,7 @@ class ActivePlugin(Plugin):
             UNKNOWN.exit()
 
     def error(self, msg, sublevel=3,*args,**kwargs):
+        self.response.level = self.nagios_status_on_error
         self.response.sublevel = sublevel
         import traceback
         msg += '\n\n' + traceback.format_exc() + '\n'
