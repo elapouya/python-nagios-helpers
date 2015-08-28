@@ -216,13 +216,14 @@ class ActivePlugin(Plugin):
             UNKNOWN.exit()
 
     def error(self, msg, sublevel=3,*args,**kwargs):
+        self.response.sublevel = sublevel
         import traceback
         msg += '\n\n' + traceback.format_exc() + '\n'
         if self.data:
             msg += 'Data = \n%s\n\n' % pp.pformat(self.data)
-        msg += '__sublevel__=%s\n' % sublevel
+        msg += self.get_plugin_informations()
         if self.options.in_nagios_env:
-            print msg
+            print msg.replace('|','!')
         naghelp.logger.error(msg,*args,**kwargs)
         self.nagios_status_on_error.exit()
 
@@ -247,7 +248,6 @@ class ActivePlugin(Plugin):
                                sublevel=2)
 
     def collect_data(self,data):
-        i = 1/0
         pass
 
     def parse_data(self,data):
@@ -263,6 +263,7 @@ class ActivePlugin(Plugin):
         out += 'Ports used : tcp = %s, udp = %s\n' % (self.tcp_ports or 'none',self.udp_ports or 'none')
         delta = datetime.datetime.now() - self.starttime
         out += 'Execution time : %s' % delta
+        out += 'Exit code : %s (%s), __sublevel__=%s' % (self.response.level.exit_code,self.response.level.name,self.response.sublevel)
         return out
 
     def run(self):
@@ -290,10 +291,6 @@ class ActivePlugin(Plugin):
                     else:
                         self.info('No port to check')
                     msg = 'Failed to collect equipment status : %s\n' % e
-                    if self.tcp_ports:
-                        msg += 'Please check your firewall for TCP ports : %s\n' % self.tcp_ports
-                    if self.tcp_ports:
-                        msg += 'Please check your firewall for UDP ports : %s\n' % self.udp_ports
                     self.error(msg, sublevel=1)
 
                 self.info('Data are collected')

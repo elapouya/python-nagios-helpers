@@ -138,11 +138,6 @@ class PluginResponse(object):
         out += '\n'
         return out
 
-    def sublevel_render(self):
-        out = self.section_format('Exit code') + '\n'
-        out += 'The plugin returned : %s, __sublevel__=%s\n\n' % (self.level.info(),self.sublevel)
-        return out
-
     def escape_msg(self,msg):
         return msg.replace('|','!')
 
@@ -155,7 +150,6 @@ class PluginResponse(object):
 
         body = '\n'.join(self.begin_msgs)
         body += self.level_msgs_render()
-        body += self.sublevel_render()
         body += '\n'.join(self.end_msgs)
 
         out += self.escape_msg(body)
