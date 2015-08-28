@@ -112,20 +112,25 @@ class Plugin(object):
         self.add_cmd_options()
         self.handle_cmd_options()
 
-    def error(self,msg,*args,**kwargs):
+    @classmethod
+    def error(cls,msg,*args,**kwargs):
         naghelp.logger.error(msg,*args,**kwargs)
 
-    def warning(self,msg,*args,**kwargs):
+    @classmethod
+    def warning(cls,msg,*args,**kwargs):
         naghelp.logger.warning(msg,*args,**kwargs)
 
-    def info(self,msg,*args,**kwargs):
+    @classmethod
+    def info(cls,msg,*args,**kwargs):
         naghelp.logger.info(msg,*args,**kwargs)
 
-    def debug(self,msg,*args,**kwargs):
+    @classmethod
+    def debug(cls,msg,*args,**kwargs):
         naghelp.logger.debug(msg,*args,**kwargs)
 
-    def save_data(self,filename,data, ignore_error = True):
-        self.debug('Saving data to %s :\n%s',filename,pp.pformat(data))
+    @classmethod
+    def save_data(cls,filename,data, ignore_error = True):
+        cls.debug('Saving data to %s :\n%s',filename,pp.pformat(data))
         try:
             filedir = os.path.dirname(filename)
             if not os.path.exists(filedir):
@@ -134,21 +139,32 @@ class Plugin(object):
                 json.dump(data,fh,indent=4,default=datetime_handler)
             os.chmod(filename, 0o666)
         except Exception,e:
-            self.debug('Exception : %s',e)
+            cls.debug('Exception : %s',e)
             if not ignore_error:
                 raise
 
-    def load_data(self,filename):
-        self.debug('Loading data from %s :',filename)
+    @classmethod
+    def load_data(cls,filename):
+        cls.debug('Loading data from %s :',filename)
         try:
             with open(filename) as fh:
                 data = textops.DictExt(json.load(fh))
-                self.debug(pp.pformat(data))
+                cls.debug(pp.pformat(data))
                 return data
         except (IOError, OSError, ValueError),e:
-            self.debug('Exception : %s',e)
-        self.debug('No data found')
+            cls.debug('Exception : %s',e)
+        cls.debug('No data found')
         return textops.NoAttr
+
+    @classmethod
+    def load_data_fast(cls,filename):
+        try:
+            with open(filename) as fh:
+                data = json.load(fh)
+                return data
+        except (IOError, OSError, ValueError),e:
+            cls.debug('Exception : %s',e)
+        return None
 
 class ActivePlugin(Plugin):
     """ Python base class for active nagios plugins
@@ -158,7 +174,7 @@ class ActivePlugin(Plugin):
     plugin_type = 'active'
     host_class = Host
     response_class = PluginResponse
-    usage = 'usage: \n%prog <module.plugin_class> [options]'
+    usage = 'usage: \n%prog <plugin name or module.plugin_class> [options]'
     cmd_params = ''
     required_params = ''
     tcp_ports = ''
@@ -263,7 +279,7 @@ class ActivePlugin(Plugin):
 
     def get_plugin_informations(self):
         out = self.response.section_format('Plugin Informations') + '\n'
-        out += 'Plugin name : %s.%s\n' % (self.__class__.__module__.split('.')[-1],self.__class__.__name__)
+        out += 'Plugin name : %s.%s\n' % (self.__class__.__module__,self.__class__.__name__)
         out += 'Description : %s\n' % ( self.__class__.__doc__ or '' ).splitlines()[0].strip()
         out += 'Ports used : tcp = %s, udp = %s\n' % (self.tcp_ports or 'none',self.udp_ports or 'none')
         delta = datetime.datetime.now() - self.starttime
