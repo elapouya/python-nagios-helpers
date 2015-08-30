@@ -30,9 +30,70 @@ __all__ = [ 'ActivePlugin' ]
 
 class Plugin(object):
     plugin_type = 'plugin'
+    plugins_basedir = os.path.dirname(__file__)
     logger_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logger_logsize = 1000000
     logger_logbackup = 5
+
+    @classmethod
+    def get_instance(cls, plugin_name):
+        plugin_class = cls.get_plugin_class(plugin_name)
+        if not plugin_class:
+            return None
+        return plugin_class()
+        
+    @classmethod
+    def get_plugin(cls,plugin_name):
+        plugin_name = plugin_name.lower()
+        plugins = cls.find_plugins()
+        return plugins[plugin_name]['module'],plugins[plugin_name]['name']
+
+    @classmethod
+    def get_plugin_class(cls,plugin_name):
+        module_and_class = plugin_name.rsplit('.',1)
+        if len(module_and_class) == 1:
+            module_name,class_name = cls.get_plugin(module_and_class[0])
+        else:
+            module_name,class_name = module_and_class
+        try:
+            module = __import__(module_name, fromlist=[''])
+            plugin_class = getattr(module,class_name,None)
+            if hasattr(plugin_class,'plugin_type') and  not plugin_class.__dict__.get('abstract',False):
+                return plugin_class
+        except Exception,e:
+            pass
+        return None        
+
+    @classmethod
+    def find_plugins(cls):
+        plugins = {}
+        basedir = os.path.normpath(cls.plugins_basedir)
+        for root,dirs,files in os.walk(basedir):
+            if '/.' not in root:
+                for f in files:
+                    if f.endswith('.py') and not f.startswith('__'):
+                        path = os.path.join(root,f)
+                        try:
+                            module_name = path[len(basedir)+1:-3].replace(os.sep,'.')
+                            module = __import__(module_name,fromlist=[''])
+                            for name,cls in module.__dict__.items():
+                                try:
+                                    if hasattr(cls,'plugin_type') and getattr(cls,'plugin_type') == cls.plugin_type and  not cls.__dict__.get('abstract',False):
+                                            doc = cls.__doc__ or ''
+                                            module_short = cls.__module__
+                                            plugins[cls.__name__.lower()] = {
+                                                'name'  : cls.__name__,
+                                                'module': module_short,
+                                                'path'  : os.sep.join(module_short.split('.'))+'.py',
+                                                'desc'  : doc.splitlines()[0]
+                                            }
+                                except Exception,e:
+                                    #print e
+                                    pass
+                        except Exception,e:
+                            #print e
+                            pass
+        return plugins
 
     def get_cmd_usage(self):
         return self.usage
