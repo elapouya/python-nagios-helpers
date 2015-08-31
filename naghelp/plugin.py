@@ -42,7 +42,7 @@ class Plugin(object):
         if not plugin_class:
             return None
         return plugin_class()
-        
+
     @classmethod
     def get_plugin(cls,plugin_name):
         plugin_name = plugin_name.lower()
@@ -65,7 +65,7 @@ class Plugin(object):
                 return plugin_class
         except Exception,e:
             pass
-        return None        
+        return None
 
     @classmethod
     def find_plugins(cls):
@@ -358,7 +358,6 @@ class ActivePlugin(Plugin):
 
             self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
 
-            self.host.load_persistent_data()
             self.host.debug()
 
             if self.options.restore_collected:

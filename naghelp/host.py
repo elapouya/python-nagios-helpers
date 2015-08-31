@@ -7,6 +7,7 @@ Création : July 8th, 2015
 
 import os
 from textops import DictExt,NoAttr
+import dateutil.parser
 
 __all__ = ['Host']
 
@@ -25,22 +26,42 @@ class Host(object):
                     self._params_from_env.get('ip') ) )
         self._params_from_db = self._get_params_from_db(self.name)
 
-        self._merge(self._params_from_env)
         self._merge(self._params_from_db)
+        self._merge(self._params_from_env)
         self._merge(self._params_from_cmd_options)
 
     def debug(self):
+        import pprint
+        pp = pprint.PrettyPrinter(indent=4)
+
         self._plugin.debug('Host informations :')
-        self._plugin.debug('_params_from_env = %s',self._params_from_env)
-        self._plugin.debug('_params_from_db = %s', self._params_from_db)
-        self._plugin.debug('_params_from_cmd_options = %s', self._params_from_cmd_options)
+        self._plugin.debug('_params_from_db = %s', pp.pformat(self._params_from_db))
+        self._plugin.debug('_params_from_env = %s',pp.pformat(self._params_from_env))
+        self._plugin.debug('_params_from_cmd_options = %s', pp.pformat(self._params_from_cmd_options))
         self._plugin.debug('\n' + '-'*60 + '\n%r\n' + '-'*60, self)
 
     def __getattr__(self, name):
-        return self._params.get(name)
+        return self._params.get(name,NoAttr)
+
+    def get(self, name, default=NoAttr):
+        return self._params.get(name,default)
+
+    def get_datetime(self, name, default):
+        val = self._params.get(name)
+        if not val:
+            return default
+        if isinstance(val,basestring):
+            return dateutil.parser.parse(val)
+        return val
 
     def set(self, name, value):
         self._params[name] = value
+
+    def delete(self, name):
+        if name in self._params:
+            del self._params[name]
+            return True
+        return False
 
     def _merge(self,dct):
         self._params.update([ (k,v) for k,v in dct.items() if v not in [None,NoAttr] ])
@@ -63,7 +84,7 @@ class Host(object):
         return dct
 
     def _get_params_from_db(self,hostname):
-        return {}
+        return self._plugin.load_data(self._get_persistent_filename()) or DictExt()
 
     def _get_params_from_cmd_options(self):
         return dict([(k[6:],v) for k,v in vars(self._plugin.options).items() if k.startswith('host__')])
@@ -74,8 +95,5 @@ class Host(object):
     def _get_persistent_filename(self):
         return self.persistent_filename_pattern % self.name
 
-    def load_persistent_data(self):
-        self.persist = self._plugin.load_data(self._get_persistent_filename()) or DictExt()
-
     def save_persistent_data(self):
-        self._plugin.save_data(self._get_persistent_filename(), self.persist)
+        self._plugin.save_data(self._get_persistent_filename(), self._params)
