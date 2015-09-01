@@ -212,7 +212,7 @@ class Snmp(object):
         
         self.cmd_args.append(cmdgen.UdpTransportTarget((host, port)))
 
-    def to_native_type(oval):
+    def to_native_type(self,oval):
         v2c = self.v2c
         if isinstance(oval, v2c.Integer):
             val = int(oval.prettyPrint())
