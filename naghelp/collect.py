@@ -5,13 +5,12 @@ Création : July 7th, 2015
 @author: Eric Lapouyade
 '''
 
-import telnetlib
 import re
 import socket
 import signal
 from addicted import NoAttrDict
 
-__all__ = ['search_invalid_port', 'telnet', 'ssh', 'Timeout', 'TimeoutError']
+__all__ = ['search_invalid_port', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
 
 class TimeoutError(Exception):
     pass
@@ -50,8 +49,10 @@ def search_invalid_port(ip,ports):
 class NotConnected(Exception):
     pass
 
-class telnet(object):
+class Telnet(object):
     def __init__(self,host, user, password=None, timeout=10, port=0, prompt_regex_list=None,*args,**kwargs):
+        #import is done only on demand, because it take some little time
+        import telnetlib
         self.in_with = False
         self.is_connected = False
         with Timeout(timeout):
@@ -120,8 +121,9 @@ class telnet(object):
         self.close()
         return dct
 
-class ssh(object):
+class Ssh(object):
     def __init__(self,host, user, password=None, timeout=10, *args,**kwargs):
+        #import is done only on demand, because it take some little time
         import paramiko
         self.in_with = False
         self.is_connected = False
@@ -169,53 +171,56 @@ class ssh(object):
                 dct['%s_err' % k] = None
         self.close()
         return dct
+
+class SnmpError(Exception):
+    pass
     
-class snmp(object):
-    def __init__(self,host, community='public', version=2, timeout=10, *args,**kwargs):
-        import pysnmp
-        self.session = pysnmp.session(host,Retries)
-        self.is_connected = False
-        self.client = paramiko.SSHClient()
-        self.client.load_system_host_keys()
-        self.client.connect(host,username=user,password=password, timeout=timeout, **kwargs)
-        self.is_connected = True
+class Snmp(object):
+    def __init__(self,host, community='public', version=2, timeout=10, port=161, user=None, 
+                 auth_passwd=None, auth_protocol='', priv_passwd=None, priv_protocol='', *args,**kwargs):
+        #import is done only on demand, because it take some little time
+        from pysnmp.entity.rfc3413.oneliner import cmdgen
+        self.cmdgen = cmdgen
+        self.cmdGenerator = cmdgen.CommandGenerator()
+        self.version = version
+        self.cmd_args = []
+        
+        if version == 1:
+            self.cmd_args.append(cmdgen.CommunityData(community, mpModel=0))
+        elif version in  [2,'2c']:
+            self.cmd_args.append(cmdgen.CommunityData(community))
+        elif version == 3:
+            if priv_protocol.lower() == 'aes':
+                if not user or not auth_passwd or not priv_passwd:
+                    raise SnmpError('user, auth_passwd and priv_passwd must be not empty')
+                self.cmd_args.append(cmdgen.UsmUserData(user, auth_passwd, priv_passwd, 
+                    authProtocol=cmdgen.usmHMACSHAAuthProtocol, 
+                    privProtocol=cmdgen.usmAesCfb128Protocol ) )
+            elif auth_protocol.lower() == 'sha':
+                if not user or not auth_passwd:
+                    raise SnmpError('user and auth_passwd must be not empty')
+                self.cmd_args.append(cmdgen.UsmUserData(user, auth_passwd,
+                           authProtocol=cmdgen.usmHMACSHAAuthProtocol))
+            else: 
+                if not user:
+                    raise SnmpError('user must be not empty')
+                self.cmd_args.append(cmdgen.UsmUserData(user))
+        else:
+            raise SnmpError('Bad snmp version protocol, given : %s, possible : 1,2,2c,3' % version)
+        
+        self.cmd_args.append(cmdgen.UdpTransportTarget((host, port)))
 
-    def __enter__(self):
-        self.in_with = True
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.in_with = False
-        self.close()
-
-    def close(self):
-        if not self.in_with:
-            self.client.close()
-            self.is_connected = False
-
-    def run(self, cmd, timeout=30, **kwargs):
-        if not self.is_connected:
-            raise NotConnected('No ssh connection to run your command.')
-        out = None
-        try:
-            stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout)
-            out = stdout.read()
-        except socket.timeout:
-            pass
-        self.close()
-        return out
-
-    def mrun(self, cmds, timeout=30, **kwargs):
-        if not self.is_connected:
-            raise NotConnected('No ssh connection to run your command.')
-        dct = NoAttrDict()
-        for k,cmd in cmds.items():
-            try:
-                stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout)
-                dct[k] = stdout.read()
-                dct['%s_err' % k] = stderr.read()
-            except socket.timeout:
-                dct[k] = None
-                dct['%s_err' % k] = None
-        self.close()
-        return dct
+    
+    def get(self,oid_or_mibvar):
+        args = list(self.cmd_args)
+        args.append(oid_or_mibvar)
+        errorIndication, errorStatus, errorIndex, varBinds = self.cmdGenerator.getCmd(*args)
+        if errorIndication:
+            raise SnmpError(errorIndication)
+        else:
+            if errorStatus:
+                raise SnmpError('%s at %s' % (
+                    errorStatus.prettyPrint(),
+                    errorIndex and varBinds[int(errorIndex)-1] or '?'
+                    ) )
+        return varBinds[0][1]
