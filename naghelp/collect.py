@@ -51,7 +51,7 @@ class NotConnected(Exception):
 
 class Telnet(object):
     def __init__(self,host, user, password=None, timeout=10, port=0, prompt_regex_list=None,*args,**kwargs):
-        #import is done only on demand, because it take some little time
+        #import is done only on demand, because it takes some little time
         import telnetlib
         self.in_with = False
         self.is_connected = False
@@ -123,7 +123,7 @@ class Telnet(object):
 
 class Ssh(object):
     def __init__(self,host, user, password=None, timeout=10, *args,**kwargs):
-        #import is done only on demand, because it take some little time
+        #import is done only on demand, because it takes some little time
         import paramiko
         self.in_with = False
         self.is_connected = False
@@ -178,7 +178,7 @@ class SnmpError(Exception):
 class Snmp(object):
     def __init__(self,host, community='public', version=2, timeout=10, port=161, user=None, 
                  auth_passwd=None, auth_protocol='', priv_passwd=None, priv_protocol='', *args,**kwargs):
-        #import is done only on demand, because it take some little time
+        #import is done only on demand, because it takes some little time
         from pysnmp.entity.rfc3413.oneliner import cmdgen
         from pysnmp.proto.api import v2c
         self.cmdgen = cmdgen
@@ -236,6 +236,9 @@ class Snmp(object):
             val = oval
         return val
     
+    def mibvar(self,*arg,**kwargs):
+        return self.cmdgen.MibVariable(*arg,**kwargs)
+    
     def get(self,oid_or_mibvar):
         args = list(self.cmd_args)
         args.append(oid_or_mibvar)
@@ -249,3 +252,25 @@ class Snmp(object):
                     errorIndex and varBinds[int(errorIndex)-1] or '?'
                     ) )
         return self.to_native_type(varBinds[0][1])
+    
+    def get_mibvar(self,*arg,**kwargs):
+        oid_or_mibvar = self.mibvar(*arg,**kwargs)
+        return self.get(oid_or_mibvar)
+    
+    def mget(self,vars_oids):
+        dct = {}
+        args = list(self.cmd_args)
+        for var,oid in vars_oids:
+            args.append(oid)
+        errorIndication, errorStatus, errorIndex, varBinds = self.cmdGenerator.getCmd(*args)
+        if errorIndication:
+            raise SnmpError(errorIndication)
+        else:
+            if errorStatus:
+                raise SnmpError('%s at %s' % (
+                    errorStatus.prettyPrint(),
+                    errorIndex and varBinds[int(errorIndex)-1] or '?'
+                    ) )
+        for (var,oid),(dummy,val) in zip(vars_oids,varBinds):
+            dct[var] = self.to_native_type(val)
+        return dct
