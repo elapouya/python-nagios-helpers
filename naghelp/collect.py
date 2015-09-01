@@ -180,7 +180,9 @@ class Snmp(object):
                  auth_passwd=None, auth_protocol='', priv_passwd=None, priv_protocol='', *args,**kwargs):
         #import is done only on demand, because it take some little time
         from pysnmp.entity.rfc3413.oneliner import cmdgen
+        from pysnmp.proto.api import v2c
         self.cmdgen = cmdgen
+        self.v2c = v2c
         self.cmdGenerator = cmdgen.CommandGenerator()
         self.version = version
         self.cmd_args = []
@@ -210,6 +212,29 @@ class Snmp(object):
         
         self.cmd_args.append(cmdgen.UdpTransportTarget((host, port)))
 
+    def to_native_type(oval):
+        v2c = self.v2c
+        if isinstance(oval, v2c.Integer):
+            val = int(oval.prettyPrint())
+        elif isinstance(oval, v2c.Integer32):
+            val = int(oval.prettyPrint())
+        elif isinstance(oval, v2c.Unsigned32):
+            val = int(oval.prettyPrint())
+        elif isinstance(oval, v2c.Counter32):
+            val = int(oval.prettyPrint())
+        elif isinstance(oval, v2c.Counter64):
+            val = int(oval.prettyPrint())
+        elif isinstance(oval, v2c.Gauge32):
+            val = int(oval.prettyPrint())
+        elif isinstance(oval, v2c.TimeTicks):
+            val = int(oval.prettyPrint())
+        elif isinstance(oval, v2c.OctetString):
+            val = oval.prettyPrint()
+        elif isinstance(oval, v2c.IpAddress):
+            val = oval.prettyPrint()
+        else:
+            val = oval
+        return val
     
     def get(self,oid_or_mibvar):
         args = list(self.cmd_args)
@@ -223,4 +248,4 @@ class Snmp(object):
                     errorStatus.prettyPrint(),
                     errorIndex and varBinds[int(errorIndex)-1] or '?'
                     ) )
-        return varBinds[0][1]
+        return self.to_native_type(varBinds[0][1])
