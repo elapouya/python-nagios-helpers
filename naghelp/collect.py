@@ -8,7 +8,7 @@ Création : July 7th, 2015
 import re
 import socket
 import signal
-from addicted import NoAttrDict
+from addicted import NoAttrDict, NoAttr
 
 __all__ = ['search_invalid_port', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
 
@@ -174,19 +174,21 @@ class Ssh(object):
 
 class SnmpError(Exception):
     pass
-    
+
 class Snmp(object):
-    def __init__(self,host, community='public', version=2, timeout=10, port=161, user=None, 
+    def __init__(self,host, community='public', version=2, timeout=10, port=161, user=None,
                  auth_passwd=None, auth_protocol='', priv_passwd=None, priv_protocol='', *args,**kwargs):
         #import is done only on demand, because it takes some little time
         from pysnmp.entity.rfc3413.oneliner import cmdgen
         from pysnmp.proto.api import v2c
+        from pysnmp.smi.exval import noSuchInstance
         self.cmdgen = cmdgen
         self.v2c = v2c
+        self.noSuchInstance = noSuchInstance
         self.cmdGenerator = cmdgen.CommandGenerator()
         self.version = version
         self.cmd_args = []
-        
+
         if version == 1:
             self.cmd_args.append(cmdgen.CommunityData(community, mpModel=0))
         elif version in  [2,'2c']:
@@ -195,21 +197,21 @@ class Snmp(object):
             if priv_protocol.lower() == 'aes':
                 if not user or not auth_passwd or not priv_passwd:
                     raise SnmpError('user, auth_passwd and priv_passwd must be not empty')
-                self.cmd_args.append(cmdgen.UsmUserData(user, auth_passwd, priv_passwd, 
-                    authProtocol=cmdgen.usmHMACSHAAuthProtocol, 
+                self.cmd_args.append(cmdgen.UsmUserData(user, auth_passwd, priv_passwd,
+                    authProtocol=cmdgen.usmHMACSHAAuthProtocol,
                     privProtocol=cmdgen.usmAesCfb128Protocol ) )
             elif auth_protocol.lower() == 'sha':
                 if not user or not auth_passwd:
                     raise SnmpError('user and auth_passwd must be not empty')
                 self.cmd_args.append(cmdgen.UsmUserData(user, auth_passwd,
                            authProtocol=cmdgen.usmHMACSHAAuthProtocol))
-            else: 
+            else:
                 if not user:
                     raise SnmpError('user must be not empty')
                 self.cmd_args.append(cmdgen.UsmUserData(user))
         else:
             raise SnmpError('Bad snmp version protocol, given : %s, possible : 1,2,2c,3' % version)
-        
+
         self.cmd_args.append(cmdgen.UdpTransportTarget((host, port)))
 
     def to_native_type(self,oval):
@@ -235,10 +237,10 @@ class Snmp(object):
         else:
             val = oval
         return val
-    
+
     def mibvar(self,*arg,**kwargs):
         return self.cmdgen.MibVariable(*arg,**kwargs)
-    
+
     def get(self,oid_or_mibvar):
         args = list(self.cmd_args)
         args.append(oid_or_mibvar)
@@ -252,16 +254,39 @@ class Snmp(object):
                     errorIndex and varBinds[int(errorIndex)-1] or '?'
                     ) )
         return self.to_native_type(varBinds[0][1])
-    
+
     def get_mibvar(self,*arg,**kwargs):
         oid_or_mibvar = self.mibvar(*arg,**kwargs)
         return self.get(oid_or_mibvar)
-    
-    def mget(self,vars_oids):
+
+    def get_oid_range(self,oid_range):
+        oids = []
+        if oid_range.count('-') == 1:
+            begin,end = oid_range.split('-')
+            oid_begin = begin.split('.')[:-1]
+            id_begin = int(begin.split('.')[-1])
+            oid_end = end.split('.')[1:]
+            id_end = int(end.split('.')[0])
+            for id in xrange(id_begin,id_end + 1):
+                real_oid = '.'.join(oid_begin + [str(id)] + oid_end)
+                oids.append(real_oid)
+        else:
+            raise SnmpError('An OID range must have one and only one "-"')
+        return oids
+
+    def mget(self,*vars_oids):
         dct = {}
+        oid_to_var = {}
         args = list(self.cmd_args)
         for var,oid in vars_oids:
-            args.append(oid)
+            if '-' in oid:
+                for real_oid in self.get_oid_range(oid):
+                    args.append(real_oid)
+                    oid_to_var[real_oid] = var
+            else:
+                args.append(oid)
+                oid_to_var[oid] = var
+
         errorIndication, errorStatus, errorIndex, varBinds = self.cmdGenerator.getCmd(*args)
         if errorIndication:
             raise SnmpError(errorIndication)
@@ -271,6 +296,14 @@ class Snmp(object):
                     errorStatus.prettyPrint(),
                     errorIndex and varBinds[int(errorIndex)-1] or '?'
                     ) )
-        for (var,oid),(dummy,val) in zip(vars_oids,varBinds):
-            dct[var] = self.to_native_type(val)
+        for oid,val in varBinds:
+            var = oid_to_var[str(oid)]
+            val = self.to_native_type(val) if not (val is self.noSuchInstance) else NoAttr
+            if var in dct:
+                if isinstance(dct[var],list):
+                    dct[var].append(val)
+                else:
+                    dct[var] = [dct[var],val]
+            else:
+                dct[var] = val
         return dct
