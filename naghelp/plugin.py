@@ -295,18 +295,21 @@ class ActivePlugin(Plugin):
             print self.get_plugin_desc()
             UNKNOWN.exit()
 
+    def fast_response(self,level, synopsis, msg='', sublevel = 1):
+        self.response.level = level
+        self.response.sublevel = sublevel
+        self.response.set_synopsis(synopsis)
+        self.response.add_begin(msg)
+        self.response.add_end(self.get_plugin_informations())
+        self.response.send()
+
     def error(self, msg, sublevel=3,*args,**kwargs):
         import traceback
         body = traceback.format_exc() + '\n'
         if self.data:
             body += 'Data = \n%s\n\n' % pp.pformat(self.data)
         naghelp.logger.error(msg,*args,**kwargs)
-        self.response.level = self.nagios_status_on_error
-        self.response.sublevel = sublevel
-        self.response.set_synopsis(msg)
-        self.response.add_begin(body)
-        self.response.add_end(self.get_plugin_informations())
-        self.response.send()
+        self.fast_response(self.nagios_status_on_error,msg,body,sublevel)
 
     def warning(self,msg,*args,**kwargs):
         naghelp.logger.warning(msg,*args,**kwargs)
@@ -324,12 +327,10 @@ class ActivePlugin(Plugin):
     def check_ports(self):
         invalid_port = search_invalid_port(self.host.ip,self.tcp_ports)
         if invalid_port:
-            self.response.level = CRITICAL
-            self.response.sublevel = 2
-            self.response.set_synopsis('Port %s is unreachable' % invalid_port)
-            self.response.add_begin('please check your firewall\n\n')
-            self.response.add_end(self.get_plugin_informations())
-            self.response.send()
+            self.fast_response(CRITICAL,
+                               'Port %s is unreachable' % invalid_port,
+                               'please check your firewall\n\n',
+                               2)
 
     def collect_data(self,data):
         pass
