@@ -90,7 +90,7 @@ class Host(object):
         return dict([(k[6:],v) for k,v in vars(self._plugin.options).items() if k.startswith('host__')])
 
     def __repr__(self):
-        return '\n'.join([ '%-12s : %s' % (k,v) for k,v in self._params.items() ])
+        return '\n'.join([ '%-12s : %s' % (k,v) for k,v in sorted(self._params.items()) ])
 
     def _get_persistent_filename(self):
         return self.persistent_filename_pattern % self.name

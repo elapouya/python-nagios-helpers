@@ -283,6 +283,10 @@ class ActivePlugin(Plugin):
                                    default=False, help='Save collected data in a temporary file')
         self._cmd_parser.add_option('-r', action='store_true', dest='restore_collected',
                                    default=False, help='Use saved collected data (option -s)')
+        self._cmd_parser.add_option('-a', action='store_true', dest='collect_and_print',
+                                   default=False, help='Collect data only and print them')
+        self._cmd_parser.add_option('-b', action='store_true', dest='parse_and_print',
+                                   default=False, help='Collect and parse data only and print them')
 
     def handle_plugin_name(self):
         if not self.args:
@@ -302,6 +306,10 @@ class ActivePlugin(Plugin):
         self.response.add_begin(msg)
         self.response.add_end(self.get_plugin_informations())
         self.response.send()
+
+    def fast_responsei_if(self,test, level, synopsis, msg='', sublevel = 1):
+        if test:
+            self.fast_response(level, synopsis, msg='', sublevel = 1)
 
     def error(self, msg, sublevel=3,*args,**kwargs):
         import traceback
@@ -385,9 +393,20 @@ class ActivePlugin(Plugin):
                 self.save_collected_data()
                 self.info('Collected data are saved')
 
+            if self.options.collect_and_print or self.options.parse_and_print:
+                print 'Collected Data ='
+                pp.pprint(self.data)
+                if not self.options.parse_and_print:
+                    exit(0)
+
             self.parse_data(self.data)
             self.info('Data are parsed')
             self.debug('Parsed Data = \n%s' % pp.pformat(self.data.exclude_keys(collected_keys)))
+
+            if self.options.parse_and_print:
+                print 'Parsed Data ='
+                pp.pprint(self.data.exclude_keys(collected_keys))
+                exit(0)
 
             self.build_response(self.data)
             self.host.save_persistent_data()
