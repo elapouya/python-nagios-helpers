@@ -48,6 +48,9 @@ class PluginResponse(object):
         if self.level in [ None, UNKNOWN ] or level == CRITICAL or self.level == OK and level == WARNING:
             self.level = level
 
+    def get_current_level(self):
+        return self.default_level if self.level is None else self.level
+
     def set_sublevel(self, sublevel):
         if not isinstance(sublevel,int):
             raise Exception('A response sublevel must be an integer')

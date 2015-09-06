@@ -274,11 +274,11 @@ class Snmp(object):
             raise SnmpError('An OID range must have one and only one "-"')
         return oids
 
-    def mget(self,*vars_oids):
+    def mget(self,vars_oids):
         dct = {}
         oid_to_var = {}
         args = list(self.cmd_args)
-        for var,oid in vars_oids:
+        for var,oid in vars_oids.items():
             if '-' in oid:
                 for real_oid in self.get_oid_range(oid):
                     args.append(real_oid)

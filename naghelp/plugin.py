@@ -307,7 +307,7 @@ class ActivePlugin(Plugin):
         self.response.add_end(self.get_plugin_informations())
         self.response.send()
 
-    def fast_responsei_if(self,test, level, synopsis, msg='', sublevel = 1):
+    def fast_response_if(self,test, level, synopsis, msg='', sublevel = 1):
         if test:
             self.fast_response(level, synopsis, msg='', sublevel = 1)
 
@@ -356,7 +356,8 @@ class ActivePlugin(Plugin):
         out += 'Ports used : tcp = %s, udp = %s\n' % (self.tcp_ports or 'none',self.udp_ports or 'none')
         delta = datetime.datetime.now() - self.starttime
         out += 'Execution time : %s\n' % delta
-        out += 'Exit code : %s (%s), __sublevel__=%s' % (self.response.level.exit_code,self.response.level.name,self.response.sublevel)
+        level = self.response.get_current_level()
+        out += 'Exit code : %s (%s), __sublevel__=%s' % (level.exit_code,level.name,self.response.sublevel)
         return out
 
     def run(self):
