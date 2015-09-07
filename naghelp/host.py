@@ -29,6 +29,9 @@ class Host(object):
         self._merge(self._params_from_db)
         self._merge(self._params_from_env)
         self._merge(self._params_from_cmd_options)
+        
+    def get_fields(self):
+        return self._params
 
     def debug(self):
         import pprint

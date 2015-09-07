@@ -336,8 +336,8 @@ class ActivePlugin(Plugin):
         invalid_port = search_invalid_port(self.host.ip,self.tcp_ports)
         if invalid_port:
             self.fast_response(CRITICAL,
-                               'Port %s is unreachable' % invalid_port,
-                               'please check your firewall\n\n',
+                               'Port %s is unreachable' % invalid_port,                               
+                               'This plugin uses ports tcp = %s, udp = %s\nplease check your firewall\n\n' % (self.tcp_ports or 'none',self.udp_ports or 'none'),
                                2)
 
     def collect_data(self,data):
@@ -350,7 +350,7 @@ class ActivePlugin(Plugin):
         pass
 
     def get_plugin_informations(self):
-        out = self.response.section_format('Plugin Informations') + '\n'
+        out = '\n' + self.response.section_format('Plugin Informations') + '\n'
         out += 'Plugin name : %s.%s\n' % (self.__class__.__module__,self.__class__.__name__)
         out += 'Description : %s\n' % ( self.__class__.__doc__ or '' ).splitlines()[0].strip()
         out += 'Ports used : tcp = %s, udp = %s\n' % (self.tcp_ports or 'none',self.udp_ports or 'none')
@@ -360,15 +360,26 @@ class ActivePlugin(Plugin):
         out += 'Exit code : %s (%s), __sublevel__=%s' % (level.exit_code,level.name,self.response.sublevel)
         return out
 
+    def check_host_required_fields(self):
+        req_fields = self.required_params or self.cmd_params
+        if isinstance(req_fields, basestring):
+            req_fields = req_fields.split(',')        
+        req_fields = set(req_fields + ['ip'])
+        for f in req_fields:
+            if not self.host.get(f):
+                self.fast_response(CRITICAL, 'Missing "%s" parameter' % f, 'Required fields are : %s' % ','.join(req_fields), 3)
+                break
+                
     def run(self):
         try:
             self.manage_cmd_options()
-            self.host = self.host_class(self)
             self.init_logger()
+            self.host = self.host_class(self)
 
             self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
 
             self.host.debug()
+            self.check_host_required_fields()
 
             if self.options.restore_collected:
                 self.restore_collected_data()
