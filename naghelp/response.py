@@ -182,5 +182,5 @@ class PluginResponse(object):
 
         print out
 
-        naghelp.logger.info('Exiting plugin with response level : %s' % self.level.info())
+        naghelp.logger.info('Exiting plugin with response level : %s, __sublevel__=%s', self.level.info(), self.sublevel )
         self.level.exit()

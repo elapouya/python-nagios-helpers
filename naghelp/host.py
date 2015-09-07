@@ -24,8 +24,9 @@ class Host(object):
                     self._params_from_env.get('name') or
                     self._params_from_cmd_options.get('ip') or
                     self._params_from_env.get('ip') ) )
+        
+    def load_data(self):
         self._params_from_db = self._get_params_from_db(self.name)
-
         self._merge(self._params_from_db)
         self._merge(self._params_from_env)
         self._merge(self._params_from_cmd_options)

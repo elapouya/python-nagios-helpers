@@ -22,7 +22,6 @@ import textops
 from collect import search_invalid_port
 import datetime
 import naghelp
-
 #
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -373,8 +372,9 @@ class ActivePlugin(Plugin):
     def run(self):
         try:
             self.manage_cmd_options()
-            self.init_logger()
             self.host = self.host_class(self)
+            self.init_logger()
+            self.host.load_data()
 
             self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
 
