@@ -112,7 +112,9 @@ class Telnet(object):
 
     def mrun(self, cmds, timeout=30, **kwargs):
         dct = NoAttrDict()
-        for k,cmd in cmds.items():
+        if isinstance(cmds,dict):
+            cmds = cmds.items()
+        for k,cmd in cmds:
             try:
                 with Timeout(timeout):
                     dct[k] = self._run_cmd(cmd)
@@ -161,7 +163,9 @@ class Ssh(object):
         if not self.is_connected:
             raise NotConnected('No ssh connection to run your command.')
         dct = NoAttrDict()
-        for k,cmd in cmds.items():
+        if isinstance(cmds,dict):
+            cmds = cmds.items()
+        for k,cmd in cmds:
             try:
                 stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout)
                 dct[k] = stdout.read()
