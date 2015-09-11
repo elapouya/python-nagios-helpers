@@ -147,6 +147,8 @@ class PluginResponse(object):
 
     def get_output(self):
         synopsis = self.synopsis or self.get_default_synopsis()
+        synopsis = synopsis.splitlines()[0]
+        synopsis = synopsis[:75] + ( synopsis[75:] and '...' )
 
         out = self.escape_msg(synopsis)
         out +=  '|%s' % self.perf_items[0] if self.perf_items else '\n'
