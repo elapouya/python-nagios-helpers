@@ -9,8 +9,9 @@ import re
 import socket
 import signal
 from addicted import NoAttrDict, NoAttr
+import textops
 
-__all__ = ['search_invalid_port', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
+__all__ = ['search_invalid_port', 'runsh', 'TelnetSh', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
 
 class TimeoutError(Exception):
     pass
@@ -46,16 +47,20 @@ def search_invalid_port(ip,ports):
             return port
     return None
 
+def runsh(cmd,timeout = 30):
+    with Timeout(seconds=timeout, error_message='Timeout (%ss) for command : %s' % (timeout,cmd)):
+        return textops.run(cmd).l
+
 class NotConnected(Exception):
     pass
 
-class Telnet(object):
+class TelnetSh(object):
     def __init__(self,host, user, password=None, timeout=10, port=0, prompt_regex_list=None,*args,**kwargs):
         #import is done only on demand, because it takes some little time
         import telnetlib
         self.in_with = False
         self.is_connected = False
-        with Timeout(timeout):
+        with Timeout(seconds = timeout, error_message='Timeout (%ss) for telnet to %s' % (timeout,host)):
             self.tn = telnetlib.Telnet(host,port,timeout,**kwargs)
             self.tn.expect([re.compile(r'login\s*:\s+',re.I),])
             self.tn.write(user + "\n")
@@ -103,7 +108,7 @@ class Telnet(object):
             raise NotConnected('No telnet connection to run your command.')
         out = None
         try:
-            with Timeout(timeout):
+            with Timeout(seconds = timeout):
                 out = self._run_cmd(cmd)
         except TimeoutError:
             pass
@@ -116,7 +121,7 @@ class Telnet(object):
             cmds = cmds.items()
         for k,cmd in cmds:
             try:
-                with Timeout(timeout):
+                with Timeout(seconds = timeout):
                     dct[k] = self._run_cmd(cmd)
             except TimeoutError:
                 dct[k] = None
@@ -180,7 +185,7 @@ class SnmpError(Exception):
     pass
 
 class Snmp(object):
-    def __init__(self,host, community='public', version=2, timeout=10, port=161, user=None,
+    def __init__(self,host, community='public', version=2, timeout=30, port=161, user=None,
                  auth_passwd=None, auth_protocol='', priv_passwd=None, priv_protocol='', *args,**kwargs):
         #import is done only on demand, because it takes some little time
         from pysnmp.entity.rfc3413.oneliner import cmdgen
@@ -216,7 +221,7 @@ class Snmp(object):
         else:
             raise SnmpError('Bad snmp version protocol, given : %s, possible : 1,2,2c,3' % version)
 
-        self.cmd_args.append(cmdgen.UdpTransportTarget((host, port)))
+        self.cmd_args.append(cmdgen.UdpTransportTarget((host, port),timeout = timeout))
 
     def to_native_type(self,oval):
         v2c = self.v2c
@@ -262,6 +267,24 @@ class Snmp(object):
     def get_mibvar(self,*arg,**kwargs):
         oid_or_mibvar = self.mibvar(*arg,**kwargs)
         return self.get(oid_or_mibvar)
+
+    def walk(self,oid_or_mibvar):
+        lst = []
+        args = list(self.cmd_args)
+        args.append(oid_or_mibvar)
+        errorIndication, errorStatus, errorIndex, varBindTable = self.cmdGenerator.nextCmd(*args)
+        if errorIndication:
+            raise SnmpError(errorIndication)
+        else:
+            if errorStatus:
+                raise SnmpError('%s at %s' % (
+                    errorStatus.prettyPrint(),
+                    errorIndex and varBinds[int(errorIndex)-1] or '?'
+                    ) )
+        for varBindTableRow in varBindTable:
+            for name, val in varBindTableRow:
+                lst.append((str(name),self.to_native_type(val)))
+        return lst
 
     def get_oid_range(self,oid_range):
         oids = []
