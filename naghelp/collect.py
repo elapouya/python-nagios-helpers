@@ -294,6 +294,8 @@ class Snmp(object):
             id_begin = int(begin.split('.')[-1])
             oid_end = end.split('.')[1:]
             id_end = int(end.split('.')[0])
+            if id_begin > id_end:
+                return []
             for id in xrange(id_begin,id_end + 1):
                 real_oid = '.'.join(oid_begin + [str(id)] + oid_end)
                 oids.append(real_oid)
