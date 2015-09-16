@@ -286,6 +286,12 @@ class Snmp(object):
                 lst.append((str(name),self.to_native_type(val)))
         return lst
 
+    def mwalk(self,vars_oids):
+        dct = {}
+        for var,oid in vars_oids.items():
+            dct[var] = self.walk(oid)
+        return dct
+
     def get_oid_range(self,oid_range):
         oids = []
         if oid_range.count('-') == 1:
