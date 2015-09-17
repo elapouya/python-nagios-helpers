@@ -17,7 +17,7 @@ import pprint
 from .host import Host
 from .response import PluginResponse, OK, WARNING, CRITICAL, UNKNOWN
 import tempfile
-from addicted import NoAttr
+from addicted import NoAttr, NoAttrDict
 import textops
 from collect import search_invalid_port
 import datetime
@@ -237,8 +237,9 @@ class ActivePlugin(Plugin):
     host_class = Host
     response_class = PluginResponse
     usage = 'usage: \n%prog <plugin name or module.plugin_class> [options]'
+    options = NoAttrDict()
     cmd_params = ''
-    required_params = ''
+    required_params = None
     tcp_ports = ''
     udp_ports = ''
     nagios_status_on_error = CRITICAL
@@ -335,7 +336,7 @@ class ActivePlugin(Plugin):
         invalid_port = search_invalid_port(self.host.ip,self.tcp_ports)
         if invalid_port:
             self.fast_response(CRITICAL,
-                               'Port %s is unreachable' % invalid_port,                               
+                               'Port %s is unreachable' % invalid_port,
                                'This plugin uses ports tcp = %s, udp = %s\nplease check your firewall\n\n' % (self.tcp_ports or 'none',self.udp_ports or 'none'),
                                2)
 
@@ -360,15 +361,15 @@ class ActivePlugin(Plugin):
         return out
 
     def check_host_required_fields(self):
-        req_fields = self.required_params or self.cmd_params
+        req_fields = self.required_params if self.required_params is not None else self.cmd_params
         if isinstance(req_fields, basestring):
-            req_fields = req_fields.split(',')        
+            req_fields = req_fields.split(',')
         req_fields = set(req_fields + ['ip'])
         for f in req_fields:
             if not self.host.get(f):
                 self.fast_response(CRITICAL, 'Missing "%s" parameter' % f, 'Required fields are : %s' % ','.join(req_fields), 3)
                 break
-                
+
     def run(self):
         try:
             self.manage_cmd_options()

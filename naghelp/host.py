@@ -24,15 +24,18 @@ class Host(object):
                     self._params_from_env.get('name') or
                     self._params_from_cmd_options.get('ip') or
                     self._params_from_env.get('ip') ) )
-        
+
     def load_data(self):
         self._params_from_db = self._get_params_from_db(self.name)
         self._merge(self._params_from_db)
         self._merge(self._params_from_env)
         self._merge(self._params_from_cmd_options)
-        
+
     def get_fields(self):
         return self._params
+
+    def to_str(self, format_string):
+        return format_string.format(**self._params)
 
     def debug(self):
         import pprint
