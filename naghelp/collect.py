@@ -185,7 +185,7 @@ class SnmpError(Exception):
     pass
 
 class Snmp(object):
-    def __init__(self,host, community='public', version=2, timeout=30, port=161, user=None,
+    def __init__(self,host, community='public', version=None, timeout=30, port=161, user=None,
                  auth_passwd=None, auth_protocol='', priv_passwd=None, priv_protocol='', *args,**kwargs):
         #import is done only on demand, because it takes some little time
         from pysnmp.entity.rfc3413.oneliner import cmdgen
@@ -198,11 +198,18 @@ class Snmp(object):
         self.version = version
         self.cmd_args = []
 
+        if not version:
+            version = user and 3 or 2
+
         if version == 1:
             self.cmd_args.append(cmdgen.CommunityData(community, mpModel=0))
         elif version in  [2,'2c']:
             self.cmd_args.append(cmdgen.CommunityData(community))
         elif version == 3:
+            if auth_passwd and not auth_protocol:
+                 auth_protocol = 'sha'
+            if priv_passwd and not priv_protocol:
+                 priv_protocol = 'aes'
             if priv_protocol.lower() == 'aes':
                 if not user or not auth_passwd or not priv_passwd:
                     raise SnmpError('user, auth_passwd and priv_passwd must be not empty')
