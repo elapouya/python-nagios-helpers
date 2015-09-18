@@ -70,6 +70,11 @@ class PluginResponse(object):
         else:
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
+    def add_list(self,level,msg_list):
+        for msg in msg_list:
+            if msg:
+                self.add(level, msg)
+
     def add_if(self,test,level,msg):
         if not isinstance(msg,basestring):
             msg = str(msg)
