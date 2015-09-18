@@ -257,6 +257,7 @@ class ActivePlugin(Plugin):
     options = NoAttrDict()
     cmd_params = ''
     required_params = None
+    forced_params = 'name,ip'
     tcp_ports = ''
     udp_ports = ''
     nagios_status_on_error = CRITICAL
@@ -276,7 +277,8 @@ class ActivePlugin(Plugin):
     def get_plugin_host_params_desc(self):
         params_tab = self.get_plugin_host_params_tab()
         cmd_params = self.cmd_params.split(',') if isinstance(self.cmd_params,basestring) else self.cmd_params
-        cmd_params = set(cmd_params).union(['name','ip'])
+        forced_params = self.forced_params.split(',') if isinstance(self.forced_params,basestring) else self.forced_params
+        cmd_params = set(cmd_params).union(forced_params)
         return dict([(k,params_tab.get(k,k.title())) for k in cmd_params if k ])
 
     def init_cmd_options(self):
