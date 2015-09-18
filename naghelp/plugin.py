@@ -71,7 +71,7 @@ class Plugin(object):
         plugins = {}
         basedir = os.path.normpath(cls.plugins_basedir)
         for root,dirs,files in os.walk(basedir):
-            if '/.' not in root:
+            if '/.' not in root and '__init__.py' in files:
                 for f in files:
                     if f.endswith('.py') and not f.startswith('__'):
                         path = os.path.join(root,f)
@@ -95,6 +95,23 @@ class Plugin(object):
                             #print e
                             pass
         return plugins
+
+    @classmethod
+    def find_plugins_import_errors(cls):
+        plugin_files = []
+        basedir = os.path.normpath(cls.plugins_basedir)
+        for root,dirs,files in os.walk(basedir):
+            if '/.' not in root and '__init__.py' in files:
+                for f in files:
+                    if f.endswith('.py') and not f.startswith('__'):
+                        path = os.path.join(root,f)
+                        try:
+                            module_name = path[len(basedir)+1:-3].replace(os.sep,'.')
+                            module = __import__(cls.plugins_basemodule + module_name,fromlist=[''])
+                        except Exception,e:
+                            plugin_files.append((os.sep.join(module_name.split('.'))+'.py',e))
+                            pass
+        return plugin_files
 
     def get_cmd_usage(self):
         return self.usage
@@ -262,11 +279,6 @@ class ActivePlugin(Plugin):
         cmd_params = set(cmd_params).union(['name','ip'])
         return dict([(k,params_tab.get(k,k.title())) for k in cmd_params if k ])
 
-    def get_plugin_required_params(self):
-        required_params = self.required_params.split(',') if isinstance(self.required_params,basestring) else self.required_params
-        return set(required_params).union(['ip'])
-
-
     def init_cmd_options(self):
         super(ActivePlugin,self).init_cmd_options()
 
@@ -300,6 +312,7 @@ class ActivePlugin(Plugin):
             UNKNOWN.exit()
 
     def fast_response(self,level, synopsis, msg='', sublevel = 1):
+        self.host.save_persistent_data()
         self.response.level = level
         self.response.sublevel = sublevel
         self.response.set_synopsis(synopsis)
@@ -313,7 +326,7 @@ class ActivePlugin(Plugin):
 
     def error(self, msg, sublevel=3,*args,**kwargs):
         import traceback
-        body = traceback.format_exc() + '\n'
+        body = 'traceback : ' + traceback.format_exc() + '\n'
         if self.data:
             body += 'Data = \n%s\n\n' % pp.pformat(self.data)
         naghelp.logger.error(msg,*args,**kwargs)
@@ -364,7 +377,9 @@ class ActivePlugin(Plugin):
         req_fields = self.required_params if self.required_params is not None else self.cmd_params
         if isinstance(req_fields, basestring):
             req_fields = req_fields.split(',')
-        req_fields = set(req_fields + ['ip'])
+        # either 'name' or 'ip' must be in required params, by default 'ip' is automatically added as required except when 'name' is present
+        if 'name' not in req_fields:
+            req_fields = set(req_fields + ['ip'])
         for f in req_fields:
             if not self.host.get(f):
                 self.fast_response(CRITICAL, 'Missing "%s" parameter' % f, 'Required fields are : %s' % ','.join(req_fields), 3)

@@ -50,6 +50,12 @@ class Host(object):
     def __getattr__(self, name):
         return self._params.get(name,NoAttr)
 
+    def __setattr__(self, name, value):
+        if name[0] != '_':
+            self._params[name] = value
+        else:
+            super(Host,self).__setattr__(name, value)
+
     def get(self, name, default=NoAttr):
         return self._params.get(name,default)
 
