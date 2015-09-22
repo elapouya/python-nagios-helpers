@@ -11,7 +11,7 @@ import signal
 from addicted import NoAttr
 import textops
 
-__all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
+__all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
 
 class TimeoutError(Exception):
     pass
@@ -62,6 +62,77 @@ def mrunsh(cmds,cmd_timeout = 30, total_timeout = 60):
 
 class NotConnected(Exception):
     pass
+
+class Expect(object):
+    def __init__(self,host, user, password=None, timeout=10, port=0, login_pattern_list=None, passwd_pattern_list=None, prompt_pattern_list=None,*args,**kwargs):
+        #import is done only on demand, because it takes some little time
+        import pexpect
+        self.in_with = False
+        self.is_connected = False
+        self.prompt = None
+        if login_pattern_list is None:
+            login_pattern_list = [re.compile(r'login\s*:',re.I),]
+        if passwd_pattern_list is None:
+            passwd_pattern_list = [re.compile(r'Password\s*:',re.I),]
+        if prompt_pattern_list is None:
+            prompt_pattern_list = [re.compile(r'[\r\n][^\$#<>:]*[\$#>:]'),]
+        self.prompt_pattern_list = prompt_pattern_list
+        with Timeout(seconds = timeout, error_message='Timeout (%ss) for telnet to %s' % (timeout,host)):
+            self.tn = telnetlib.Telnet(host,port,timeout,**kwargs)
+            self.tn.expect(login_pattern_list)
+            self.tn.write(user + "\n")
+            self.tn.expect(passwd_pattern_list)
+            self.tn.write(password + "\n")
+            pat_id,m,buffer = self.tn.expect(prompt_pattern_list)
+            if pat_id < 0:
+                raise NotConnected('No regular prompt found.')
+            self.is_connected = True
+
+    def __enter__(self):
+        self.in_with = True
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.in_with = False
+        self.close()
+
+    def close(self):
+        if not self.in_with:
+            self.tn.close()
+            self.is_connected = False
+
+    def _run_cmd(self,cmd):
+        self.tn.write('%s\n' % cmd)
+        pat_id,m,buffer = self.tn.expect(self.prompt_pattern_list)
+        out = buffer.splitlines()[1:-1]
+        return '\n'.join(out)
+
+    def run(self, cmd, timeout=30, **kwargs):
+        if not self.is_connected:
+            raise NotConnected('No telnet connection to run your command.')
+        out = None
+        try:
+            with Timeout(seconds = timeout):
+                out = self._run_cmd(cmd)
+        except TimeoutError:
+            pass
+        self.close()
+        return out
+
+    def mrun(self, cmds, timeout=30, **kwargs):
+        if not self.is_connected:
+            raise NotConnected('No telnet connection to run your command.')
+        dct = textops.DictExt()
+        if isinstance(cmds,dict):
+            cmds = cmds.items()
+        for k,cmd in cmds:
+            try:
+                with Timeout(seconds = timeout):
+                    dct[k] = self._run_cmd(cmd)
+            except TimeoutError:
+                dct[k] = None
+        self.close()
+        return dct
 
 class Telnet(object):
     def __init__(self,host, user, password=None, timeout=10, port=0, login_pattern_list=None, passwd_pattern_list=None, prompt_pattern_list=None,*args,**kwargs):
