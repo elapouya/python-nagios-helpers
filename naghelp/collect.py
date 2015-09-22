@@ -11,7 +11,7 @@ import signal
 from addicted import NoAttrDict, NoAttr
 import textops
 
-__all__ = ['search_invalid_port', 'runsh', 'TelnetSh', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
+__all__ = ['search_invalid_port', 'runsh', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
 
 class TimeoutError(Exception):
     pass
@@ -54,22 +54,29 @@ def runsh(cmd,timeout = 30):
 class NotConnected(Exception):
     pass
 
-class TelnetSh(object):
-    def __init__(self,host, user, password=None, timeout=10, port=0, prompt_regex_list=None,*args,**kwargs):
+class Telnet(object):
+    def __init__(self,host, user, password=None, timeout=10, port=0, login_pattern_list=None, passwd_pattern_list=None, prompt_pattern_list=None,*args,**kwargs):
         #import is done only on demand, because it takes some little time
         import telnetlib
         self.in_with = False
         self.is_connected = False
+        self.prompt = None
+        if login_pattern_list is None:
+            login_pattern_list = [re.compile(r'login\s*:',re.I),]
+        if passwd_pattern_list is None:
+            passwd_pattern_list = [re.compile(r'Password\s*:',re.I),]
+        if prompt_pattern_list is None:
+            prompt_pattern_list = [re.compile(r'[\r\n][^\$#<>:]*[\$#>:]'),]
+        self.prompt_pattern_list = prompt_pattern_list
         with Timeout(seconds = timeout, error_message='Timeout (%ss) for telnet to %s' % (timeout,host)):
             self.tn = telnetlib.Telnet(host,port,timeout,**kwargs)
-            self.tn.expect([re.compile(r'login\s*:\s+',re.I),])
+            self.tn.expect(login_pattern_list)
             self.tn.write(user + "\n")
-            self.tn.expect([re.compile(r'Password\s*:\s+',re.I),])
+            self.tn.expect(passwd_pattern_list)
             self.tn.write(password + "\n")
-            self.tn.expect([re.compile(r'[\$#>\]:]'),])
-            if prompt_regex_list is None:
-                prompt_regex_list = [re.compile(r'[\$#>\]:]'),]
-            self.tn.expect(prompt_regex_list)
+            pat_id,m,buffer = self.tn.expect(prompt_pattern_list)
+            if pat_id < 0:
+                raise NotConnected('No regular prompt found.')
             self.is_connected = True
 
     def __enter__(self):
@@ -86,22 +93,10 @@ class TelnetSh(object):
             self.is_connected = False
 
     def _run_cmd(self,cmd):
-        self.tn.write("echo; echo '____BEGIN_TELNETLIB____'; %s; echo '____END_TELNETLIB____'\n" % cmd)
-        #self.tn.write("exit\n")
-        buffer = self.tn.read_until('____END_TELNETLIB____')
-
-        out = ''
-        flag = False
-        for l in buffer.splitlines():
-            ls = l.strip()
-            if ls == '____BEGIN_TELNETLIB____':
-                flag = True
-            elif ls == '____END_TELNETLIB____':
-                flag = False
-            elif flag:
-                out += l + '\n'
-
-        return out[:-1]
+        self.tn.write('%s\n' % cmd)
+        pat_id,m,buffer = self.tn.expect(self.prompt_pattern_list)
+        out = buffer.splitlines()[1:-1]
+        return '\n'.join(out)
 
     def run(self, cmd, timeout=30, **kwargs):
         if not self.is_connected:
@@ -116,6 +111,8 @@ class TelnetSh(object):
         return out
 
     def mrun(self, cmds, timeout=30, **kwargs):
+        if not self.is_connected:
+            raise NotConnected('No telnet connection to run your command.')
         dct = NoAttrDict()
         if isinstance(cmds,dict):
             cmds = cmds.items()
