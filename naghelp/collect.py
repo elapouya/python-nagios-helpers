@@ -8,10 +8,10 @@ Création : July 7th, 2015
 import re
 import socket
 import signal
-from addicted import NoAttrDict, NoAttr
+from addicted import NoAttr
 import textops
 
-__all__ = ['search_invalid_port', 'runsh', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
+__all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
 
 class TimeoutError(Exception):
     pass
@@ -50,6 +50,15 @@ def search_invalid_port(ip,ports):
 def runsh(cmd,timeout = 30):
     with Timeout(seconds=timeout, error_message='Timeout (%ss) for command : %s' % (timeout,cmd)):
         return textops.run(cmd).l
+
+def mrunsh(cmds,cmd_timeout = 30, total_timeout = 60):
+    with Timeout(seconds=total_timeout, error_message='Timeout (%ss) for mrunsh commands : %s' % (total_timeout,cmds)):
+        dct = textops.DictExt()
+        if isinstance(cmds,dict):
+            cmds = cmds.items()
+        for k,cmd in cmds:
+            dct[k] = runsh(cmd,cmd_timeout)
+        return dct
 
 class NotConnected(Exception):
     pass
@@ -113,7 +122,7 @@ class Telnet(object):
     def mrun(self, cmds, timeout=30, **kwargs):
         if not self.is_connected:
             raise NotConnected('No telnet connection to run your command.')
-        dct = NoAttrDict()
+        dct = textops.DictExt()
         if isinstance(cmds,dict):
             cmds = cmds.items()
         for k,cmd in cmds:
@@ -164,7 +173,7 @@ class Ssh(object):
     def mrun(self, cmds, timeout=30, **kwargs):
         if not self.is_connected:
             raise NotConnected('No ssh connection to run your command.')
-        dct = NoAttrDict()
+        dct = textops.DictExt()
         if isinstance(cmds,dict):
             cmds = cmds.items()
         for k,cmd in cmds:
