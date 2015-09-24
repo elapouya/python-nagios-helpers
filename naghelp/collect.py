@@ -64,7 +64,7 @@ class NotConnected(Exception):
     pass
 
 class Expect(object):
-    def __init__(self,host, user, password=None, timeout=10, port=0, login_pattern_list=None, passwd_pattern_list=None, prompt_pattern_list=None,*args,**kwargs):
+    def __init__(self,spawn,prompt,*steps,**kwargs):
         #import is done only on demand, because it takes some little time
         import pexpect
         self.in_with = False
@@ -283,25 +283,21 @@ class Snmp(object):
         elif version in  [2,'2c']:
             self.cmd_args.append(cmdgen.CommunityData(community))
         elif version == 3:
-            if auth_passwd and not auth_protocol:
-                 auth_protocol = 'sha'
-            if priv_passwd and not priv_protocol:
-                 priv_protocol = 'aes'
-            if priv_protocol.lower() == 'aes':
-                if not user or not auth_passwd or not priv_passwd:
-                    raise SnmpError('user, auth_passwd and priv_passwd must be not empty')
-                self.cmd_args.append(cmdgen.UsmUserData(user, auth_passwd, priv_passwd,
-                    authProtocol=cmdgen.usmHMACSHAAuthProtocol,
-                    privProtocol=cmdgen.usmAesCfb128Protocol ) )
-            elif auth_protocol.lower() == 'sha':
-                if not user or not auth_passwd:
-                    raise SnmpError('user and auth_passwd must be not empty')
-                self.cmd_args.append(cmdgen.UsmUserData(user, auth_passwd,
-                           authProtocol=cmdgen.usmHMACSHAAuthProtocol))
-            else:
-                if not user:
-                    raise SnmpError('user must be not empty')
-                self.cmd_args.append(cmdgen.UsmUserData(user))
+            authProtocol = None
+            privProtocol = None
+            if auth_passwd and auth_protocol.lower() == 'sha':
+                 authProtocol = cmdgen.usmHMACSHAAuthProtocol
+            if priv_passwd and auth_protocol.lower() == 'aes':
+                 privProtocol = cmdgen.usmAesCfb128Protocol
+            if not auth_passwd:
+                auth_passwd = None
+            if not priv_passwd:
+                priv_passwd = None
+            if not user:
+                raise SnmpError('user must be not empty')
+            self.cmd_args.append(cmdgen.UsmUserData(user, auth_passwd, priv_passwd,
+                authProtocol=authProtocol,
+                privProtocol=privProtocol ) )
         else:
             raise SnmpError('Bad snmp version protocol, given : %s, possible : 1,2,2c,3' % version)
 
