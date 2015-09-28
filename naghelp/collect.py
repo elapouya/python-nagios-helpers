@@ -13,6 +13,12 @@ import textops
 
 __all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
 
+class NotConnected(Exception):
+    pass
+
+class ConnectionError(Exception):
+    pass
+
 class TimeoutError(Exception):
     pass
 
@@ -60,29 +66,30 @@ def mrunsh(cmds,cmd_timeout = 30, total_timeout = 60):
             dct[k] = runsh(cmd,cmd_timeout)
         return dct
 
-class NotConnected(Exception):
-    pass
-
 class Expect(object):
     KILL = 1
 
-    def __init__(self,spawn,login_steps,prompt,logout_steps,context={},timeout = 30,*args,**kwargs):
+    def __init__(self,spawn,login_steps,prompt,logout_steps=None,context={},timeout = 30,*args,**kwargs):
         #import is done only on demand, because it takes some little time
         import pexpect
         self.is_connected = False
         self.prompt = prompt
         self.logout_steps = logout_steps
-        self.context
+        self.context = context
         self.timeout = timeout
-        with Timeout(seconds = timeout, error_message='Timeout (%ss) for pexpect to %s' % (timeout,host)):
+        with Timeout(seconds = timeout, error_message='Timeout (%ss) for pexpect : %s' % (timeout,spawn)):
             self.child = pexpect.spawn(spawn)
-            self._expect_steps(login_steps)
+            error_msg = self._expect_steps(login_steps)
+            if error_msg:
+                raise ConnectionError(error_msg)
             self.is_connected = True
 
     def _expect_steps(self,steps):
         step = 0
         nb_steps = len(steps)
+        infinite_loop_detect = 0
         while step < nb_steps:
+            print '--------- STEP #',step,'--------------------------'
             expects = steps[step]
             nb_base_expects = len(expects)
             if step+1 < nb_steps:
@@ -95,13 +102,26 @@ class Expect(object):
                 if isinstance(to_send,basestring):
                     to_send = to_send.format(**self.context)
                     if to_send and to_send[-1] == '\n':
+                        print '  ==> sendline :',to_send[:-1]
                         self.child.sendline(to_send[:-1])
                     else:
+                        print '  ==> send :',to_send
                         self.child.send(to_send)
                 elif to_send == Expect.KILL:
+                    error_msg = self.child.before+'.'
                     self.child.kill(0)
-            if found >= nb_base_expects or step+1 == nb_steps:
+                    return error_msg
+            if found >= nb_base_expects:
                 step += 1
+                infinite_loop_detect = 0
+                if step == nb_steps - 1:
+                    break
+            infinite_loop_detect += 1
+            if infinite_loop_detect > 10:
+                return 'Too many expect for %s' % [ e[0] for e in expects ]
+
+        print 'FINISHED steps'
+        return ''
 
     def __enter__(self):
         self.in_with = True
@@ -114,7 +134,9 @@ class Expect(object):
     def close(self):
         if not self.in_with:
             self.is_connected = False
-            self._expect_steps(self.logout_steps)
+            if self.logout_steps:
+                self._expect_steps(self.logout_steps)
+            self.child.kill(0)
 
     def _run_cmd(self,cmd):
         self.child.sendline('%s\n' % cmd)
@@ -171,7 +193,7 @@ class Telnet(object):
             self.tn.write(password + "\n")
             pat_id,m,buffer = self.tn.expect(prompt_pattern_list)
             if pat_id < 0:
-                raise NotConnected('No regular prompt found.')
+                raise ConnectionError('No regular prompt found.')
             self.is_connected = True
 
     def __enter__(self):
