@@ -255,6 +255,7 @@ class ActivePlugin(Plugin):
     response_class = PluginResponse
     usage = 'usage: \n%prog <plugin name or module.plugin_class> [options]'
     options = NoAttrDict()
+    host = NoAttrDict()
     cmd_params = ''
     required_params = None
     forced_params = 'name,ip'
@@ -347,12 +348,26 @@ class ActivePlugin(Plugin):
     def restore_collected_data(self):
         self.data = self.load_data(self.collected_data_filename_pattern % self.host.name)
 
+    def get_udp_ports(self):
+        if self.host.port:
+            if not self.tcp_ports:
+                return self.host.port
+        return self.udp_ports
+
+    def get_tcp_ports(self):
+        if self.host.port:
+            if not self.udp_ports:
+                return self.host.port
+        if self.host.protocol:
+            return socket.getservbyname(self.host.protocol)
+        return self.tcp_ports
+
     def check_ports(self):
-        invalid_port = search_invalid_port(self.host.ip,self.tcp_ports)
+        invalid_port = search_invalid_port(self.host.ip,self.get_tcp_ports())
         if invalid_port:
             self.fast_response(CRITICAL,
                                'Port %s is unreachable' % invalid_port,
-                               'This plugin uses ports tcp = %s, udp = %s\nplease check your firewall\n\n' % (self.tcp_ports or 'none',self.udp_ports or 'none'),
+                               'This plugin uses ports tcp = %s, udp = %s\nplease check your firewall\n\n' % (self.get_tcp_ports() or 'none',self.get_udp_ports() or 'none'),
                                2)
 
     def collect_data(self,data):
@@ -368,7 +383,7 @@ class ActivePlugin(Plugin):
         out = '\n' + self.response.section_format('Plugin Informations') + '\n'
         out += 'Plugin name : %s.%s\n' % (self.__class__.__module__,self.__class__.__name__)
         out += 'Description : %s\n' % ( self.__class__.__doc__ or '' ).splitlines()[0].strip()
-        out += 'Ports used : tcp = %s, udp = %s\n' % (self.tcp_ports or 'none',self.udp_ports or 'none')
+        out += 'Ports used : tcp = %s, udp = %s\n' % (self.get_tcp_ports() or 'none',self.get_udp_ports() or 'none')
         delta = datetime.datetime.now() - self.starttime
         out += 'Execution time : %s\n' % delta
         level = self.response.get_current_level()
@@ -406,8 +421,8 @@ class ActivePlugin(Plugin):
                 try:
                     self.collect_data(self.data)
                 except Exception,e:
-                    if self.tcp_ports:
-                        self.info('Checking TCP ports %s ...' % self.tcp_ports)
+                    if self.get_tcp_ports():
+                        self.info('Checking TCP ports %s ...' % self.get_tcp_ports())
                         self.check_ports()
                         self.info('All TCP ports are reachable')
                     else:
