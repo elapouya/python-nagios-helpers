@@ -21,4 +21,10 @@ except ImportError:
 logger = logging.getLogger(__name__)
 logger.addHandler(NullHandler())
 
-__version__ = '0.0.5'
+def activate_debug():
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    logger.addHandler(ch)
+    logger.setLevel(logging.DEBUG)
+
+__version__ = '0.0.6'

@@ -10,6 +10,7 @@ import socket
 import signal
 from addicted import NoAttr
 import textops
+import naghelp
 
 __all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
 
@@ -17,6 +18,9 @@ class NotConnected(Exception):
     pass
 
 class ConnectionError(Exception):
+    pass
+
+class CollectError(Exception):
     pass
 
 class TimeoutError(Exception):
@@ -68,49 +72,80 @@ def mrunsh(cmds,cmd_timeout = 30, total_timeout = 60):
 
 class Expect(object):
     KILL = 1
+    BREAK = 2
+    RESPONSE = 3
 
     def __init__(self,spawn,login_steps,prompt,logout_steps=None,context={},timeout = 30,*args,**kwargs):
+        global pexpect
+
         #import is done only on demand, because it takes some little time
         import pexpect
+        self.in_with = False
         self.is_connected = False
+        self.spawn = spawn
         self.prompt = prompt
         self.logout_steps = logout_steps
         self.context = context
         self.timeout = timeout
         with Timeout(seconds = timeout, error_message='Timeout (%ss) for pexpect : %s' % (timeout,spawn)):
             self.child = pexpect.spawn(spawn)
-            error_msg = self._expect_steps(login_steps)
+            naghelp.logger.debug('==== Login steps up to the prompt =====')
+            error_msg = self._expect_steps( login_steps + ((prompt,None),) )
             if error_msg:
                 raise ConnectionError(error_msg)
             self.is_connected = True
+
+    def _expect_pattern_rewrite(self,pat):
+        pat = re.sub(r'^\^',r'[\r\n]',pat)
+        return pat
 
     def _expect_steps(self,steps):
         step = 0
         nb_steps = len(steps)
         infinite_loop_detect = 0
         while step < nb_steps:
-            print '--------- STEP #',step,'--------------------------'
+            naghelp.logger.debug('--------- STEP #%s--------------------------',step)
             expects = steps[step]
+            # normalizing : transform tuple of string into tuple of tuples of string
+            if isinstance(expects[0],basestring):
+                expects = (expects,)
             nb_base_expects = len(expects)
-            if step+1 < nb_steps:
-                expects += steps[step+1]
-            print 'self.child.expect(',[ e[0] for e in expects ],')'
-            found = self.child.expect([ e[0] for e in expects ])
-            print '  --> found =',found
+            if nb_base_expects == 1 and expects[0][0] is None:
+                found = 0
+                patterns = []
+            else:
+                if step+1 < nb_steps:
+                    next_expects = steps[step+1]
+                    if isinstance(next_expects[0],basestring):
+                        next_expects = (next_expects,)
+                    expects += next_expects
+                patterns = [ self._expect_pattern_rewrite(e[0]) for e in expects ]
+                naghelp.logger.debug('<-- expect(%s) ...',patterns)
+                try:
+                    found = self.child.expect(patterns)
+                except pexpect.EOF:
+                    naghelp.logger.debug('CollectError : No more data (EOF) from %s' % self.spawn)
+                    raise CollectError('No more data (EOF) from %s' % self.spawn)
+                naghelp.logger.debug('  --> found : "%s"',patterns[found])
             to_send = expects[found][1]
             if to_send is not None:
                 if isinstance(to_send,basestring):
                     to_send = to_send.format(**self.context)
                     if to_send and to_send[-1] == '\n':
-                        print '  ==> sendline :',to_send[:-1]
+                        naghelp.logger.debug('  ==> sendline : %s',to_send[:-1])
                         self.child.sendline(to_send[:-1])
                     else:
-                        print '  ==> send :',to_send
+                        naghelp.logger.debug('  ==> send : %s',to_send)
                         self.child.send(to_send)
                 elif to_send == Expect.KILL:
-                    error_msg = self.child.before+'.'
+                    return_msg = self.child.before+'.'
                     self.child.kill(0)
-                    return error_msg
+                    return return_msg
+                elif to_send == Expect.BREAK:
+                    break
+                elif to_send == Expect.RESPONSE:
+                    return_msg = self.child.before+'.'
+                    return return_msg
             if found >= nb_base_expects:
                 step += 1
                 infinite_loop_detect = 0
@@ -118,9 +153,10 @@ class Expect(object):
                     break
             infinite_loop_detect += 1
             if infinite_loop_detect > 10:
-                return 'Too many expect for %s' % [ e[0] for e in expects ]
+                naghelp.logger.debug('Too many expect for %s',patterns)
+                raise CollectError('Too many expect for %s' % patterns)
 
-        print 'FINISHED steps'
+        naghelp.logger.debug('FINISHED steps')
         return ''
 
     def __enter__(self):
@@ -139,9 +175,18 @@ class Expect(object):
             self.child.kill(0)
 
     def _run_cmd(self,cmd):
-        self.child.sendline('%s\n' % cmd)
-        self.child.expect(self.prompt)
+        naghelp.logger.debug('  ==> sendline : %s',cmd)
+        self.child.sendline('%s' % cmd)
+        naghelp.logger.debug('<-- expect prompt ...')
+        try:
+            self.child.expect(self._expect_pattern_rewrite(self.prompt))
+        except pexpect.EOF:
+            naghelp.logger.debug('CollectError : No more data (EOF) from %s' % self.spawn)
+            raise CollectError('No more data (EOF) from %s' % self.spawn)
         out = self.child.before
+        out = re.sub(r'%s[\r\n]*' % cmd, '', out)
+        out = re.sub(r'[\r\n]*$', '', out)
+        out = out.replace('\r','')
         return out
 
     def run(self, cmd, timeout=30, **kwargs):
@@ -243,12 +288,14 @@ class Telnet(object):
         return dct
 
 class Ssh(object):
-    def __init__(self,host, user, password=None, timeout=30, *args,**kwargs):
+    def __init__(self,host, user, password=None, timeout=30, auto_accept_new_host=True, *args,**kwargs):
         #import is done only on demand, because it takes some little time
         import paramiko
         self.in_with = False
         self.is_connected = False
         self.client = paramiko.SSHClient()
+        if auto_accept_new_host:
+            self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.client.load_system_host_keys()
         self.client.connect(host,username=user,password=password, timeout=timeout, **kwargs)
         self.is_connected = True
