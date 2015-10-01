@@ -189,7 +189,7 @@ class Expect(object):
         out = out.replace('\r','')
         return out
 
-    def run(self, cmd, timeout=30, **kwargs):
+    def run(self, cmd, timeout=30, auto_close=True, **kwargs):
         if not self.is_connected:
             raise NotConnected('No expect connection to run your command.')
         out = None
@@ -198,10 +198,11 @@ class Expect(object):
                 out = self._run_cmd(cmd)
         except TimeoutError:
             pass
-        self.close()
+        if auto_close:
+            self.close()
         return out
 
-    def mrun(self, cmds, timeout=30, **kwargs):
+    def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
         if not self.is_connected:
             raise NotConnected('No expect connection to run your command.')
         dct = textops.DictExt()
@@ -210,14 +211,17 @@ class Expect(object):
         for k,cmd in cmds:
             try:
                 with Timeout(seconds = timeout):
-                    dct[k] = self._run_cmd(cmd)
+                    output = self._run_cmd(cmd)
+                    if k:
+                        dct[k] = output
             except TimeoutError:
                 dct[k] = None
-        self.close()
+        if auto_close:
+            self.close()
         return dct
 
 class Telnet(object):
-    def __init__(self,host, user, password=None, timeout=30, port=0, login_pattern_list=None, passwd_pattern_list=None, prompt_pattern_list=None,*args,**kwargs):
+    def __init__(self,host, user, password=None, timeout=30, port=0, login_pattern_list=None, passwd_pattern_list=None, prompt_pattern=None,*args,**kwargs):
         #import is done only on demand, because it takes some little time
         import telnetlib
         self.in_with = False
@@ -227,8 +231,10 @@ class Telnet(object):
             login_pattern_list = [re.compile(r'login\s*:',re.I),]
         if passwd_pattern_list is None:
             passwd_pattern_list = [re.compile(r'Password\s*:',re.I),]
-        if prompt_pattern_list is None:
+        if prompt_pattern is None:
             prompt_pattern_list = [re.compile(r'[\r\n][^\$#<>:]*[\$#>:]'),]
+        else:
+            prompt_pattern_list = [re.compile(prompt_pattern,re.M)]
         self.prompt_pattern_list = prompt_pattern_list
         with Timeout(seconds = timeout, error_message='Timeout (%ss) for telnet to %s' % (timeout,host)):
             self.tn = telnetlib.Telnet(host,port,timeout,**kwargs)
@@ -260,7 +266,7 @@ class Telnet(object):
         out = buffer.splitlines()[1:-1]
         return '\n'.join(out)
 
-    def run(self, cmd, timeout=30, **kwargs):
+    def run(self, cmd, timeout=30, auto_close=True, **kwargs):
         if not self.is_connected:
             raise NotConnected('No telnet connection to run your command.')
         out = None
@@ -269,10 +275,11 @@ class Telnet(object):
                 out = self._run_cmd(cmd)
         except TimeoutError:
             pass
-        self.close()
+        if auto_close:
+            self.close()
         return out
 
-    def mrun(self, cmds, timeout=30, **kwargs):
+    def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
         if not self.is_connected:
             raise NotConnected('No telnet connection to run your command.')
         dct = textops.DictExt()
@@ -281,10 +288,13 @@ class Telnet(object):
         for k,cmd in cmds:
             try:
                 with Timeout(seconds = timeout):
-                    dct[k] = self._run_cmd(cmd)
+                    output = self._run_cmd(cmd)
+                    if k:
+                        dct[k] = output
             except TimeoutError:
                 dct[k] = None
-        self.close()
+        if auto_close:
+            self.close()
         return dct
 
 class Ssh(object):
@@ -313,7 +323,7 @@ class Ssh(object):
             self.client.close()
             self.is_connected = False
 
-    def run(self, cmd, timeout=30, **kwargs):
+    def run(self, cmd, timeout=30, auto_close=True, **kwargs):
         if not self.is_connected:
             raise NotConnected('No ssh connection to run your command.')
         out = None
@@ -322,10 +332,11 @@ class Ssh(object):
             out = stdout.read()
         except socket.timeout:
             pass
-        self.close()
+        if auto_close:
+            self.close()
         return out
 
-    def mrun(self, cmds, timeout=30, **kwargs):
+    def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
         if not self.is_connected:
             raise NotConnected('No ssh connection to run your command.')
         dct = textops.DictExt()
@@ -334,12 +345,15 @@ class Ssh(object):
         for k,cmd in cmds:
             try:
                 stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout)
-                dct[k] = stdout.read()
-                dct['%s_err' % k] = stderr.read()
+                if k:
+                    dct[k] = stdout.read()
+                    dct['%s_err' % k] = stderr.read()
             except socket.timeout:
-                dct[k] = None
-                dct['%s_err' % k] = None
-        self.close()
+                if k:
+                    dct[k] = None
+                    dct['%s_err' % k] = None
+        if auto_close:
+            self.close()
         return dct
 
 class SnmpError(Exception):
