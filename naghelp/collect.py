@@ -70,6 +70,9 @@ def mrunsh(cmds,cmd_timeout = 30, total_timeout = 60):
             dct[k] = runsh(cmd,cmd_timeout)
         return dct
 
+def debug_pattern_list(pat_list):
+    return [ (pat if isinstance(pat,basestring) else pat.pattern) for pat in pat_list ]
+
 class Expect(object):
     KILL = 1
     BREAK = 2
@@ -87,6 +90,7 @@ class Expect(object):
         self.logout_steps = logout_steps
         self.context = context
         self.timeout = timeout
+        naghelp.logger.debug('#### Expect( %s ) ###############',spawn)
         with Timeout(seconds = timeout, error_message='Timeout (%ss) for pexpect : %s' % (timeout,spawn)):
             self.child = pexpect.spawn(spawn)
             naghelp.logger.debug('==== Login steps up to the prompt =====')
@@ -173,6 +177,7 @@ class Expect(object):
             if self.logout_steps:
                 self._expect_steps(self.logout_steps)
             self.child.kill(0)
+            naghelp.logger.debug('#### Expect : Connection closed ###############')
 
     def _run_cmd(self,cmd):
         naghelp.logger.debug('  ==> sendline : %s',cmd)
@@ -184,7 +189,9 @@ class Expect(object):
             naghelp.logger.debug('CollectError : No more data (EOF) from %s' % self.spawn)
             raise CollectError('No more data (EOF) from %s' % self.spawn)
         out = self.child.before
-        out = re.sub(r'%s[\r\n]*' % cmd, '', out)
+        # use re.compile to be compatible with python 2.6 (flags in re.sub only for python 2.7+)
+        rmcmd = re.compile(r'^.*?%s\n*' % cmd, re.DOTALL)
+        out = rmcmd.sub('', out)
         out = re.sub(r'[\r\n]*$', '', out)
         out = out.replace('\r','')
         return out
@@ -232,20 +239,31 @@ class Telnet(object):
         if passwd_pattern_list is None:
             passwd_pattern_list = [re.compile(r'Password\s*:',re.I),]
         if prompt_pattern is None:
-            prompt_pattern_list = [re.compile(r'[\r\n][^\$#<>:]*[\$#>:]'),]
+            prompt_pattern_list = [re.compile(r'[\r\n][^\s\$#<>:]*\s?[\$#>:]+\s'),]
         else:
-            prompt_pattern_list = [re.compile(prompt_pattern,re.M)]
+            prompt_pattern_list = [re.compile(re.sub(r'^\^',r'[\r\n]',prompt_pattern))]
         self.prompt_pattern_list = prompt_pattern_list
+        naghelp.logger.debug('#### Telnet( %s@%s ) ###############',user, host)
         with Timeout(seconds = timeout, error_message='Timeout (%ss) for telnet to %s' % (timeout,host)):
             self.tn = telnetlib.Telnet(host,port,timeout,**kwargs)
+            naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(login_pattern_list))
             self.tn.expect(login_pattern_list)
+            naghelp.logger.debug('  ==> %s',user)
             self.tn.write(user + "\n")
+            naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(passwd_pattern_list))
             self.tn.expect(passwd_pattern_list)
+            naghelp.logger.debug('  ==> (hidden password)')
             self.tn.write(password + "\n")
+            naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(prompt_pattern_list))
             pat_id,m,buffer = self.tn.expect(prompt_pattern_list)
             if pat_id < 0:
                 raise ConnectionError('No regular prompt found.')
+            naghelp.logger.debug('Prompt found : is_connected = True')
             self.is_connected = True
+
+    def _expect_pattern_rewrite(self,pat):
+        pat = re.sub(r'^\^',r'[\r\n]',pat)
+        return pat
 
     def __enter__(self):
         self.in_with = True
@@ -259,11 +277,18 @@ class Telnet(object):
         if not self.in_with:
             self.tn.close()
             self.is_connected = False
+            naghelp.logger.debug('#### Telnet : Connection closed ###############')
 
     def _run_cmd(self,cmd):
+        naghelp.logger.debug('  ==> %s',cmd)
         self.tn.write('%s\n' % cmd)
+        naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(self.prompt_pattern_list))
         pat_id,m,buffer = self.tn.expect(self.prompt_pattern_list)
-        out = buffer.splitlines()[1:-1]
+        out = buffer.replace('\r','')
+        # use re.compile to be compatible with python 2.6 (flags in re.sub only for python 2.7+)
+        rmcmd = re.compile(r'^.*?%s\n*' % cmd, re.DOTALL)
+        out = rmcmd.sub('', out)
+        out = out.splitlines()[1:-1]
         return '\n'.join(out)
 
     def run(self, cmd, timeout=30, auto_close=True, **kwargs):
@@ -307,7 +332,9 @@ class Ssh(object):
         if auto_accept_new_host:
             self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.client.load_system_host_keys()
+        naghelp.logger.debug('#### Ssh( %s@%s ) ###############',user, host)
         self.client.connect(host,username=user,password=password, timeout=timeout, **kwargs)
+        naghelp.logger.debug('is_connected = True')
         self.is_connected = True
 
     def __enter__(self):
@@ -322,12 +349,14 @@ class Ssh(object):
         if not self.in_with:
             self.client.close()
             self.is_connected = False
+            naghelp.logger.debug('#### Ssh : Connection closed ###############')
 
     def run(self, cmd, timeout=30, auto_close=True, **kwargs):
         if not self.is_connected:
             raise NotConnected('No ssh connection to run your command.')
         out = None
         try:
+            naghelp.logger.debug('  ==> %s',cmd)
             stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout)
             out = stdout.read()
         except socket.timeout:
@@ -344,6 +373,7 @@ class Ssh(object):
             cmds = cmds.items()
         for k,cmd in cmds:
             try:
+                naghelp.logger.debug('  ==> %s',cmd)
                 stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout)
                 if k:
                     dct[k] = stdout.read()

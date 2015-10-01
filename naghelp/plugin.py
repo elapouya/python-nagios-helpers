@@ -22,6 +22,7 @@ import textops
 from collect import search_invalid_port
 import datetime
 import naghelp
+import socket
 #
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -331,7 +332,7 @@ class ActivePlugin(Plugin):
         import traceback
         body = 'traceback : ' + traceback.format_exc() + '\n'
         if self.data:
-            body += 'Data = \n%s\n\n' % pp.pformat(self.data)
+            body += 'Data = \n%s\n\n' % pp.pformat(self.data).replace('\\n','\n')
         naghelp.logger.error(msg,*args,**kwargs)
         self.fast_response(self.nagios_status_on_error,msg,body,sublevel)
 
@@ -351,15 +352,15 @@ class ActivePlugin(Plugin):
     def get_udp_ports(self):
         if self.host.port:
             if not self.tcp_ports:
-                return self.host.port
+                return [self.host.port]
         return self.udp_ports
 
     def get_tcp_ports(self):
         if self.host.port:
             if not self.udp_ports:
-                return self.host.port
+                return [self.host.port]
         if self.host.protocol:
-            return socket.getservbyname(self.host.protocol)
+            return [socket.getservbyname(self.host.protocol)]
         return self.tcp_ports
 
     def check_ports(self):
@@ -431,7 +432,7 @@ class ActivePlugin(Plugin):
                     self.error(msg, sublevel=1)
 
                 self.info('Data are collected')
-            self.debug('Collected Data = \n%s' % pp.pformat(self.data))
+            self.debug('Collected Data = \n%s' % pp.pformat(self.data).replace('\\n','\n'))
             collected_keys = self.data.keys()
 
             if self.options.save_collected:
@@ -440,17 +441,17 @@ class ActivePlugin(Plugin):
 
             if self.options.collect_and_print or self.options.parse_and_print:
                 print 'Collected Data ='
-                pp.pprint(self.data)
+                print pp.pformat(self.data).replace('\\n','\n')
                 if not self.options.parse_and_print:
                     exit(0)
 
             self.parse_data(self.data)
             self.info('Data are parsed')
-            self.debug('Parsed Data = \n%s' % pp.pformat(self.data.exclude_keys(collected_keys)))
+            self.debug('Parsed Data = \n%s' % pp.pformat(self.data.exclude_keys(collected_keys)).replace('\\n','\n'))
 
             if self.options.parse_and_print:
                 print 'Parsed Data ='
-                pp.pprint(self.data.exclude_keys(collected_keys))
+                print pp.pformat(self.data.exclude_keys(collected_keys)).replace('\\n','\n')
                 exit(0)
 
             self.build_response(self.data)
