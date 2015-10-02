@@ -39,6 +39,7 @@ class PluginResponse(object):
         self.synopsis = None
         self.level_msgs = { OK:[], WARNING:[], CRITICAL:[], UNKNOWN:[] }
         self.begin_msgs = []
+        self.more_msgs = []
         self.end_msgs = []
         self.perf_items = []
 
@@ -56,50 +57,74 @@ class PluginResponse(object):
             raise Exception('A response sublevel must be an integer')
         self.sublevel = sublevel
 
-    def add_begin(self,msg):
-        if not isinstance(msg,basestring):
+    def _reformat_msg(self,msg,*args,**kwargs):
+        if isinstance(msg,(list,tuple)):
+            msg = '\n'.join(msg)
+        elif not isinstance(msg,basestring):
             msg = str(msg)
-        self.begin_msgs.append(msg)
+        if args:
+            msg = msg % args
+        if kwargs:
+            msg = msg.format(**kwargs)
+        return msg
 
-    def add(self,level,msg):
-        if not isinstance(msg,basestring):
-            msg = str(msg)
+    def add_begin(self,msg,*args,**kwargs):
+        self.begin_msgs.append(self._reformat_msg(msg,*args,**kwargs))
+
+    def add(self,level,msg,*args,**kwargs):
         if isinstance(level,ResponseLevel):
-            self.level_msgs[level].append(msg)
+            self.level_msgs[level].append(self._reformat_msg(msg,*args,**kwargs))
             self.set_level(level)
         else:
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
-    def add_list(self,level,msg_list):
+    def add_list(self,level,msg_list,*args,**kwargs):
         for msg in msg_list:
             if msg:
-                self.add(level, msg)
+                self.add(level, msg,*args,**kwargs)
 
-    def add_if(self,test,level,msg):
-        if not isinstance(msg,basestring):
-            msg = str(msg)
+    def add_if(self, test, level, msg=None, *args,**kwargs):
+        if msg is None:
+            msg = test
         if isinstance(level,ResponseLevel):
             if test:
-                self.add(level,msg)
+                self.add(level,msg,*args,**kwargs)
                 self.set_level(level)
         else:
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
-    def add_elif(self,*add_ifs):
+    def add_elif(self,*add_ifs,**kwargs):
         for test,level,msg in add_ifs:
-            if not isinstance(msg,basestring):
-                msg = str(msg)
+            if msg is None:
+                msg = test
             if isinstance(level,ResponseLevel):
                 if test:
-                    self.add(level,msg)
+                    self.add(level,msg,**kwargs)
                     self.set_level(level)
                     break
             else:
                 raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
-    def add_end(self,msg):
-        if not isinstance(msg,basestring):
+    def add_more(self,msg,*args,**kwargs):
+        if isinstance(msg,(list,tuple)):
+            msg = '\n'.join(msg)
+        elif not isinstance(msg,basestring):
             msg = str(msg)
+        if args:
+            msg = msg % args
+        if kwargs:
+            msg = msg.format(**kwargs)
+        self.more_msgs.append(msg)
+
+    def add_end(self,msg,*args,**kwargs):
+        if isinstance(msg,(list,tuple)):
+            msg = '\n'.join(msg)
+        elif not isinstance(msg,basestring):
+            msg = str(msg)
+        if args:
+            msg = msg % args
+        if kwargs:
+            msg = msg.format(**kwargs)
         self.end_msgs.append(msg)
 
 
@@ -108,9 +133,13 @@ class PluginResponse(object):
             data = str(data)
         self.perf_items.append(data)
 
-    def set_synopsis(self,msg):
+    def set_synopsis(self,msg,*args,**kwargs):
         if not isinstance(msg,basestring):
             msg = str(msg)
+        if args:
+            msg = msg % args
+        if kwargs:
+            msg = msg.format(**kwargs)
         self.synopsis = msg
 
     def get_default_synopsis(self):
@@ -160,6 +189,9 @@ class PluginResponse(object):
 
         body = '\n'.join(self.begin_msgs)
         body += self.level_msgs_render()
+        if self.more_msgs:
+            body += self.section_format('Additionnal informations') + '\n'
+            body += '\n'.join(self.more_msgs)
         body += '\n'.join(self.end_msgs)
 
         out += self.escape_msg(body)

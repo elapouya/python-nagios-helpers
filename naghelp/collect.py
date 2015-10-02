@@ -11,6 +11,7 @@ import signal
 from addicted import NoAttr
 import textops
 import naghelp
+import time
 
 __all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
 
@@ -261,10 +262,6 @@ class Telnet(object):
             naghelp.logger.debug('Prompt found : is_connected = True')
             self.is_connected = True
 
-    def _expect_pattern_rewrite(self,pat):
-        pat = re.sub(r'^\^',r'[\r\n]',pat)
-        return pat
-
     def __enter__(self):
         self.in_with = True
         return self
@@ -288,7 +285,8 @@ class Telnet(object):
         # use re.compile to be compatible with python 2.6 (flags in re.sub only for python 2.7+)
         rmcmd = re.compile(r'^.*?%s\n*' % cmd, re.DOTALL)
         out = rmcmd.sub('', out)
-        out = out.splitlines()[1:-1]
+        # remove cmd and prompt (first and last line)
+        out = out.splitlines()[:-1]
         return '\n'.join(out)
 
     def run(self, cmd, timeout=30, auto_close=True, **kwargs):
@@ -323,17 +321,23 @@ class Telnet(object):
         return dct
 
 class Ssh(object):
-    def __init__(self,host, user, password=None, timeout=30, auto_accept_new_host=True, *args,**kwargs):
+    def __init__(self,host, user, password=None, timeout=30, auto_accept_new_host=True, prompt_pattern=None, *args,**kwargs):
         #import is done only on demand, because it takes some little time
         import paramiko
         self.in_with = False
         self.is_connected = False
+        self.prompt_pattern = prompt_pattern
         self.client = paramiko.SSHClient()
         if auto_accept_new_host:
             self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.client.load_system_host_keys()
         naghelp.logger.debug('#### Ssh( %s@%s ) ###############',user, host)
         self.client.connect(host,username=user,password=password, timeout=timeout, **kwargs)
+        if self.prompt_pattern:
+            self.prompt_pattern = re.compile(re.sub(r'^\^',r'[\r\n]',prompt_pattern))
+            self.chan = self.client.invoke_shell(width=160,height=48)
+            self.chan.settimeout(timeout)
+            self._read_to_prompt()
         naghelp.logger.debug('is_connected = True')
         self.is_connected = True
 
@@ -351,14 +355,35 @@ class Ssh(object):
             self.is_connected = False
             naghelp.logger.debug('#### Ssh : Connection closed ###############')
 
+    def _read_to_prompt(self):
+        buff = ''
+        while not self.prompt_pattern.search(buff):
+            buff += self.chan.recv(8192)
+        return buff
+
+    def _run_cmd(self,cmd,timeout):
+        naghelp.logger.debug('  ==> %s',cmd)
+        if self.prompt_pattern is None:
+            stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout)
+            out = stdout.read()
+            return out
+        else:
+            self.chan.send('%s\n' % cmd)
+            out = self._read_to_prompt()
+            out = out.replace('\r','')
+            # use re.compile to be compatible with python 2.6 (flags in re.sub only for python 2.7+)
+            rmcmd = re.compile(r'^.*?%s\n*' % cmd, re.DOTALL)
+            out = rmcmd.sub('', out)
+            # remove cmd and prompt (first and last line)
+            out = out.splitlines()[:-1]
+            return '\n'.join(out)
+
     def run(self, cmd, timeout=30, auto_close=True, **kwargs):
         if not self.is_connected:
             raise NotConnected('No ssh connection to run your command.')
         out = None
         try:
-            naghelp.logger.debug('  ==> %s',cmd)
-            stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout)
-            out = stdout.read()
+            out = self._run_cmd(cmd,timeout=timeout)
         except socket.timeout:
             pass
         if auto_close:
@@ -373,15 +398,12 @@ class Ssh(object):
             cmds = cmds.items()
         for k,cmd in cmds:
             try:
-                naghelp.logger.debug('  ==> %s',cmd)
-                stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout)
+                out = self._run_cmd(cmd,timeout=timeout)
                 if k:
-                    dct[k] = stdout.read()
-                    dct['%s_err' % k] = stderr.read()
+                    dct[k] = out
             except socket.timeout:
                 if k:
                     dct[k] = None
-                    dct['%s_err' % k] = None
         if auto_close:
             self.close()
         return dct

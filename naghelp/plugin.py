@@ -316,7 +316,7 @@ class ActivePlugin(Plugin):
             UNKNOWN.exit()
 
     def fast_response(self,level, synopsis, msg='', sublevel = 1):
-        self.host.save_persistent_data()
+        self.host.save_data()
         self.response.level = level
         self.response.sublevel = sublevel
         self.response.set_synopsis(synopsis)
@@ -455,7 +455,7 @@ class ActivePlugin(Plugin):
                 exit(0)
 
             self.build_response(self.data)
-            self.host.save_persistent_data()
+            self.host.save_data()
             self.response.add_end(self.get_plugin_informations())
             self.response.send()
         except Exception,e:

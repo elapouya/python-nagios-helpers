@@ -108,5 +108,5 @@ class Host(object):
     def _get_persistent_filename(self):
         return self.persistent_filename_pattern % self.name
 
-    def save_persistent_data(self):
+    def save_data(self):
         self._plugin.save_data(self._get_persistent_filename(), self._params)
