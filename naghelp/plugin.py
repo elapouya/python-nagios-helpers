@@ -340,9 +340,6 @@ class ActivePlugin(Plugin):
         naghelp.logger.warning(msg,*args,**kwargs)
         self.response.add(msg % args,WARNING)
 
-    def get_collected_data_filename(self):
-        hostname = self.host.name or 'unknown_host'
-
     def save_collected_data(self):
         self.save_data(self.collected_data_filename_pattern % self.host.name, self.data)
 
