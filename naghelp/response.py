@@ -83,6 +83,10 @@ class PluginResponse(object):
             if msg:
                 self.add(level, msg,*args,**kwargs)
 
+    def add_many(self,lst,*args,**kwargs):
+        for level,msg in lst:
+            self.add(level, msg,*args,**kwargs)
+
     def add_if(self, test, level, msg=None, *args,**kwargs):
         if msg is None:
             msg = test
