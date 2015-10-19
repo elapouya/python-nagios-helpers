@@ -58,17 +58,17 @@ def search_invalid_port(ip,ports):
             return port
     return None
 
-def runsh(cmd,timeout = 30):
+def runsh(cmd, context = {}, timeout = 30):
     with Timeout(seconds=timeout, error_message='Timeout (%ss) for command : %s' % (timeout,cmd)):
-        return textops.run(cmd).l
+        return textops.run(cmd, context).l
 
-def mrunsh(cmds,cmd_timeout = 30, total_timeout = 60):
+def mrunsh(cmds, context = {},cmd_timeout = 30, total_timeout = 60):
     with Timeout(seconds=total_timeout, error_message='Timeout (%ss) for mrunsh commands : %s' % (total_timeout,cmds)):
         dct = textops.DictExt()
         if isinstance(cmds,dict):
             cmds = cmds.items()
         for k,cmd in cmds:
-            dct[k] = runsh(cmd,cmd_timeout)
+            dct[k] = runsh(cmd, context, cmd_timeout)
         return dct
 
 def debug_pattern_list(pat_list):

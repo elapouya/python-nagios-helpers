@@ -11,12 +11,11 @@ import dateutil.parser
 
 __all__ = ['Host']
 
-class Host(object):
+class Host(dict):
     persistent_filename_pattern = '/tmp/naghelp/%s_persistent_data.json'
 
     def __init__(self, plugin):
         self._plugin = plugin
-        self._params = {}
 
         self._params_from_env = self._get_params_from_env()
         self._params_from_cmd_options = self._get_params_from_cmd_options()
@@ -31,11 +30,11 @@ class Host(object):
         self._merge(self._params_from_env)
         self._merge(self._params_from_cmd_options)
 
-    def get_fields(self):
-        return self._params
+    def to_str(self, str):
+        return str.format(**self)
 
-    def to_str(self, format_string):
-        return format_string.format(**self._params)
+    def to_list(self, lst):
+        return [ l.format(**self) for l in lst ]
 
     def debug(self):
         import pprint
@@ -48,19 +47,19 @@ class Host(object):
         self._plugin.debug('\n' + '-'*60 + '\n%r\n' + '-'*60, self)
 
     def __getattr__(self, name):
-        return self._params.get(name,NoAttr)
+        return self.get(name,NoAttr)
 
     def __setattr__(self, name, value):
         if name[0] != '_':
-            self._params[name] = value
+            self[name] = value
         else:
             super(Host,self).__setattr__(name, value)
 
     def get(self, name, default=NoAttr):
-        return self._params.get(name,default)
+        return super(Host,self).get(name,default)
 
     def get_datetime(self, name, default):
-        val = self._params.get(name)
+        val = self.get(name)
         if not val:
             return default
         if isinstance(val,basestring):
@@ -68,16 +67,16 @@ class Host(object):
         return val
 
     def set(self, name, value):
-        self._params[name] = value
+        self[name] = value
 
     def delete(self, name):
-        if name in self._params:
-            del self._params[name]
+        if name in self:
+            del self[name]
             return True
         return False
 
     def _merge(self,dct):
-        self._params.update([ (k,v) for k,v in dct.items() if v not in [None,NoAttr] ])
+        self.update([ (k,v) for k,v in dct.items() if v not in [None,NoAttr] ])
 
     def _get_env_to_param(self):
         return {
@@ -103,10 +102,10 @@ class Host(object):
         return dict([(k[6:],v) for k,v in vars(self._plugin.options).items() if k.startswith('host__')])
 
     def __repr__(self):
-        return '\n'.join([ '%-12s : %s' % (k,v) for k,v in sorted(self._params.items()) ])
+        return '\n'.join([ '%-12s : %s' % (k,v) for k,v in sorted(self.items()) ])
 
     def _get_persistent_filename(self):
         return self.persistent_filename_pattern % self.name
 
     def save_data(self):
-        self._plugin.save_data(self._get_persistent_filename(), self._params)
+        self._plugin.save_data(self._get_persistent_filename(), self)
