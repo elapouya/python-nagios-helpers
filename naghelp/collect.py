@@ -509,7 +509,7 @@ class Snmp(object):
             if errorStatus:
                 raise SnmpError('%s at %s' % (
                     errorStatus.prettyPrint(),
-                    errorIndex and varBinds[int(errorIndex)-1] or '?'
+                    errorIndex and varBindTable[-1][int(errorIndex)-1] or '?'
                     ) )
         for varBindTableRow in varBindTable:
             for name, val in varBindTableRow:
