@@ -1,3 +1,3 @@
-0.0.5 (2015-08-27)
+0.0.7 (2015-11-19)
 ------------------
-Still developping...
+First working version

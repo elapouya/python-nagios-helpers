@@ -27,4 +27,4 @@ def activate_debug():
     logger.addHandler(ch)
     logger.setLevel(logging.DEBUG)
 
-__version__ = '0.0.6'
+__version__ = '0.0.7'

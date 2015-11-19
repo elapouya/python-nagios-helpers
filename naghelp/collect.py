@@ -488,10 +488,11 @@ class Snmp(object):
             raise SnmpError(errorIndication)
         else:
             if errorStatus:
-                raise SnmpError('%s at %s' % (
-                    errorStatus.prettyPrint(),
-                    errorIndex and varBinds[int(errorIndex)-1] or '?'
-                    ) )
+                try:
+                    err_at = errorIndex and varBinds[int(errorIndex)-1] or '?'
+                except:
+                    err_at = '?'
+                raise SnmpError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
         return self.to_native_type(varBinds[0][1])
 
     def get_mibvar(self,*arg,**kwargs):
@@ -507,10 +508,11 @@ class Snmp(object):
             raise SnmpError(errorIndication)
         else:
             if errorStatus:
-                raise SnmpError('%s at %s' % (
-                    errorStatus.prettyPrint(),
-                    errorIndex and varBindTable[-1][int(errorIndex)-1] or '?'
-                    ) )
+                try:
+                    err_at = errorIndex and varBindTable[-1][int(errorIndex)-1] or '?'
+                except:
+                    err_at = '?'
+                raise SnmpError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
         for varBindTableRow in varBindTable:
             for name, val in varBindTableRow:
                 lst.append((str(name),self.to_native_type(val)))
@@ -557,10 +559,11 @@ class Snmp(object):
             raise SnmpError(errorIndication)
         else:
             if errorStatus:
-                raise SnmpError('%s at %s' % (
-                    errorStatus.prettyPrint(),
-                    errorIndex and varBinds[int(errorIndex)-1] or '?'
-                    ) )
+                try:
+                    err_at = errorIndex and varBinds[int(errorIndex)-1] or '?'
+                except:
+                    err_at = '?'
+                raise SnmpError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
         for oid,val in varBinds:
             var = oid_to_var[str(oid)]
             val = self.to_native_type(val) if not (val is self.noSuchInstance) else NoAttr
