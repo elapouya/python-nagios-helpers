@@ -4,6 +4,15 @@
 # Copyright (C) 2015 Eric Lapouyade
 #
 
+__version__ = '0.0.8'
+__author__ = 'Eric Lapouyade'
+__copyright__ = 'Copyright 2015, python-nagios-helpers project'
+__credits__ = ['Eric Lapouyade']
+__license__ = 'LGPL'
+__maintainer__ = 'Eric Lapouyade'
+__status__ = 'Beta'
+
+
 from plugin import *
 from host import *
 from response import *
@@ -26,5 +35,3 @@ def activate_debug():
     ch.setLevel(logging.DEBUG)
     logger.addHandler(ch)
     logger.setLevel(logging.DEBUG)
-
-__version__ = '0.0.7'
