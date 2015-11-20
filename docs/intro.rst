@@ -38,7 +38,7 @@ Here is an exemple of a python plugin, create a file linux_fsfull.py::
        def build_response(self,data):
            self.response.add_if(data.fsfull,CRITICAL,'%s : 100% Full !' % ', '.join(data.fsfull))
      
-    FsFull().run()
+    LinuxFsFull().run()
     
 To excute manually::
 
