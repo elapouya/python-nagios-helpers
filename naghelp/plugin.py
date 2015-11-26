@@ -254,7 +254,7 @@ class ActivePlugin(Plugin):
     plugin_type = 'active'
     host_class = Host
     response_class = PluginResponse
-    usage = 'usage: \n%prog <plugin name or module.plugin_class> [options]'
+    usage = 'usage: \n%prog [options]'
     options = NoAttrDict()
     host = NoAttrDict()
     cmd_params = ''
@@ -304,13 +304,8 @@ class ActivePlugin(Plugin):
         self._cmd_parser.add_option('-b', action='store_true', dest='parse_and_print',
                                    default=False, help='Collect and parse data only and print them')
 
-    def handle_plugin_name(self):
-        if not self.args:
-            self._cmd_parser.error('*** You must specify the plugin name ***')
-
     def handle_cmd_options(self):
         super(ActivePlugin,self).handle_cmd_options()
-        self.handle_plugin_name()
         if self.options.show_description:
             print self.get_plugin_desc()
             UNKNOWN.exit()
@@ -380,7 +375,7 @@ class ActivePlugin(Plugin):
     def get_plugin_informations(self):
         out = '\n' + self.response.section_format('Plugin Informations') + '\n'
         out += 'Plugin name : %s.%s\n' % (self.__class__.__module__,self.__class__.__name__)
-        out += 'Description : %s\n' % ( self.__class__.__doc__ or '' ).splitlines()[0].strip()
+        out += 'Description : %s\n' % ( self.__class__.__doc__ or 'no description.' ).splitlines()[0].strip()
         out += 'Ports used : tcp = %s, udp = %s\n' % (self.get_tcp_ports() or 'none',self.get_udp_ports() or 'none')
         delta = datetime.datetime.now() - self.starttime
         out += 'Execution time : %s\n' % delta
