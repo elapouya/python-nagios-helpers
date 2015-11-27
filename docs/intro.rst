@@ -19,7 +19,8 @@ To install::
 Quickstart
 ----------
 
-Note: In this document, *naghelp* will refer to *python-nagios-helpers*
+It is higly recommended to use `python-textops <http://python-textops.readthedocs.org>`_ 
+to manipulate collected data. 
 
 Here is an exemple of a python plugin, create a file linux_fsfull.py::
 
@@ -45,7 +46,8 @@ Here is an exemple of a python plugin, create a file linux_fsfull.py::
            self.response.add_list(WARNING,data.fs_warning)
            self.response.add_list(OK,data.fs_ok)
 
-   LinuxFsFull().run()
+   if __name__ == '__main__':
+      LinuxFsFull().run()
 
 To excute manually::
 

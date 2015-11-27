@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-'''
-Création : July 7th, 2015
-
-@author: Eric Lapouyade
-'''
+#
+# Création : July 7th, 2015
+#
+# @author: Eric Lapouyade
+#
+""" This module provides many funcions and classes to collect data remotely and locally"""
 
 import re
 import socket
@@ -13,7 +14,8 @@ import textops
 import naghelp
 import time
 
-__all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 'Timeout', 'TimeoutError']
+__all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'SnmpError', 
+           'Timeout', 'TimeoutError', 'CollectError', 'ConnectionError', 'NotConnected']
 
 class NotConnected(Exception):
     pass
@@ -75,6 +77,23 @@ def debug_pattern_list(pat_list):
     return [ (pat if isinstance(pat,basestring) else pat.pattern) for pat in pat_list ]
 
 class Expect(object):
+    """ Simulate human action on console
+    
+    :class:`Expect` is a class that "talks" to other interactive programs. 
+    It is based on `pexpect <https://pexpect.readthedocs.org>`_ and is
+    focused on running one or many commands. :class:`Expect` is to be used when :class:`Telnet` and 
+    :class:`Ssh` are not applicable.
+    
+    Args:
+    
+        spawn (str): The command to start and to communicate with
+        login_steps(list or tuple): steps to execute to reach a prompt
+        prompt (str): A pattern that matches the prompt
+        logout_steps(list or tuple): steps to execute before closing communication
+        context (dict): Dictionary that will be used in steps to .format() strings
+        timeout (int): Maximum execution time (Default : 30)
+        
+    """    
     KILL = 1
     BREAK = 2
     RESPONSE = 3
@@ -198,6 +217,7 @@ class Expect(object):
         return out
 
     def run(self, cmd, timeout=30, auto_close=True, **kwargs):
+        """ Execute one command """
         if not self.is_connected:
             raise NotConnected('No expect connection to run your command.')
         out = None
@@ -211,6 +231,7 @@ class Expect(object):
         return out
 
     def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
+        """ Execute many commands at the same time """
         if not self.is_connected:
             raise NotConnected('No expect connection to run your command.')
         dct = textops.DictExt()
@@ -229,6 +250,7 @@ class Expect(object):
         return dct
 
 class Telnet(object):
+    """ Telnet class helper """
     def __init__(self,host, user, password=None, timeout=30, port=0, login_pattern_list=None, passwd_pattern_list=None, prompt_pattern=None,*args,**kwargs):
         #import is done only on demand, because it takes some little time
         import telnetlib
@@ -321,6 +343,7 @@ class Telnet(object):
         return dct
 
 class Ssh(object):
+    """ Ssh class helper """
     def __init__(self,host, user, password=None, timeout=30, auto_accept_new_host=True, prompt_pattern=None, *args,**kwargs):
         #import is done only on demand, because it takes some little time
         import paramiko
