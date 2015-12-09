@@ -322,7 +322,7 @@ class Expect(object):
         Args:
 
             cmd (str): The command to be executed by the spawned command
-            timeout (int): A timeout after which the result will be None
+            timeout (int): A timeout in seconds after which the result will be None
             auto_close (bool): Automatically close the interaction.
 
         Return:
@@ -349,6 +349,11 @@ class Expect(object):
                     big_files_full_path = e.run('find %s -type f -size +10000' % cur_dir)
                 print big_files_full_path
 
+            .. note::
+
+                These exemples emulate :class:`naghelp.Ssh` class. :class:`naghelp.Expect` is better for non-standard
+                commands that requires human interations.
+
 
         """
         if not self.is_connected:
@@ -374,7 +379,7 @@ class Expect(object):
         Args:
 
             cmds (dict or list of items): The commands to be executed by the spawned command
-            timeout (int): A timeout after which the result will be None
+            timeout (int): A timeout in seconds after which the result will be None
             auto_close (bool): Automatically close the interaction.
 
         Return:
@@ -397,6 +402,11 @@ class Expect(object):
                     'cur_dir' : '/home/www',
                     'big_files' : 'bigfile1\nbigfile2\nbigfile3\n...'
                 }
+
+            .. note::
+
+                This exemple emulate :class:`naghelp.Ssh` class. :class:`naghelp.Expect` is better
+                for non-standard commands that requires human interations.
         """
         if not self.is_connected:
             raise NotConnected('No expect connection to run your command.')
@@ -506,12 +516,12 @@ class Telnet(object):
 
         Runs a single command at the usual prompt and then close the connection. Timeout
         will not raise any error but will return None.
-        If you want to execute many commands without closing the interation, use ``with`` syntax.
+        If you want to execute many commands without closing the connection, use ``with`` syntax.
 
         Args:
 
             cmd (str): The command to be executed
-            timeout (int): A timeout after which the result will be None
+            timeout (int): A timeout in seconds after which the result will be None
             auto_close (bool): Automatically close the connection.
 
         Return:
@@ -530,14 +540,12 @@ class Telnet(object):
                 tn = Telnet('localhost','www','wwwpassword',password_pattern=r'(?i)Mot de passe\s*:')
                 print tn.run('ls -la')
 
-            Telnet with multiple commands::
+            Telnet with multiple commands (use ``with`` to keep connection opened). This is
+            usefull when one command depend on another one::
 
-                with Expect('ssh www@localhost',
-                            login_steps=('(?i)Password[^:]*: ','wwwpw\n'),
-                            prompt=r'www@[^\$]*\$ ',
-                            logout_cmd='exit') as e:
-                    cur_dir = e.run('pwd').strip()
-                    big_files_full_path = e.run('find %s -type f -size +10000' % cur_dir)
+                with Telnet('localhost','www','wwwpassword') as tn:
+                    cur_dir = tn.run('pwd').strip()
+                    big_files_full_path = tn.run('find %s -type f -size +10000' % cur_dir)
                 print big_files_full_path
 
 
@@ -555,6 +563,37 @@ class Telnet(object):
         return out
 
     def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
+        r""" Execute many commands at the same time
+
+        Runs a dictionary of commands at the specified prompt and then close the connection.
+        Timeout will not raise any error but will return None for the running command.
+        It returns a dictionary where keys are the same as the ``cmds`` dict and the values are
+        the commmands output.
+
+        Args:
+
+            cmds (dict or list of items): The commands to be executed by remote host
+            timeout (int): A timeout in seconds after which the result will be None
+            auto_close (bool): Automatically close the connection.
+
+        Return:
+
+            dict : The commands output
+
+        Example:
+
+            Telnet with multiple commands::
+
+                tn = Telnet('localhost','www','wwwpassword')
+                print tn.mrun({'cur_dir':'pwd','big_files':'find . -type f -size +10000'})
+
+            Will return something like::
+
+                {
+                    'cur_dir' : '/home/www',
+                    'big_files' : 'bigfile1\nbigfile2\nbigfile3\n...'
+                }
+        """
         if not self.is_connected:
             raise NotConnected('No telnet connection to run your command.')
         dct = textops.DictExt()
@@ -573,7 +612,37 @@ class Telnet(object):
         return dct
 
 class Ssh(object):
-    """ Ssh class helper """
+    r""" Ssh class helper
+
+    This class create a ssh connection in order to run one or many commands.
+
+    Args:
+
+        host (str): IP address or hostname to connect to
+        user (str): The username to use for login
+        password (str): The password
+        timeout (int): Time in seconds before raising an error or a None value
+        prompt_pattern (str): None by Default. If defined, the way to run commands is to capture
+            the command output up to the prompt pattern. If not defined, it uses paramiko exec_command()
+            method (preferred way).
+        port (int): port number to use (Default : 0 = 22)
+        pkey (PKey): an optional private key to use for authentication
+        key_filename (str):
+            the filename, or list of filenames, of optional private key(s) to
+            try for authentication
+        allow_agent (bool): set to False to disable connecting to the SSH agent
+        look_for_keys (bool): set to False to disable searching for discoverable private key
+            files in ``~/.ssh/``
+        compress (bool): set to True to turn on compression
+        sock (socket): an open socket or socket-like object (such as a `.Channel`) to use
+            for communication to the target host
+        gss_auth (bool): ``True`` if you want to use GSS-API authentication
+        gss_kex (bool):  Perform GSS-API Key Exchange and user authentication
+        gss_deleg_creds (bool): Delegate GSS-API client credentials or not
+        gss_host (str): The targets name in the kerberos database. default: hostname
+        banner_timeout (float): an optional timeout (in seconds) to wait
+            for the SSH banner to be presented.
+    """
     def __init__(self,host, user, password=None, timeout=30, auto_accept_new_host=True, prompt_pattern=None, *args,**kwargs):
         #import is done only on demand, because it takes some little time
         import paramiko
@@ -632,6 +701,37 @@ class Ssh(object):
             return '\n'.join(out)
 
     def run(self, cmd, timeout=30, auto_close=True, **kwargs):
+        r""" Execute one command
+
+        Runs a single command at the usual prompt and then close the connection. Timeout
+        will not raise any error but will return None.
+        If you want to execute many commands without closing the connection, use ``with`` syntax.
+
+        Args:
+
+            cmd (str): The command to be executed
+            timeout (int): A timeout in seconds after which the result will be None
+            auto_close (bool): Automatically close the connection.
+
+        Return:
+
+            str : The command output or None on timeout
+
+        Examples:
+
+            SSH with default login/password/prompt::
+
+                ssh = Ssh('localhost','www','wwwpassword')
+                print ssh.run('ls -la')
+
+            SSH with multiple commands (use ``with`` to keep connection opened). This is
+            usefull when one command depend on another one::
+
+                with Ssh('localhost','www','wwwpassword') as ssh:
+                    cur_dir = ssh.run('pwd').strip()
+                    big_files_full_path = ssh.run('find %s -type f -size +10000' % cur_dir)
+                print big_files_full_path
+        """
         if not self.is_connected:
             raise NotConnected('No ssh connection to run your command.')
         out = None
@@ -644,6 +744,37 @@ class Ssh(object):
         return out
 
     def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
+        r""" Execute many commands at the same time
+
+        Runs a dictionary of commands at the specified prompt and then close the connection.
+        Timeout will not raise any error but will return None for the running command.
+        It returns a dictionary where keys are the same as the ``cmds`` dict and the values are
+        the commmands output.
+
+        Args:
+
+            cmds (dict or list of items): The commands to be executed by remote host
+            timeout (int): A timeout in seconds after which the result will be None
+            auto_close (bool): Automatically close the connection.
+
+        Return:
+
+            dict : The commands output
+
+        Example:
+
+            SSH with multiple commands::
+
+                ssh = Ssh('localhost','www','wwwpassword')
+                print ssh.mrun({'cur_dir':'pwd','big_files':'find . -type f -size +10000'})
+
+            Will return something like::
+
+                {
+                    'cur_dir' : '/home/www',
+                    'big_files' : 'bigfile1\nbigfile2\nbigfile3\n...'
+                }
+        """
         if not self.is_connected:
             raise NotConnected('No ssh connection to run your command.')
         dct = textops.DictExt()
