@@ -53,6 +53,7 @@ setup(name='python-nagios-helpers',
                           'paramiko',
                           'pexpect',
                           'python-textops',
+                          'pysnmp',
                           ],
       eager_resources = ['docs'],
       zip_safe=False)

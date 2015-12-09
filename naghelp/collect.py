@@ -30,7 +30,7 @@ class TimeoutError(Exception):
     pass
 
 class Timeout:
-    """ usage exemple :
+    """ usage example :
 
     with timeout(seconds=3):
         time.sleep(4)
@@ -351,7 +351,7 @@ class Expect(object):
 
             .. note::
 
-                These exemples emulate :class:`naghelp.Ssh` class. :class:`naghelp.Expect` is better for non-standard
+                These examples emulate :class:`naghelp.Ssh` class. :class:`naghelp.Expect` is better for non-standard
                 commands that requires human interations.
 
 
@@ -405,7 +405,7 @@ class Expect(object):
 
             .. note::
 
-                This exemple emulate :class:`naghelp.Ssh` class. :class:`naghelp.Expect` is better
+                This example emulate :class:`naghelp.Ssh` class. :class:`naghelp.Expect` is better
                 for non-standard commands that requires human interations.
         """
         if not self.is_connected:
@@ -796,6 +796,25 @@ class SnmpError(Exception):
     pass
 
 class Snmp(object):
+    r""" Snmp class helper
+
+    This class helps to collect OIDs from a remote snmpd server. One can issue some snmpget and/or
+    snmpwalk. Protocols 1, 2c and 3 are managed. It uses pysnmp library.
+
+    Args:
+
+        host (str): IP address or hostname to connect to
+        community (str): community to use (For protocol 1 and 2c)
+        version (int): protocol to use : None, 1,2,'2c' or 3 (Default: None). If None, it will use
+            protocol 3 if a user is specified, 2c otherwise.
+        timeout (int): Time in seconds before raising an error or a None value
+        port (int): port number to use (Default : 161 UDP)
+        user (str): protocol V3 authentication user
+        auth_passwd (str): snmp v3 authentication password
+        auth_protocol (str): snmp v3 auth protocol ('md5' or 'sha')
+        priv_passwd (str): snmp v3 privacy password
+        priv_protocol (str): snmp v3 privacy protocol ('des' or 'aes')
+    """
     def __init__(self,host, community='public', version=None, timeout=30, port=161, user=None,
                  auth_passwd=None, auth_protocol='', priv_passwd=None, priv_protocol='', *args,**kwargs):
         #import is done only on demand, because it takes some little time
@@ -861,10 +880,65 @@ class Snmp(object):
             val = oval
         return val
 
-    def mibvar(self,*arg,**kwargs):
-        return self.cmdgen.MibVariable(*arg,**kwargs)
+    def normalize_oid(self,oid):
+        """ Normalize OID object in order to be used with pysnmp methods
+
+        Basically, it converts OID with a tuple form into a ObjectIdentity form,
+        keeping other forms unchanged.
+
+        Args:
+
+            oid (str,tuple or ObjectIdentity): The OID to normalize
+
+        Returns:
+
+            str or ObjectIdentity: OID form that is ready to be used with pysnmp
+
+        Examples:
+
+            >>> s=Snmp('demo.snmplabs.com')
+            >>> s.normalize_oid(('SNMPv2-MIB', 'sysDescr2', 0))
+            ObjectIdentity('SNMPv2-MIB', 'sysDescr2', 0)
+            >>> s.normalize_oid('1.3.6.1.2.1.1.1.0')
+            '1.3.6.1.2.1.1.1.0'
+
+        """
+        if isinstance(oid,tuple):
+            return self.cmdgen.MibVariable(*oid)
+        return oid
 
     def get(self,oid_or_mibvar):
+        """get one OID
+
+        Args:
+
+            oid_or_mibvar (str or ObjectIdentity): an OID path or a pysnmp ObjectIdentity
+
+        Returns:
+
+            str or int: OID value. The python type depends on OID MIB type.
+
+        Examples:
+
+            To collect a numerical OID::
+
+                >>> snmp = Snmp('demo.snmplabs.com')
+                >>> snmp.get('1.3.6.1.2.1.1.1.0')
+                'SunOS zeus.snmplabs.com 4.1.3_U1 1 sun4m'
+
+            To collect an OID with label form::
+
+                >>> snmp = Snmp('demo.snmplabs.com')
+                >>> snmp.get('iso.org.dod.internet.mgmt.mib-2.system.sysDescr.0')
+                'SunOS zeus.snmplabs.com 4.1.3_U1 1 sun4m'
+
+            To collect an OID with MIB symbol form::
+
+                >>> snmp = Snmp('demo.snmplabs.com')
+                >>> snmp.get(('SNMPv2-MIB', 'sysDescr', 0))
+                'SunOS zeus.snmplabs.com 4.1.3_U1 1 sun4m'
+        """
+        oid_or_mibvar = self.normalize_oid(oid_or_mibvar)
         args = list(self.cmd_args)
         args.append(oid_or_mibvar)
         errorIndication, errorStatus, errorIndex, varBinds = self.cmdGenerator.getCmd(*args)
@@ -879,11 +953,28 @@ class Snmp(object):
                 raise SnmpError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
         return self.to_native_type(varBinds[0][1])
 
-    def get_mibvar(self,*arg,**kwargs):
-        oid_or_mibvar = self.mibvar(*arg,**kwargs)
-        return self.get(oid_or_mibvar)
-
     def walk(self,oid_or_mibvar):
+        """ Walk from a OID root path
+
+        Args:
+
+            oid_or_mibvar (str or ObjectIdentity): an OID path or a pysnmp ObjectIdentity
+
+        Returns:
+
+            list: List of tuples (OID,value).
+
+        Example:
+
+            >>> snmp = Snmp('demo.snmplabs.com')
+            >>> for oid,val in snmp.walk('1.3.6.1.2.1.1'):  #doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+            ...     print oid,'-->',val
+            ...
+            1.3.6.1.2.1.1.1.0 --> SunOS zeus.snmplabs.com 4.1.3_U1 1 sun4m
+            1.3.6.1.2.1.1.2.0 --> 1.3.6.1.4.1.20408 ...
+
+        """
+        oid_or_mibvar = self.normalize_oid(oid_or_mibvar)
         lst = []
         args = list(self.cmd_args)
         args.append(oid_or_mibvar)

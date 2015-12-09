@@ -16,6 +16,11 @@ Expect
    .. autoclass:: Expect
       :members:
 
+Snmp
+----
+   .. autoclass:: Snmp
+      :members:
+
 Ssh
 ---
    .. autoclass:: Ssh
