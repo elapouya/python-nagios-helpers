@@ -774,6 +774,12 @@ class Ssh(object):
                     'cur_dir' : '/home/www',
                     'big_files' : 'bigfile1\nbigfile2\nbigfile3\n...'
                 }
+                
+            To be sure to have the commands order respected, use list of items instead of a dict::
+
+                ssh = Ssh('localhost','www','wwwpassword')
+                print ssh.mrun(('cmd':'./mycommand'),('cmd_err','echo $?'))
+
         """
         if not self.is_connected:
             raise NotConnected('No ssh connection to run your command.')
@@ -994,6 +1000,24 @@ class Snmp(object):
         return lst
 
     def mwalk(self,vars_oids):
+        """ Walk from multiple OID root pathes
+
+        Args:
+
+            vars_oids (dict): keyname/OID root path dictionary
+
+        Returns:
+
+            dict: A dictionary of list of tuples (OID,value).
+
+        Example:
+
+            >>> snmp = Snmp('demo.snmplabs.com')
+            >>> print snmp.mwalk({'uname':'1.3.6.1.2.1.1.0','oid_ref':'1.3.6.1.2.1.1.2.0'})  #doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+            1.3.6.1.2.1.1.1.0 --> SunOS zeus.snmplabs.com 4.1.3_U1 1 sun4m
+            1.3.6.1.2.1.1.2.0 --> 1.3.6.1.4.1.20408 ...
+
+        """
         dct = {}
         for var,oid in vars_oids.items():
             dct[var] = self.walk(oid)
@@ -1017,6 +1041,27 @@ class Snmp(object):
         return oids
 
     def mget(self,vars_oids):
+        """ Get multiple OIDs at the same time
+        
+        This method is much more faster than doing multiple :meth:`get` because it uses the same
+        network request. In addition, one can request a range of OID.
+
+        Args:
+
+            vars_oids (dict): keyname/OID dictionary
+
+        Returns:
+
+            dict: List of tuples (OID,value).
+
+        Example:
+
+            >>> snmp = Snmp('demo.snmplabs.com')
+            >>> print snmp.mget({'uname':'1.3.6.1.2.1.1.0','other':'1.3.6.1.2.1.1.2-9.0'})  #doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+            1.3.6.1.2.1.1.1.0 --> SunOS zeus.snmplabs.com 4.1.3_U1 1 sun4m
+            1.3.6.1.2.1.1.2.0 --> 1.3.6.1.4.1.20408 ...
+
+        """
         dct = {}
         oid_to_var = {}
         args = list(self.cmd_args)
