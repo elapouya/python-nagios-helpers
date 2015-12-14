@@ -2,9 +2,7 @@ import doctest
 from naghelp import *
 import os
 
-modules = [ 'naghelp.collect',
-            'naghelp.host',
-            'naghelp.perf',
+modules = [ 'naghelp.host',
             'naghelp.plugin',
             'naghelp.response',
             ]

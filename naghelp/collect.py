@@ -774,7 +774,7 @@ class Ssh(object):
                     'cur_dir' : '/home/www',
                     'big_files' : 'bigfile1\nbigfile2\nbigfile3\n...'
                 }
-                
+
             To be sure to have the commands order respected, use list of items instead of a dict::
 
                 ssh = Ssh('localhost','www','wwwpassword')
@@ -860,7 +860,7 @@ class Snmp(object):
         else:
             raise SnmpError('Bad snmp version protocol, given : %s, possible : 1,2,2c,3' % version)
 
-        self.cmd_args.append(cmdgen.UdpTransportTarget((host, port),timeout = timeout))
+        self.cmd_args.append(cmdgen.UdpTransportTarget((host, port),timeout = timeout/3, retries=2))
 
     def to_native_type(self,oval):
         v2c = self.v2c
@@ -1042,7 +1042,7 @@ class Snmp(object):
 
     def mget(self,vars_oids):
         """ Get multiple OIDs at the same time
-        
+
         This method is much more faster than doing multiple :meth:`get` because it uses the same
         network request. In addition, one can request a range of OID.
 
