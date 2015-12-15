@@ -30,10 +30,25 @@ class TimeoutError(Exception):
     pass
 
 class Timeout:
-    """ usage example :
+    """ Set an execution timeout for a block of code
 
-    with timeout(seconds=3):
-        time.sleep(4)
+    It uses process signals, it should not work on windows platforms.
+
+    Args:
+
+        seconds (int): The time in seconds after which a TimeoutError will be raise if the block
+            has not finished its execution.
+        error_message(str): The string to pass to the TimeoutError exception.
+
+    Raises:
+
+        TimeoutError: When the block execution has not finished on-time.
+
+    Examples:
+
+        >>> with timeout(seconds=3):
+        >>>     time.sleep(4)
+
     """
     def __init__(self, seconds=1, error_message='Timeout'):
         self.seconds = seconds
@@ -972,12 +987,13 @@ class Snmp(object):
 
         Example:
 
-            >>> snmp = Snmp('demo.snmplabs.com')
+            >>> snmp = Snmp('localhost')
             >>> for oid,val in snmp.walk('1.3.6.1.2.1.1'):  #doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
             ...     print oid,'-->',val
             ...
             1.3.6.1.2.1.1.1.0 --> SunOS zeus.snmplabs.com 4.1.3_U1 1 sun4m
-            1.3.6.1.2.1.1.2.0 --> 1.3.6.1.4.1.20408 ...
+            1.3.6.1.2.1.1.2.0 --> 1.3.6.1.4.1.20408
+                 ...
 
         """
         oid_or_mibvar = self.normalize_oid(oid_or_mibvar)
@@ -1012,10 +1028,14 @@ class Snmp(object):
 
         Example:
 
-            >>> snmp = Snmp('demo.snmplabs.com')
-            >>> print snmp.mwalk({'uname':'1.3.6.1.2.1.1.0','oid_ref':'1.3.6.1.2.1.1.2.0'})  #doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
-            1.3.6.1.2.1.1.1.0 --> SunOS zeus.snmplabs.com 4.1.3_U1 1 sun4m
-            1.3.6.1.2.1.1.2.0 --> 1.3.6.1.4.1.20408 ...
+            >>> snmp = Snmp('localhost')
+            >>> print snmp.mwalk({'node1' : '1.3.6.1.2.1.1.9.1.2', 'node2' : '1.3.6.1.2.1.1.9.1.3'})
+            {'node1': [('1.3.6.1.2.1.1.9.1.2.1', ObjectIdentity(ObjectIdentifier('1.3.6.1.6.3.10.3.1.1'))),
+                       ('1.3.6.1.2.1.1.9.1.2.2', ObjectIdentity(ObjectIdentifier('1.3.6.1.6.3.11.3.1.1')))
+                       ... ],
+             'node2': [('1.3.6.1.2.1.1.9.1.3.1', 'The SNMP Management Architecture MIB.'),
+                       ('1.3.6.1.2.1.1.9.1.3.2', 'The MIB for Message Processing and Dispatching.'),
+                       ... ]}
 
         """
         dct = {}
@@ -1044,7 +1064,10 @@ class Snmp(object):
         """ Get multiple OIDs at the same time
 
         This method is much more faster than doing multiple :meth:`get` because it uses the same
-        network request. In addition, one can request a range of OID.
+        network request. In addition, one can request a range of OID. To build a range, just use a
+        dash between to integers : this OID will be expanded with all integers in between :
+        For instance, '1.3.6.1.2.1.1.2-4.1' means : [ 1.3.6.1.2.1.1.2.1,
+        1.3.6.1.2.1.1.3.1, 1.3.6.1.2.1.1.4.1 ]
 
         Args:
 
@@ -1058,8 +1081,8 @@ class Snmp(object):
 
             >>> snmp = Snmp('demo.snmplabs.com')
             >>> print snmp.mget({'uname':'1.3.6.1.2.1.1.0','other':'1.3.6.1.2.1.1.2-9.0'})  #doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
-            1.3.6.1.2.1.1.1.0 --> SunOS zeus.snmplabs.com 4.1.3_U1 1 sun4m
-            1.3.6.1.2.1.1.2.0 --> 1.3.6.1.4.1.20408 ...
+            {'uname' : 'SunOS zeus.snmplabs.com 4.1.3_U1 1 sun4m',
+             'other' : ['value for 1.3.6.1.2.1.1.2.0', 'value for 1.3.6.1.2.1.1.3.0', etc... ] }
 
         """
         dct = {}
