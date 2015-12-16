@@ -31,6 +31,21 @@ Telnet
    .. autoclass:: Telnet
       :members:
 
+Local commands
+--------------
+   .. autofunction:: runsh
+   .. autofunction:: mrunsh
+
+Others
+------
+   .. autofunction:: search_invalid_port
+
+Exceptions
+----------
+   .. autoexception:: NotConnected
+   .. autoexception:: ConnectionError
+   .. autoexception:: CollectError
+   .. autoexception:: TimeoutError
 
 * :ref:`genindex`
 * :ref:`modindex`

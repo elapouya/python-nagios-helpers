@@ -52,7 +52,8 @@ master_doc = 'index'
 project = u'python-nagios-helpers'
 copyright = u'2015, Eric Lapouyade'
 
-intersphinx_mapping = {'python': ('https://docs.python.org/2.7', None)}   
+intersphinx_mapping = {'python': ('https://docs.python.org/2.7', None),
+                       'textops':('http://python-textops.readthedocs.org/en/latest', None)}
 # pdf_documents :
 #   index - master document
 #   rst2pdf - name of the generated pdf

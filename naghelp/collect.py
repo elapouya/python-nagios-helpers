@@ -14,19 +14,39 @@ import textops
 import naghelp
 import time
 
-__all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'SnmpError',
+__all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp',
            'Timeout', 'TimeoutError', 'CollectError', 'ConnectionError', 'NotConnected']
 
 class NotConnected(Exception):
+    """ Exception raised when trying to collect data on an already close connection
+
+    After a run()/mrun() without a ``with:`` clause, the connection is automatically closed.
+    Do not do another run()/mrun() in the row otherwise you will have the exception.
+    Solution : use ``with:``
+    """
     pass
 
 class ConnectionError(Exception):
+    """ Exception raised when trying to initialize the connection
+
+    It may come from bad login/password, inappropriate parameters and so on
+    """
     pass
 
 class CollectError(Exception):
+    """ Exception raised when a collect is unsuccessful
+
+    It may come from internal error from libraries pexpect/telnetlib/pysnmp. This includes
+    some internal timeout exception.
+    """
     pass
 
 class TimeoutError(Exception):
+    """ Exception raised when a connection or a collect it too long to process
+
+    It may come from unreachable remote host, too long lasting commands, bad pattern matching on
+    Expect/Telnet/Ssh for connection or prompt search steps.
+    """
     pass
 
 class Timeout:
@@ -62,7 +82,24 @@ class Timeout:
         signal.alarm(0)
 
 def search_invalid_port(ip,ports):
-    """Returns the first invalid port encountered or None if all are reachable"""
+    """ Returns the first invalid port encountered or None if all are reachable
+
+    Args:
+
+        ip (str): ip address to test
+        ports (str or list of int): list of ports to test
+
+    Returns:
+
+        first invalid port encountered or None if all are reachable
+
+    Examples:
+
+        >>> search_invalid_port('8.8.8.8','53')
+        (None)
+        >>> search_invalid_port('8.8.8.8','53,22,80')
+        22
+    """
     if isinstance(ports, basestring):
         ports = [ int(n) for n in ports.split(',') ]
     for port in ports:
@@ -76,10 +113,86 @@ def search_invalid_port(ip,ports):
     return None
 
 def runsh(cmd, context = {}, timeout = 30):
+    r""" Run a local command with a timeout
+
+    | If the command is a string, it will be executed within a shell.
+    | If the command is a list (the command and its arguments), the command is executed without a shell.
+    | If a context dict is specified, the command is formatted with that context (:meth:`str.format`)
+
+    Args:
+
+        cmd (str or a list): The command to run
+        context (dict): The context to format the command to run
+        timeout (int): The timeout in seconds after with the forked process is killed
+            and TimeoutException is raised.
+
+    Returns:
+
+        :class:`textops.ListExt`: Command execution stdout as a list of lines.
+
+    Note:
+
+        It returns **ONLY** stdout. If you want to get stderr, you need to redirect it to stdout.
+
+    Examples:
+
+        >>> for line in runsh('ls -lad /etc/e*'):
+        ...     print line
+        ...
+        -rw-r--r-- 1 root root  392 oct.   8  2013 /etc/eclipse.ini
+        -rw-r--r-- 1 root root  350 mai   21  2012 /etc/eclipse.ini_old
+        drwxr-xr-x 2 root root 4096 avril 13  2014 /etc/elasticsearch
+        drwxr-xr-x 3 root root 4096 avril 25  2012 /etc/emacs
+        -rw-r--r-- 1 root root   79 avril 25  2012 /etc/environment
+        drwxr-xr-x 2 root root 4096 mai    1  2012 /etc/esound
+
+        >>> print runsh('ls -lad /etc/e*').grep('eclipse').tostr()
+        -rw-r--r-- 1 root root  392 oct.   8  2013 /etc/eclipse.ini
+        -rw-r--r-- 1 root root  350 mai   21  2012 /etc/eclipse.ini_old
+
+        >>> l=runsh('LANG=C ls -lad /etc/does_not_exist')
+        >>> print l
+        []
+        >>> l=runsh('LANG=C ls -lad /etc/does_not_exist 2>&1')
+        >>> print l
+        ['ls: cannot access /etc/does_not_exist: No such file or directory']
+    """
     with Timeout(seconds=timeout, error_message='Timeout (%ss) for command : %s' % (timeout,cmd)):
         return textops.run(cmd, context).l
 
 def mrunsh(cmds, context = {},cmd_timeout = 30, total_timeout = 60):
+    r""" Run multiple local commands with timeouts
+
+    It works like :func:`runsh` except that one must provide a dictionary of commands.
+    It will generate the same dictionary where values will be replaced by command execution output.
+    It is possible to specify a by-command timeout and a global timeout for the whole dictionary.
+
+    Args:
+
+        cmds (dict): dictionary where values are the commands to execute.
+
+            | If the command is a string, it will be executed within a shell.
+            | If the command is a list (the command and its arguments), the command is executed without a shell.
+            | If a context dict is specified, the command is formatted with that context (:meth:`str.format`)
+
+        context (dict): The context to format the command to run
+        cmd_timeout (int): The timeout in seconds for a single command
+        total_timeout (int): The timeout in seconds for the all commands
+
+    Returns:
+
+        :class:`textops.DictExt`: Dictionary where each value is the Command execution stdout as a list of lines.
+
+    Note:
+
+        Command execution returns **ONLY** stdout. If you want to get stderr, you need to redirect it to stdout.
+
+    Examples:
+
+        >>> mrunsh({'now':'LANG=C date','quisuisje':'whoami'})
+        {'now': ['Wed Dec 16 11:50:08 CET 2015'], 'quisuisje': ['elapouya']}
+
+    """
     with Timeout(seconds=total_timeout, error_message='Timeout (%ss) for mrunsh commands : %s' % (total_timeout,cmds)):
         dct = textops.DictExt()
         if isinstance(cmds,dict):
@@ -342,7 +455,7 @@ class Expect(object):
 
         Return:
 
-            str : The command output or None on timeout
+            :class:`textops.StrExt` : The command output or None on timeout
 
         Examples:
 
@@ -381,7 +494,7 @@ class Expect(object):
             pass
         if auto_close:
             self.close()
-        return out
+        return textops.StrExt(out)
 
     def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
         r""" Execute many commands at the same time
@@ -399,7 +512,7 @@ class Expect(object):
 
         Return:
 
-            dict : The commands output
+            :class:`textops.DictExt` : The commands output
 
         Example:
 
@@ -541,7 +654,7 @@ class Telnet(object):
 
         Return:
 
-            str : The command output or None on timeout
+            :class:`textops.StrExt` : The command output or None on timeout
 
         Examples:
 
@@ -575,7 +688,7 @@ class Telnet(object):
             pass
         if auto_close:
             self.close()
-        return out
+        return textops.StrExt(out)
 
     def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
         r""" Execute many commands at the same time
@@ -593,7 +706,7 @@ class Telnet(object):
 
         Return:
 
-            dict : The commands output
+            :class:`textops.DictExt` : The commands output
 
         Example:
 
@@ -730,7 +843,7 @@ class Ssh(object):
 
         Return:
 
-            str : The command output or None on timeout
+            :class:`textops.StrExt` : The command output or None on timeout
 
         Examples:
 
@@ -756,7 +869,7 @@ class Ssh(object):
             pass
         if auto_close:
             self.close()
-        return out
+        return textops.StrExt(out)
 
     def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
         r""" Execute many commands at the same time
@@ -774,7 +887,7 @@ class Ssh(object):
 
         Return:
 
-            dict : The commands output
+            :class:`textops.DictExt` : The commands output
 
         Example:
 
@@ -812,9 +925,6 @@ class Ssh(object):
         if auto_close:
             self.close()
         return dct
-
-class SnmpError(Exception):
-    pass
 
 class Snmp(object):
     r""" Snmp class helper
@@ -868,12 +978,12 @@ class Snmp(object):
             if not priv_passwd:
                 priv_passwd = None
             if not user:
-                raise SnmpError('user must be not empty')
+                raise ConnectionError('user must be not empty')
             self.cmd_args.append(cmdgen.UsmUserData(user, auth_passwd, priv_passwd,
                 authProtocol=authProtocol,
                 privProtocol=privProtocol ) )
         else:
-            raise SnmpError('Bad snmp version protocol, given : %s, possible : 1,2,2c,3' % version)
+            raise ConnectionError('Bad snmp version protocol, given : %s, possible : 1,2,2c,3' % version)
 
         self.cmd_args.append(cmdgen.UdpTransportTarget((host, port),timeout = timeout/3, retries=2))
 
@@ -894,9 +1004,9 @@ class Snmp(object):
         elif isinstance(oval, v2c.TimeTicks):
             val = int(oval.prettyPrint())
         elif isinstance(oval, v2c.OctetString):
-            val = oval.prettyPrint()
+            val = textops.StrExt(oval.prettyPrint())
         elif isinstance(oval, v2c.IpAddress):
-            val = oval.prettyPrint()
+            val = textops.StrExt(oval.prettyPrint())
         else:
             val = oval
         return val
@@ -937,7 +1047,7 @@ class Snmp(object):
 
         Returns:
 
-            str or int: OID value. The python type depends on OID MIB type.
+            :class:`textops.StrExt` or int: OID value. The python type depends on OID MIB type.
 
         Examples:
 
@@ -964,14 +1074,14 @@ class Snmp(object):
         args.append(oid_or_mibvar)
         errorIndication, errorStatus, errorIndex, varBinds = self.cmdGenerator.getCmd(*args)
         if errorIndication:
-            raise SnmpError(errorIndication)
+            raise CollectError(errorIndication)
         else:
             if errorStatus:
                 try:
                     err_at = errorIndex and varBinds[int(errorIndex)-1] or '?'
                 except:
                     err_at = '?'
-                raise SnmpError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
+                raise CollectError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
         return self.to_native_type(varBinds[0][1])
 
     def walk(self,oid_or_mibvar):
@@ -983,7 +1093,8 @@ class Snmp(object):
 
         Returns:
 
-            list: List of tuples (OID,value).
+            :class:`textops.ListExt`: List of tuples (OID,value).
+                Values type are int or :class:`textops.StrExt`
 
         Example:
 
@@ -997,19 +1108,19 @@ class Snmp(object):
 
         """
         oid_or_mibvar = self.normalize_oid(oid_or_mibvar)
-        lst = []
+        lst = textops.ListExt()
         args = list(self.cmd_args)
         args.append(oid_or_mibvar)
         errorIndication, errorStatus, errorIndex, varBindTable = self.cmdGenerator.nextCmd(*args)
         if errorIndication:
-            raise SnmpError(errorIndication)
+            raise CollectError(errorIndication)
         else:
             if errorStatus:
                 try:
                     err_at = errorIndex and varBindTable[-1][int(errorIndex)-1] or '?'
                 except:
                     err_at = '?'
-                raise SnmpError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
+                raise CollectError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
         for varBindTableRow in varBindTable:
             for name, val in varBindTableRow:
                 lst.append((str(name),self.to_native_type(val)))
@@ -1024,7 +1135,8 @@ class Snmp(object):
 
         Returns:
 
-            dict: A dictionary of list of tuples (OID,value).
+            :class:`textops.DictExt`: A dictionary of list of tuples (OID,value).
+                Values type are int or :class:`textops.StrExt`
 
         Example:
 
@@ -1038,7 +1150,7 @@ class Snmp(object):
                        ... ]}
 
         """
-        dct = {}
+        dct = textops.DictExt()
         for var,oid in vars_oids.items():
             dct[var] = self.walk(oid)
         return dct
@@ -1057,7 +1169,7 @@ class Snmp(object):
                 real_oid = '.'.join(oid_begin + [str(id)] + oid_end)
                 oids.append(real_oid)
         else:
-            raise SnmpError('An OID range must have one and only one "-"')
+            raise CollectError('An OID range must have one and only one "-"')
         return oids
 
     def mget(self,vars_oids):
@@ -1075,7 +1187,8 @@ class Snmp(object):
 
         Returns:
 
-            dict: List of tuples (OID,value).
+            :class:`textops.DictExt`: List of tuples (OID,value).
+                Values type are int or :class:`textops.StrExt`
 
         Example:
 
@@ -1085,7 +1198,7 @@ class Snmp(object):
              'other' : ['value for 1.3.6.1.2.1.1.2.0', 'value for 1.3.6.1.2.1.1.3.0', etc... ] }
 
         """
-        dct = {}
+        dct = textops.DictExt()
         oid_to_var = {}
         args = list(self.cmd_args)
         for var,oid in vars_oids.items():
@@ -1099,14 +1212,14 @@ class Snmp(object):
 
         errorIndication, errorStatus, errorIndex, varBinds = self.cmdGenerator.getCmd(*args)
         if errorIndication:
-            raise SnmpError(errorIndication)
+            raise CollectError(errorIndication)
         else:
             if errorStatus:
                 try:
                     err_at = errorIndex and varBinds[int(errorIndex)-1] or '?'
                 except:
                     err_at = '?'
-                raise SnmpError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
+                raise CollectError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
         for oid,val in varBinds:
             var = oid_to_var[str(oid)]
             val = self.to_native_type(val) if not (val is self.noSuchInstance) else NoAttr
