@@ -16,6 +16,8 @@ python-nagios-helpers a.k.a naghelp provides many helper classes to create pytho
 
    intro
    collect
+   host
+
 
 Indices and tables
 ==================
