@@ -19,8 +19,8 @@ To install::
 Quickstart
 ----------
 
-It is higly recommended to use `python-textops <http://python-textops.readthedocs.org>`_ 
-to manipulate collected data. 
+It is higly recommended to use `python-textops <http://python-textops.readthedocs.org>`
+to manipulate collected data.
 
 Here is an exemple of a python plugin, create a file linux_fsfull.py::
 

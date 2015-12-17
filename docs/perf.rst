@@ -5,18 +5,13 @@
 
 
 
-====
-Host
-====
+========
+PerfData
+========
 
-.. automodule:: naghelp.host
-
+.. automodule:: naghelp.perf
 .. currentmodule:: naghelp
-
-.. autoclass:: Host
-   :members:
-   :private-members:
-
+.. autoclass:: PerfData
 
 * :ref:`genindex`
 * :ref:`modindex`

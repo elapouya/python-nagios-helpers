@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-'''
-Création : July 8th, 2015
-
-@author: Eric Lapouyade
-'''
+#
+# Création : July 8th, 2015
+#
+# @author: Eric Lapouyade
+#
 
 import sys
 import naghelp
@@ -32,6 +32,7 @@ CRITICAL = ResponseLevel('CRITICAL',2)
 UNKNOWN  = ResponseLevel('UNKNOWN',3)
 
 class PluginResponse(object):
+    """ Response object """
     def __init__(self,default_level):
         self.level = None
         self.default_level = default_level
@@ -133,6 +134,7 @@ class PluginResponse(object):
 
 
     def add_perf_data(self,data):
+        """ Add performance object into the response """
         if not isinstance(data,basestring):
             data = str(data)
         self.perf_items.append(data)

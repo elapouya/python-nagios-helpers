@@ -3,6 +3,7 @@ from naghelp import *
 import os
 
 modules = [ 'naghelp.host',
+            'naghelp.perf',
             'naghelp.plugin',
             'naghelp.response',
             ]

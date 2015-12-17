@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-'''
-Création : Aug 27th, 2015
-
-@author: Eric Lapouyade
-'''
-
+#
+# Création : Aug 27th, 2015
+#
+# @author: Eric Lapouyade
+#
 import os
 
 __all__ = ['PerfData']
@@ -12,6 +11,36 @@ __all__ = ['PerfData']
 import re
 
 class PerfData(object):
+    """ PerfData class is a convenient way to build a performance data object without taking care
+    of the syntax needed by Nagios. The PerfData object can then be added into to :class:`PluginResponse`
+    object, with method :meth:`PluginResponse.add_perf_data`.
+
+    Args:
+
+        label (str): The metric name
+        value (str): The metric value
+        uom (str): unit of measurement, is one of:
+
+            * no unit specified - assume a number (int or float) of things (eg, users, processes, load averages)
+            * s - seconds (also us, ms)
+            * % - percentage
+            * B - bytes (also KB, MB, TB)
+            * c - a continous counter (such as bytes transmitted on an interface)
+
+        warn (str): WARNING threshold
+        crit (str): CRITICAL threshold
+        min (str): Minimum value
+        max (str): Maximum value
+
+    Examples:
+
+        >>> perf = PerfData('filesystem_/','55','%','95','98','0','100')
+        >>> print perf
+        filesystem_/=55%;95;98;0;100
+        >>> perf.value = 99
+        >>> print perf
+        filesystem_/=99%;95;98;0;100
+    """
     def __init__(self, label, value, uom=None, warn=None, crit=None, minval=None, maxval=None):
         self.label = label
         self.value = value

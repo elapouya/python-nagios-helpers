@@ -5,17 +5,18 @@
 
 
 
-====
-Host
-====
+========
+Response
+========
 
-.. automodule:: naghelp.host
-
+.. automodule:: naghelp.response
 .. currentmodule:: naghelp
 
-.. autoclass:: Host
-   :members:
-   :private-members:
+PluginResponse
+--------------
+   .. autoclass:: PluginResponse
+      :members:
+
 
 
 * :ref:`genindex`

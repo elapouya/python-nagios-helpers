@@ -16,7 +16,8 @@ It could be for exemple :
     * ...
 
 One can add some additional data during the plugin execution, they will be persistent accross
-all plugin executions. This is useful for :
+all plugin executions (plugin objects call :meth:`naghelp.Host.save_data` and
+:meth:`naghelp.Host.load_data` methods). This is useful for :
 
     * Counters
     * Gauges
@@ -35,22 +36,28 @@ from database.
 """
 
 import os
-from textops import DictExt,NoAttr
+from textops import DictExt, NoAttr, dformat, pp
 import dateutil.parser
 
 __all__ = ['Host']
 
 class Host(dict):
-    """Contains equipment informations
+    r"""Contains equipment informations
+
+    Host object is a dict with some additional methods.
 
     Args:
 
-        plugin (:class:`naghelp.Plugin`): The plugin object that is used to monitor the equipment
+        plugin (:class:`Plugin`): The plugin object that is used to monitor the equipment
+
 
     Informations can be accessed and modified by 2 ways :
 
         * By attribute
         * By Index
+
+    To save and load custom data, one could do a :meth:`save_data` and :meth:`load_data` but this
+    is automatically done by the plugin itself (see :meth:`naghelp.Plugin.run`)
 
     Examples :
 
@@ -64,8 +71,28 @@ class Host(dict):
         last check time
         >>> print host['my_custom_data']
         last check time
+        >>> host.save_data()
+        >>> host._get_persistent_filename()
+        '/tmp/naghelp/host_to_be_monitored_persistent_data.json'
+        >>> print open(host._get_persistent_filename()).read() #doctest: +NORMALIZE_WHITESPACE
+        {
+            "name": "host_to_be_monitored",
+            "my_custom_data": "last check time"
+        }
+
+
+        >>> os.environ['NAGIOS_HOSTNAME']='host_to_be_monitored'
+        >>> plugin = ActivePlugin()
+        >>> host = Host(plugin)
+        >>> print host.my_custom_data
+        <BLANKLINE>
+        >>> host.load_data()
+        >>> print host.my_custom_data
+        last check time
     """
     persistent_filename_pattern = '/tmp/naghelp/%s_persistent_data.json'
+    """ Default persistent .json file path pattern (note the %s that will be replaced by the hostname)
+    """
 
     def __init__(self, plugin):
         self._plugin = plugin
@@ -78,21 +105,97 @@ class Host(dict):
                     self._params_from_env.get('ip') ) )
 
     def load_data(self):
+        """ load data to the :class:`Host` object
+
+        That is from database and/or persistent file then from environment variables and then from
+        command line.
+        """
         self._params_from_db = self._get_params_from_db(self.name)
         self._merge(self._params_from_db)
         self._merge(self._params_from_env)
         self._merge(self._params_from_cmd_options)
 
-    def to_str(self, str):
-        return str.format(**self)
+    def to_str(self, str, defvalue='-'):
+        """ Formats a string with Host informations
 
-    def to_list(self, lst):
-        return [ l.format(**self) for l in lst ]
+        Not available data are replaced by a dash
+
+        Args:
+
+            str (str): A format string
+            defvalue (str): String to display when a data is not available
+
+        Returns:
+
+            str : the formatted string
+
+        Examples:
+
+            >>> os.environ['NAGIOS_HOSTNAME']='host_to_be_monitored'
+            >>> os.environ['NAGIOS_HOSTADDRESS']='192.168.0.33'
+            >>> plugin = ActivePlugin()
+            >>> host = Host(plugin)
+            >>> host.load_data()
+            >>> print host.to_str('{name} as got IP={ip} and custom data "{my_custom_data}"')
+            host_to_be_monitored as got IP=192.168.0.33 and custom data "last check time"
+            >>> print host.to_str('Not available data are replaced by a dash: {other_data}')
+            Not available data are replaced by a dash: -
+            >>> print host.to_str('Or by whatever you want: {other_data}','N/A')
+            Or by whatever you want: N/A
+
+            .. note::
+
+                As you noticed, ``NAGIOS_HOSTNAME`` environment variable is stored as ``name`` in
+                Host object and ``NAGIOS_HOSTADDRESS`` as ``ip``.
+                ``my_custom_data`` is a persistent data that has been
+                automatically loaded because set into a previous example.
+        """
+        return dformat(str,self,defvalue)
+
+    def to_list(self, lst, defvalue='-'):
+        """ Formats a list of strings with Host informations
+
+        It works like :meth:`to_str` except that the input is a list of strings : This useful when
+        a text has been splitted into lines.
+
+        Args:
+
+            str (str): A format string
+            defvalue (str): String to display when a data is not available
+
+        Returns:
+
+            list : The list with formatted string
+
+        Examples:
+
+            >>> os.environ['NAGIOS_HOSTNAME']='host_to_be_monitored'
+            >>> os.environ['NAGIOS_HOSTADDRESS']='192.168.0.33'
+            >>> plugin = ActivePlugin()
+            >>> host = Host(plugin)
+            >>> host.load_data()
+            >>> lst = ['{name} as got IP={ip} and custom data "{my_custom_data}"',
+            ... 'Not available data are replaced by a dash: {other_data}']
+            >>> print host.to_list(lst)  # doctest: +NORMALIZE_WHITESPACE
+            [u'host_to_be_monitored as got IP=192.168.0.33 and custom data "last check time"',
+            'Not available data are replaced by a dash: -']
+
+            .. note::
+
+                As you noticed, ``NAGIOS_HOSTNAME`` environment variable is stored as ``name`` in
+                Host object and ``NAGIOS_HOSTADDRESS`` as ``ip``.
+                ``my_custom_data`` is a persistent data that has been
+                automatically loaded because set into a previous example.
+        """
+        return [ dformat(l,self) for l in lst ]
 
     def debug(self):
-        import pprint
-        pp = pprint.PrettyPrinter(indent=4)
+        """ Log Host informations for debug
 
+        Note:
+
+            To see debug on python console, call :func:`naghelp.activate_debug`
+        """
         self._plugin.debug('Host informations :')
         self._plugin.debug('_params_from_db = %s', pp.pformat(self._params_from_db))
         self._plugin.debug('_params_from_env = %s',pp.pformat(self._params_from_env))
@@ -193,7 +296,17 @@ class Host(dict):
         return '\n'.join([ '%-12s : %s' % (k,v) for k,v in sorted(self.items()) ])
 
     def _get_persistent_filename(self):
+        """ Get the full path for the persisten .json file
+
+        It uses :attr:`persistent_filename_pattern` to get the file pattern, and apply the hostname
+        to build the full path.
+        """
         return self.persistent_filename_pattern % self.name
 
     def save_data(self):
+        """ Save data to a persistent place
+
+        It actually saves the whole dict into a .json file.
+        This is automatically called by the :meth:naghelp.ActivePlugin.run method.
+        """
         self._plugin.save_data(self._get_persistent_filename(), self)
