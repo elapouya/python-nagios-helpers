@@ -13,6 +13,22 @@ import re
 __all__ = [ 'ResponseLevel', 'PluginResponse', 'OK', 'WARNING', 'CRITICAL', 'UNKNOWN' ]
 
 class ResponseLevel(object):
+    """ Response level to return to Nagios when exiting a plugin
+
+    Instead of using numeric code that may be hard to memorize, predefined objects has be created :
+
+    ===================   =========
+    Response level name   exit code
+    ===================   =========
+    OK                    0
+    WARNING               1
+    CRITICAL              2
+    UNKNOWN               3
+    ===================   =========
+
+    To exit a plugin with the correct exit code number, one have just to call the :meth:`exit` method
+    of the wanted ResonseLevel object
+    """
     def __init__(self, name, exit_code):
         self.name = name
         self.exit_code = exit_code
@@ -21,9 +37,29 @@ class ResponseLevel(object):
         return self.name
 
     def info(self):
+        """ Get name and exit code for a Response Level
+
+        Examples:
+
+            >>> level = CRITICAL
+            >>> level.info()
+            'CRITICAL (exit_code=2)'
+            >>> level.name
+            'CRITICAL'
+            >>> level.exit_code
+            2
+        """
         return '%s (exit_code=%s)' % (self.name,self.exit_code)
 
     def exit(self):
+        """ This is the official way to exit a naghelp plugin
+
+        Example:
+
+            >>> level = CRITICAL
+            >>> level.exit()  #doctest: +SKIP
+                SystemExit: 2
+        """
         sys.exit(self.exit_code)
 
 OK       = ResponseLevel('OK',0)

@@ -12,6 +12,11 @@ Response
 .. automodule:: naghelp.response
 .. currentmodule:: naghelp
 
+ResponseLevel
+-------------
+   .. autoclass:: ResponseLevel
+      :members:
+
 PluginResponse
 --------------
    .. autoclass:: PluginResponse
