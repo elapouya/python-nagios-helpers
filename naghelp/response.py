@@ -13,18 +13,18 @@ import re
 __all__ = [ 'ResponseLevel', 'PluginResponse', 'OK', 'WARNING', 'CRITICAL', 'UNKNOWN' ]
 
 class ResponseLevel(object):
-    """ Response level to return to Nagios when exiting a plugin
+    """ Object to use when exiting a naghelp plugin
 
     Instead of using numeric code that may be hard to memorize, predefined objects has be created :
 
-    ===================   =========
-    Response level name   exit code
-    ===================   =========
-    OK                    0
-    WARNING               1
-    CRITICAL              2
-    UNKNOWN               3
-    ===================   =========
+    =====================   =========
+    Response level object   exit code
+    =====================   =========
+    OK                      0
+    WARNING                 1
+    CRITICAL                2
+    UNKNOWN                 3
+    =====================   =========
 
     To exit a plugin with the correct exit code number, one have just to call the :meth:`exit` method
     of the wanted ResonseLevel object
@@ -68,7 +68,54 @@ CRITICAL = ResponseLevel('CRITICAL',2)
 UNKNOWN  = ResponseLevel('UNKNOWN',3)
 
 class PluginResponse(object):
-    """ Response object """
+    """ Response to return to Nagios for a naghelp plugin
+
+    Args:
+
+        default_level (:class:`ResponseLevel`): The level to return when no level messages
+            has been added to the response (for exemple when no error has be found).
+            usually it is set to ``OK`` or ``UNKNOWN``
+
+    A naghelp response has got many sections :
+
+        * A synopsis (The first line that is directl visible onto Nagios interface)
+        * A body (informations after the first line, only visible in detailed views)
+        * Some performance Data
+
+    The body itself has got some sub-sections :
+
+        * Begin messages (Usually for a title, an introduction ...)
+        * Levels messages, that are automatically splited into Nagios levels in this order:
+
+            * Critical messages
+            * Warning messages
+            * Unkown messages
+            * OK messages
+
+        * More messages (Usually to give more information about the monitored host)
+        * End messages (Custom conclusion messages. naghelp :class:`Plugin` use this section
+            to add automatically some informations about the plugin.
+
+    Each section can be updated by adding a message through dedicated methods.
+
+    PluginResponse object takes care to calculate the right ResponseLevel to return to Nagios :
+    it will depend on the Levels messages you will add to the plugin response. For example,
+    if you add one ``OK`` message and one ``WARNING`` message, the response level will be
+    ``WARNING``. if you add again one ``CRITICAL`` message then an ``OK`` message , the response
+    level will be ``CRITICAL``.
+
+    About the synopsis section : if not manualy set, the PluginResponse class will build one for
+    you : It will be the unique level message if you add only one in the response or a summary
+    giving the number of messages in each level.
+
+    Examples:
+
+        >>> r = PluginResponse(OK)
+        >>> print r
+        OK
+        <BLANKLINE>
+
+    """
     def __init__(self,default_level):
         self.level = None
         self.default_level = default_level
@@ -81,18 +128,93 @@ class PluginResponse(object):
         self.perf_items = []
 
     def set_level(self, level):
+        """ Manually set the response level
+
+        Args:
+
+            level (:class:`ResponseLevel`): OK, WARNING, CRITICAL or UNKNOWN
+
+        Examples:
+
+            >>> r = PluginResponse(OK)
+            >>> print r.level
+            None
+            >>> r.set_level(WARNING)
+            >>> print r.level
+            WARNING
+        """
         if not isinstance(level,ResponseLevel):
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
         if self.level in [ None, UNKNOWN ] or level == CRITICAL or self.level == OK and level == WARNING:
             self.level = level
 
     def get_current_level(self):
+        """ get current level
+
+        If no level has not been set yet, it will return the default_level.
+        Use this method if you want to know what ResponseLevel will be sent.
+
+        Returns:
+
+            :class:`ResponseLevel` : the response level to be sent
+
+        Examples:
+
+            >>> r = PluginResponse(OK)
+            >>> print r.get_current_level()
+            OK
+            >>> r.set_level(WARNING)
+            >>> print r.get_current_level()
+            WARNING
+        """
         return self.default_level if self.level is None else self.level
 
     def set_sublevel(self, sublevel):
+        """ sets sublevel attribute
+
+        Args:
+
+            sublevel (int): 0,1,2 or 3  (Default : 0)
+
+        From time to time, the CRITICAL status meaning is not detailed enough :
+        It may be useful to color it by a sub-level.
+        The ``sublevel`` value is not used directly by :class:`PluginResponse`,
+        but by :class:`ActivePlugin` class which adds a ``__sublevel__=<sublevel>`` string
+        in the plugin informations section. This string can be used for external filtering.
+
+        Actually, the sublevel meanings are :
+
+        =========  ===========================================================================
+        Sub-level  Description
+        =========  ===========================================================================
+        0          The plugin is 100% sure there is a critical error
+        1          The plugin was able to contact remote host but got no answer from agent
+        2          The plugin was unable to contact the remote host, it may be a network issue
+        3          The plugin raised an unexpected exception : it should be a bug.
+        =========  ===========================================================================
+        """
         if not isinstance(sublevel,int):
             raise Exception('A response sublevel must be an integer')
         self.sublevel = sublevel
+
+    def get_sublevel(self):
+        """ get sublevel
+
+        Returns:
+
+            int: sublevel (0,1,2 or 3)
+
+        Exemples:
+
+            >>> r = PluginResponse(OK)
+            >>> print r.get_sublevel()
+            0
+            >>> r.set_sublevel(2)
+            >>> print r.get_sublevel()
+            2
+        """
+        return self.sublevel
+
 
     def _reformat_msg(self,msg,*args,**kwargs):
         if isinstance(msg,(list,tuple)):
@@ -106,6 +228,43 @@ class PluginResponse(object):
         return msg
 
     def add_begin(self,msg,*args,**kwargs):
+        r""" Add a message in begin section
+
+        You can use this method several times and at any time until the :meth:`send` is used.
+        The messages will be displayed in begin section in the same order as they have been added.
+        This method does not change the calculated ResponseLevel.
+
+        Args:
+
+            msg (str): the message to add in begin section.
+            args (list): if additionnal arguments are given,
+                ``msg`` will be formatted with ``%`` (old-style python string formatting)
+            kwargs (dict): if named arguments are give,
+                ``msg`` will be formatted with :meth:`str.format`
+
+        Examples:
+
+            >>> r = PluginResponse(OK)
+            >>> r.add_begin('='*40)
+            >>> r.add_begin('{hostname:^40}', hostname='MyHost')
+            >>> r.add_begin('='*40)
+            >>> r.add_begin('Date : %s, Time : %s','2105-12-18','14:55:11')
+            >>> r.add_begin('\n')
+            >>> r.add(CRITICAL,'This is critical !')
+            >>> print r     #doctest: +NORMALIZE_WHITESPACE
+            This is critical !
+            ========================================
+                             MyHost
+            ========================================
+            Date : 2105-12-18, Time : 14:55:11
+            <BLANKLINE>
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            This is critical !
+            <BLANKLINE>
+            <BLANKLINE>
+        """
         self.begin_msgs.append(self._reformat_msg(msg,*args,**kwargs))
 
     def add(self,level,msg,*args,**kwargs):
@@ -158,6 +317,43 @@ class PluginResponse(object):
         self.more_msgs.append(msg)
 
     def add_end(self,msg,*args,**kwargs):
+        r""" Add a message in end section
+
+        You can use this method several times and at any time until the :meth:`send` is used.
+        The messages will be displayed in end section in the same order as they have been added.
+        This method does not change the calculated ResponseLevel.
+
+        Args:
+
+            msg (str): the message to add in end section.
+            args (list): if additional arguments are given,
+                ``msg`` will be formatted with ``%`` (old-style python string formatting)
+            kwargs (dict): if named arguments are give,
+                ``msg`` will be formatted with :meth:`str.format`
+
+        Examples:
+
+            >>> r = PluginResponse(OK)
+            >>> r.add_end('='*40)
+            >>> r.add_end('{hostname:^40}', hostname='MyHost')
+            >>> r.add_end('='*40)
+            >>> r.add_end('Date : %s, Time : %s','2105-12-18','14:55:11')
+            >>> r.add_end('\n')
+            >>> r.add(CRITICAL,'This is critical !')
+            >>> print r     #doctest: +NORMALIZE_WHITESPACE
+            This is critical !
+            <BLANKLINE>
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            This is critical !
+            <BLANKLINE>
+            <BLANKLINE>
+            ========================================
+                             MyHost
+            ========================================
+            Date : 2105-12-18, Time : 14:55:11
+        """
         if isinstance(msg,(list,tuple)):
             msg = '\n'.join(msg)
         elif not isinstance(msg,basestring):
@@ -188,7 +384,7 @@ class PluginResponse(object):
         nb_ok = len(self.level_msgs[OK])
         nb_nok = len(self.level_msgs[WARNING]) + len(self.level_msgs[CRITICAL]) + len(self.level_msgs[UNKNOWN])
         if nb_ok + nb_nok == 0:
-            return str(self.level)
+            return str(self.level or self.default_level or UNKNOWN)
         if nb_ok and not nb_nok:
             return str(OK)
         if nb_nok == 1:

@@ -8,44 +8,44 @@
 Collect
 =======
 
-   .. automodule:: naghelp.collect
-   .. currentmodule:: naghelp
+.. automodule:: naghelp.collect
+.. currentmodule:: naghelp
 
 Expect
 ------
-   .. autoclass:: Expect
-      :members:
+.. autoclass:: Expect
+   :members:
 
 Snmp
 ----
-   .. autoclass:: Snmp
-      :members:
+.. autoclass:: Snmp
+   :members:
 
 Ssh
 ---
-   .. autoclass:: Ssh
-      :members:
+.. autoclass:: Ssh
+   :members:
 
 Telnet
 ------
-   .. autoclass:: Telnet
-      :members:
+.. autoclass:: Telnet
+   :members:
 
 Local commands
 --------------
-   .. autofunction:: runsh
-   .. autofunction:: mrunsh
+.. autofunction:: runsh
+.. autofunction:: mrunsh
 
 Others
 ------
-   .. autofunction:: search_invalid_port
+.. autofunction:: search_invalid_port
 
 Exceptions
 ----------
-   .. autoexception:: NotConnected
-   .. autoexception:: ConnectionError
-   .. autoexception:: CollectError
-   .. autoexception:: TimeoutError
+.. autoexception:: NotConnected
+.. autoexception:: ConnectionError
+.. autoexception:: CollectError
+.. autoexception:: TimeoutError
 
 * :ref:`genindex`
 * :ref:`modindex`

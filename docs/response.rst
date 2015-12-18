@@ -14,14 +14,13 @@ Response
 
 ResponseLevel
 -------------
-   .. autoclass:: ResponseLevel
-      :members:
+.. autoclass:: ResponseLevel
+   :members:
 
 PluginResponse
 --------------
-   .. autoclass:: PluginResponse
-      :members:
-
+.. autoclass:: PluginResponse
+   :members:
 
 
 * :ref:`genindex`
