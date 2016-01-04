@@ -19,6 +19,7 @@ python-nagios-helpers a.k.a naghelp provides many helper classes to create pytho
    host
    perf
    response
+   plugin
 
 
 Indices and tables

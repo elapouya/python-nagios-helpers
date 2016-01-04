@@ -286,6 +286,42 @@ class Host(dict):
         Returns:
 
             dict : A dictionary that contains equipment informations AND persistent data merged.
+            
+        Example:
+        
+            Here is an example of :meth:`_get_params_from_db` override where informations about a monitored
+            host are stored in a json file located at DB_JSON_FILE ::
+            
+                class MonitoredHost(Host):
+                    def _get_params_from_db(self,hostname):
+                        # The first step MUST be to read the persistent data file ( = cache file )
+                        params = self._plugin.load_data(self._get_persistent_filename()) or DictExt()
+                        
+                        # Check whether the database file has changed 
+                        db_file_modif_time = int(os.path.getmtime(DB_JSON_FILE))
+                        if db_file_modif_time == params['db_file_modif_time']:
+                            # if not, return the cached data
+                            return params
+                
+                        # If database file has changed :
+                        db = json.load(open(DB_JSON_FILE))
+                        # find hostname in db : 
+                        for h in db.monitored_hosts:
+                            if h['datas']['hostname'] == hostname:
+                                # merge the new data into the persistent data dict (will be cached) 
+                                params.update(h.datas) 
+                                params['db_file_modif_time'] = db_file_modif_time
+                                params['name'] = params.get('hostname','noname')
+                                return params
+                        return params
+                        
+            .. Note::
+                You can do about the same for SQlite or MySQL, do not forget to load persistent
+                data file as a first step and merge data from database after. Like the above 
+                example, you can use the persistent data json file as a cache for your database.
+                By this way, persistent data AND database data are saved in the same file within a 
+                single operation. The dictionary returned by this method will be saved automatically 
+                by the :meth:`naghelp.ActivePlugin.run` method as persistent data.
         """
         return self._plugin.load_data(self._get_persistent_filename()) or DictExt()
 

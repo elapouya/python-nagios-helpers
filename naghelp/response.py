@@ -85,7 +85,7 @@ class PluginResponse(object):
     The body itself has got some sub-sections :
 
         * Begin messages (Usually for a title, an introduction ...)
-        * Levels messages, that are automatically splited into Nagios levels in this order:
+        * Levels messages, that are automatically splitted into Nagios levels in this order:
 
             * Critical messages
             * Warning messages
@@ -239,7 +239,7 @@ class PluginResponse(object):
             msg (str): the message to add in begin section.
             args (list): if additionnal arguments are given,
                 ``msg`` will be formatted with ``%`` (old-style python string formatting)
-            kwargs (dict): if named arguments are give,
+            kwargs (dict): if named arguments are given,
                 ``msg`` will be formatted with :meth:`str.format`
 
         Examples:
@@ -268,6 +268,52 @@ class PluginResponse(object):
         self.begin_msgs.append(self._reformat_msg(msg,*args,**kwargs))
 
     def add(self,level,msg,*args,**kwargs):
+        r""" Add a message in levels messages section and sets the response level at the same time
+
+        Use this method each time your plugin detects a WARNING or a CRITICAL error. You can also
+        use this method to add a message saying there is an UNKNOWN or OK state somewhere. 
+        You can use this method several times and at any time until the :meth:`send` is used.
+        This method updates the calculated ResponseLevel.
+        When the response is rendered, the added messages are splitted into sub-section 
+
+        Args:
+
+            level (ResponseLevel): the message level (Will affect the final response level)
+            msg (str): the message to add in levels messages section.
+            args (list): if additionnal arguments are given,
+                ``msg`` will be formatted with ``%`` (old-style python string formatting)
+            kwargs (dict): if named arguments are given,
+                ``msg`` will be formatted with :meth:`str.format`
+
+        Examples:
+
+            >>> r = PluginResponse(OK)
+            >>> print r.get_current_level()
+            OK
+            >>> r.add(CRITICAL,'The system crashed')
+            >>> r.add(WARNING,'Found some almost full file system')
+            >>> r.add(UNKNOWN,'Cannot find FAN %s status',0)
+            >>> r.add(OK,'Power {power_id} is ON',power_id=1)
+            >>> print r.get_current_level()
+            CRITICAL
+            >>> print r     #doctest: +NORMALIZE_WHITESPACE
+            STATUS : CRITICAL:1, WARNING:1, UNKNOWN:1, OK:1
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            The system crashed
+            <BLANKLINE>
+            ----( WARNING )-----------------------------------------------------------------
+            Found some almost full file system
+            <BLANKLINE>
+            ----( UNKNOWN )-----------------------------------------------------------------
+            Cannot find FAN 0 status
+            <BLANKLINE>
+            ----( OK )----------------------------------------------------------------------
+            Power 1 is ON
+            <BLANKLINE>
+            <BLANKLINE>
+        """
         if isinstance(level,ResponseLevel):
             self.level_msgs[level].append(self._reformat_msg(msg,*args,**kwargs))
             self.set_level(level)
@@ -275,13 +321,117 @@ class PluginResponse(object):
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
     def add_list(self,level,msg_list,*args,**kwargs):
+        """ Add several level messages having a same level
+        
+        Sometimes, you may have to specify a list of faulty parts in the response : this can be done
+        by this method in a single line. If a message is empty in the list, it is not added.
+        
+        Args:
+
+            level (ResponseLevel): the message level (Will affect the final response level)
+            msg_list (list): the messages list to add in levels messages section.
+            args (list): if additionnal arguments are given, messages in ``msg_list`` 
+                will be formatted with ``%`` (old-style python string formatting)
+            kwargs (dict): if named arguments are given, messages in ``msg_list``
+                will be formatted with :meth:`str.format`
+
+
+        Examples:
+
+            >>> r = PluginResponse(OK)
+            >>> print r.get_current_level()
+            OK
+            >>> logs = '''
+            ... Power 0 is critical
+            ... Power 1 is OK
+            ... Power 2 is degraded
+            ... Power 3 is failed
+            ... Power 4 is OK
+            ... Power 5 is degraded
+            ... '''
+            >>> from textops import grep
+            >>> criticals = logs >> grep('critical|failed')
+            >>> warnings = logs >> grep('degraded|warning')
+            >>> print criticals
+            ['Power 0 is critical', 'Power 3 is failed']
+            >>> print warnings
+            ['Power 2 is degraded', 'Power 5 is degraded']
+            >>> r.add_list(CRITICAL,criticals)
+            >>> r.add_list(WARNING,warnings)
+            >>> print r.get_current_level()
+            CRITICAL
+            >>> print r     #doctest: +NORMALIZE_WHITESPACE
+            STATUS : CRITICAL:2, WARNING:2
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            Power 0 is critical
+            Power 3 is failed
+            <BLANKLINE>
+            ----( WARNING )-----------------------------------------------------------------
+            Power 2 is degraded
+            Power 5 is degraded             
+            <BLANKLINE>
+            <BLANKLINE>
+        """
         for msg in msg_list:
             if msg:
                 self.add(level, msg,*args,**kwargs)
 
     def add_many(self,lst,*args,**kwargs):
+        """ Add several level messages NOT having a same level
+        
+        This works like :meth:`add_list` except that instead of giving a list of messages one have
+        to specify a list of tuples (level,message). By this way, one can give a level to each
+        message into the list. If a message is empty in the list, it is not added.
+        
+        Args:
+
+            lst (list): A list of (level,message) tuples to add in levels messages section.
+            args (list): if additionnal arguments are given, messages in ``lst`` 
+                will be formatted with ``%`` (old-style python string formatting)
+            kwargs (dict): if named arguments are given, messages in ``lst``
+                will be formatted with :meth:`str.format`
+
+        Examples:
+
+            >>> r = PluginResponse(OK)
+            >>> print r.get_current_level()
+            OK
+            >>> logs = '''
+            ... Power 0 is critical
+            ... Power 1 is OK
+            ... Power 2 is degraded
+            ... Power 3 is failed
+            ... Power 4 is OK
+            ... Power 5 is degraded
+            ... '''
+            >>> from textops import *
+            >>> errors = [ (CRITICAL if error|haspatterni('critical|failed') else WARNING,error) 
+            ...            for error in logs | grepv('OK') ]
+            >>> print errors  #doctest: +NORMALIZE_WHITESPACE
+            [(WARNING, ''), (CRITICAL, 'Power 0 is critical'), (WARNING, 'Power 2 is degraded'), 
+            (CRITICAL, 'Power 3 is failed'), (WARNING, 'Power 5 is degraded')]
+            >>> r.add_many(errors)
+            >>> print r.get_current_level()
+            CRITICAL
+            >>> print r     #doctest: +NORMALIZE_WHITESPACE
+            STATUS : CRITICAL:2, WARNING:2
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            Power 0 is critical
+            Power 3 is failed
+            <BLANKLINE>
+            ----( WARNING )-----------------------------------------------------------------
+            Power 2 is degraded
+            Power 5 is degraded             
+            <BLANKLINE>
+            <BLANKLINE>
+        """
         for level,msg in lst:
-            self.add(level, msg,*args,**kwargs)
+            if msg:
+                self.add(level, msg,*args,**kwargs)
 
     def add_if(self, test, level, msg=None, *args,**kwargs):
         if msg is None:

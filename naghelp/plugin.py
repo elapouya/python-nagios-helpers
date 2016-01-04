@@ -29,6 +29,7 @@ pp = pprint.PrettyPrinter(indent=4)
 __all__ = [ 'ActivePlugin' ]
 
 class Plugin(object):
+    "The plugin class"
     plugin_type = 'plugin'
     plugins_basedir = os.path.dirname(__file__)
     plugins_basemodule = ''
@@ -396,6 +397,7 @@ class ActivePlugin(Plugin):
                 break
 
     def run(self):
+        """Run the plugin"""
         try:
             self.manage_cmd_options()
             self.host = self.host_class(self)
