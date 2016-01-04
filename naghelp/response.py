@@ -434,6 +434,64 @@ class PluginResponse(object):
                 self.add(level, msg,*args,**kwargs)
 
     def add_if(self, test, level, msg=None, *args,**kwargs):
+        r""" Test than add a message in levels messages section and sets the response level at the same time
+
+        This works like :meth:`add` except that it is conditionnal : ``test`` must be True.
+        If no message is given, the value of ``test`` is used. 
+        
+        Args:
+
+            test (any): the message is added to the response only if bool(test) is True.
+            level (ResponseLevel): the message level (Will affect the final response level)
+            msg (str): the message to add in levels messages section. 
+                If no message is given, the value of test is used.
+            args (list): if additionnal arguments are given,
+                ``msg`` will be formatted with ``%`` (old-style python string formatting)
+            kwargs (dict): if named arguments are given,
+                ``msg`` will be formatted with :meth:`str.format`
+
+        Examples:
+
+            >>> r = PluginResponse(OK)
+            >>> print r.get_current_level()
+            OK
+            >>> logs = '''
+            ... Power 0 is critical
+            ... Power 1 is OK
+            ... Power 2 is degraded
+            ... Power 3 is failed
+            ... Power 4 is OK
+            ... Power 5 is degraded
+            ... '''
+            >>> from textops import *
+            >>> nb_criticals = logs | grepc('critical|failed')
+            >>> print nb_criticals
+            2
+            >>> warnings = logs | grep('degraded|warning').tostr()
+            >>> print warnings
+            Power 2 is degraded
+            Power 5 is degraded
+            >>> unknowns = logs | grep('unknown').tostr()
+            >>> print unknowns
+            <BLANKLINE>
+            >>> r.add_if(nb_criticals,CRITICAL,'%s power(s) are critical',nb_criticals)
+            >>> r.add_if(warnings,WARNING)
+            >>> r.add_if(unknowns,UNKNOWN)
+            >>> print r.get_current_level()
+            CRITICAL
+            >>> print r     #doctest: +NORMALIZE_WHITESPACE
+            STATUS : CRITICAL:1, WARNING:1
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            2 power(s) are critical
+            <BLANKLINE>
+            ----( WARNING )-----------------------------------------------------------------
+            Power 2 is degraded
+            Power 5 is degraded
+            <BLANKLINE>
+            <BLANKLINE>
+        """
         if msg is None:
             msg = test
         if isinstance(level,ResponseLevel):
@@ -444,6 +502,62 @@ class PluginResponse(object):
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
     def add_elif(self,*add_ifs,**kwargs):
+        r""" Multi-conditionnal message add
+
+        This works like :meth:`add_if` except that it accepts multiple tests.
+        Like python ``elif``, the method stops on first True test and send corresponding message.
+        If you want to build the equivalent of a *default* message, just use ``True`` as the last
+        test.
+        
+        Args:
+
+            add_ifs (list): list of tuple (test,level,message).
+            kwargs (dict): if named arguments are given,
+                messages will be formatted with :meth:`str.format`
+
+        Examples:
+
+            >>> r = PluginResponse(OK)
+            >>> print r.get_current_level()
+            OK
+            >>> logs = '''
+            ... Power 0 is critical
+            ... Power 1 is OK
+            ... Power 2 is degraded
+            ... Power 3 is failed
+            ... Power 4 is OK
+            ... Power 5 is degraded
+            ... Power 6 is smoking
+            ... '''
+            >>> from textops import *
+            >>> for log in logs | rmblank():
+            ...     r.add_elif( (log|haspattern('critical|failed'), CRITICAL, log),
+            ...                 (log|haspattern('degraded|warning'), WARNING, log),
+            ...                 (log|haspattern('OK'), OK, log),
+            ...                 (True, UNKNOWN, log) )
+            >>> print r.get_current_level()
+            CRITICAL
+            >>> print r     #doctest: +NORMALIZE_WHITESPACE
+            STATUS : CRITICAL:2, WARNING:2, UNKNOWN:1, OK:2
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            Power 0 is critical
+            Power 3 is failed
+            <BLANKLINE>
+            ----( WARNING )-----------------------------------------------------------------
+            Power 2 is degraded
+            Power 5 is degraded
+            <BLANKLINE>
+            ----( UNKNOWN )-----------------------------------------------------------------
+            Power 6 is smoking
+            <BLANKLINE>
+            ----( OK )----------------------------------------------------------------------
+            Power 1 is OK
+            Power 4 is OK
+            <BLANKLINE>
+            <BLANKLINE>
+        """
         for test,level,msg in add_ifs:
             if msg is None:
                 msg = test
@@ -456,6 +570,40 @@ class PluginResponse(object):
                 raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
     def add_more(self,msg,*args,**kwargs):
+        r""" Add a message in "more messages" section (aka "Additionnal informations")
+
+        You can use this method several times and at any time until the :meth:`send` is used.
+        The messages will be displayed in the section in the same order as they have been added.
+        This method does not change the calculated ResponseLevel.
+        
+        Args:
+
+            msg (str): the message to add in end section.
+            args (list): if additional arguments are given,
+                ``msg`` will be formatted with ``%`` (old-style python string formatting)
+            kwargs (dict): if named arguments are give,
+                ``msg`` will be formatted with :meth:`str.format`
+
+        Note:
+        
+            The "Additionnal informations" section title will be added automatically if the section is
+            not empty.
+
+        Examples:
+
+            >>> r = PluginResponse(OK)
+            >>> r.add(CRITICAL,'This is critical !')
+            >>> r.add_more('Date : %s, Time : %s','2105-12-18','14:55:11')
+            >>> print r     #doctest: +NORMALIZE_WHITESPACE
+            This is critical !
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            This is critical !
+            <BLANKLINE>
+            ==========================[ Additionnal informations ]==========================
+            Date : 2105-12-18, Time : 14:55:11
+        """
         if isinstance(msg,(list,tuple)):
             msg = '\n'.join(msg)
         elif not isinstance(msg,basestring):
@@ -516,12 +664,73 @@ class PluginResponse(object):
 
 
     def add_perf_data(self,data):
-        """ Add performance object into the response """
+        r""" Add performance object into the response 
+        
+        Args:
+        
+            data (str or :class:`naghelp.PerfData`): the perf data string or PerfData object to add to 
+                the response. Have a look to 
+                `Performance data string syntax <http://nagios-plugins.org/doc/guidelines.html#AEN200>`_.
+            
+        Examples:
+        
+            >>> r = PluginResponse(OK)
+            >>> r.add_begin('Begin\n')
+            >>> r.add_end('End')
+            >>> r.add_perf_data(PerfData('filesystem_/','55','%','95','98','0','100'))
+            >>> r.add_perf_data(PerfData('filesystem_/usr','34','%','95','98','0','100'))
+            >>> r.add_perf_data('cpu_wait=88%;40;60;0;100')
+            >>> r.add_perf_data('cpu_user=12%;80;95;0;100')
+            >>> print r
+            OK|filesystem_/=55%;95;98;0;100
+            Begin
+            End|filesystem_/usr=34%;95;98;0;100
+            cpu_wait=88%;40;60;0;100
+            cpu_user=12%;80;95;0;100
+        """
         if not isinstance(data,basestring):
             data = str(data)
         self.perf_items.append(data)
 
     def set_synopsis(self,msg,*args,**kwargs):
+        r""" Sets the response synopsis.
+        
+        By default, if no synopsis has been set manually, the response synopsis (first line of
+        the text returned by the plugin) will be :
+            
+            * The error message if there is only one level message
+            * Otherwise, some statistics like : ``STATUS : CRITICAL:2, WARNING:2, UNKNOWN:1, OK:2``
+            
+        If something else is wanted, one can define a custom synopsis with this method.
+        
+        Args:
+        
+            msg (str): the synopsis.
+            args (list): if additional arguments are given,
+                ``msg`` will be formatted with ``%`` (old-style python string formatting)
+            kwargs (dict): if named arguments are give,
+                ``msg`` will be formatted with :meth:`str.format`
+
+        Examples:
+        
+            >>> r = PluginResponse(OK)
+            >>> r.add(CRITICAL,'This is critical !')
+            >>> print r     #doctest: +NORMALIZE_WHITESPACE
+            This is critical !
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            This is critical !
+            <BLANKLINE>
+            >>> r.set_synopsis('Mayday, Mayday, Mayday')
+            >>> print r     #doctest: +NORMALIZE_WHITESPACE
+            Mayday, Mayday, Mayday
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            This is critical !
+            <BLANKLINE>        
+        """
         if not isinstance(msg,basestring):
             msg = str(msg)
         if args:
@@ -573,7 +782,7 @@ class PluginResponse(object):
         synopsis = synopsis[:75] + ( synopsis[75:] and '...' )
 
         out = self.escape_msg(synopsis)
-        out +=  '|%s' % self.perf_items[0] if self.perf_items else '\n'
+        out +=  '|%s\n' % self.perf_items[0] if self.perf_items else '\n'
 
         body = '\n'.join(self.begin_msgs)
         body += self.level_msgs_render()
