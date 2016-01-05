@@ -324,11 +324,13 @@ class ActivePlugin(Plugin):
         if test:
             self.fast_response(level, synopsis, msg='', sublevel = 1)
 
-    def error(self, msg, sublevel=3,*args,**kwargs):
-        import traceback
-        body = 'traceback : ' + traceback.format_exc() + '\n'
-        if self.data:
-            body += 'Data = \n%s\n\n' % pp.pformat(self.data).replace('\\n','\n')
+    def error(self, msg, sublevel=3, exception=None, *args,**kwargs):
+        body = ''
+        if exception is None or not isinstance(exception, naghelp.CollectError):
+            import traceback
+            body += 'traceback : ' + traceback.format_exc() + '\n'
+            if self.data:
+                body += 'Data = \n%s\n\n' % pp.pformat(self.data).replace('\\n','\n')
         naghelp.logger.error(msg,*args,**kwargs)
         self.fast_response(self.nagios_status_on_error,msg,body,sublevel)
 
@@ -423,7 +425,7 @@ class ActivePlugin(Plugin):
                     else:
                         self.info('No port to check')
                     msg = 'Failed to collect equipment status : %s\n' % e
-                    self.error(msg, sublevel=1)
+                    self.error(msg, sublevel=1, exception=e)
 
                 self.info('Data are collected')
             self.debug('Collected Data = \n%s' % pp.pformat(self.data).replace('\\n','\n'))
@@ -453,7 +455,7 @@ class ActivePlugin(Plugin):
             self.response.add_end(self.get_plugin_informations())
             self.response.send()
         except Exception,e:
-            self.error('Plugin internal error : %s' % e)
+            self.error('Plugin internal error : %s' % e, exception=e)
 
         self.error('Should never reach this point')
 

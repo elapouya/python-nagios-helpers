@@ -271,10 +271,10 @@ class PluginResponse(object):
         r""" Add a message in levels messages section and sets the response level at the same time
 
         Use this method each time your plugin detects a WARNING or a CRITICAL error. You can also
-        use this method to add a message saying there is an UNKNOWN or OK state somewhere. 
+        use this method to add a message saying there is an UNKNOWN or OK state somewhere.
         You can use this method several times and at any time until the :meth:`send` is used.
         This method updates the calculated ResponseLevel.
-        When the response is rendered, the added messages are splitted into sub-section 
+        When the response is rendered, the added messages are splitted into sub-section
 
         Args:
 
@@ -322,15 +322,15 @@ class PluginResponse(object):
 
     def add_list(self,level,msg_list,*args,**kwargs):
         """ Add several level messages having a same level
-        
+
         Sometimes, you may have to specify a list of faulty parts in the response : this can be done
         by this method in a single line. If a message is empty in the list, it is not added.
-        
+
         Args:
 
             level (ResponseLevel): the message level (Will affect the final response level)
             msg_list (list): the messages list to add in levels messages section.
-            args (list): if additionnal arguments are given, messages in ``msg_list`` 
+            args (list): if additionnal arguments are given, messages in ``msg_list``
                 will be formatted with ``%`` (old-style python string formatting)
             kwargs (dict): if named arguments are given, messages in ``msg_list``
                 will be formatted with :meth:`str.format`
@@ -370,7 +370,7 @@ class PluginResponse(object):
             <BLANKLINE>
             ----( WARNING )-----------------------------------------------------------------
             Power 2 is degraded
-            Power 5 is degraded             
+            Power 5 is degraded
             <BLANKLINE>
             <BLANKLINE>
         """
@@ -380,15 +380,15 @@ class PluginResponse(object):
 
     def add_many(self,lst,*args,**kwargs):
         """ Add several level messages NOT having a same level
-        
+
         This works like :meth:`add_list` except that instead of giving a list of messages one have
         to specify a list of tuples (level,message). By this way, one can give a level to each
         message into the list. If a message is empty in the list, it is not added.
-        
+
         Args:
 
             lst (list): A list of (level,message) tuples to add in levels messages section.
-            args (list): if additionnal arguments are given, messages in ``lst`` 
+            args (list): if additionnal arguments are given, messages in ``lst``
                 will be formatted with ``%`` (old-style python string formatting)
             kwargs (dict): if named arguments are given, messages in ``lst``
                 will be formatted with :meth:`str.format`
@@ -407,10 +407,10 @@ class PluginResponse(object):
             ... Power 5 is degraded
             ... '''
             >>> from textops import *
-            >>> errors = [ (CRITICAL if error|haspatterni('critical|failed') else WARNING,error) 
+            >>> errors = [ (CRITICAL if error|haspatterni('critical|failed') else WARNING,error)
             ...            for error in logs | grepv('OK') ]
             >>> print errors  #doctest: +NORMALIZE_WHITESPACE
-            [(WARNING, ''), (CRITICAL, 'Power 0 is critical'), (WARNING, 'Power 2 is degraded'), 
+            [(WARNING, ''), (CRITICAL, 'Power 0 is critical'), (WARNING, 'Power 2 is degraded'),
             (CRITICAL, 'Power 3 is failed'), (WARNING, 'Power 5 is degraded')]
             >>> r.add_many(errors)
             >>> print r.get_current_level()
@@ -425,7 +425,7 @@ class PluginResponse(object):
             <BLANKLINE>
             ----( WARNING )-----------------------------------------------------------------
             Power 2 is degraded
-            Power 5 is degraded             
+            Power 5 is degraded
             <BLANKLINE>
             <BLANKLINE>
         """
@@ -437,13 +437,13 @@ class PluginResponse(object):
         r""" Test than add a message in levels messages section and sets the response level at the same time
 
         This works like :meth:`add` except that it is conditionnal : ``test`` must be True.
-        If no message is given, the value of ``test`` is used. 
-        
+        If no message is given, the value of ``test`` is used.
+
         Args:
 
             test (any): the message is added to the response only if bool(test) is True.
             level (ResponseLevel): the message level (Will affect the final response level)
-            msg (str): the message to add in levels messages section. 
+            msg (str): the message to add in levels messages section.
                 If no message is given, the value of test is used.
             args (list): if additionnal arguments are given,
                 ``msg`` will be formatted with ``%`` (old-style python string formatting)
@@ -508,7 +508,7 @@ class PluginResponse(object):
         Like python ``elif``, the method stops on first True test and send corresponding message.
         If you want to build the equivalent of a *default* message, just use ``True`` as the last
         test.
-        
+
         Args:
 
             add_ifs (list): list of tuple (test,level,message).
@@ -575,7 +575,7 @@ class PluginResponse(object):
         You can use this method several times and at any time until the :meth:`send` is used.
         The messages will be displayed in the section in the same order as they have been added.
         This method does not change the calculated ResponseLevel.
-        
+
         Args:
 
             msg (str): the message to add in end section.
@@ -585,7 +585,7 @@ class PluginResponse(object):
                 ``msg`` will be formatted with :meth:`str.format`
 
         Note:
-        
+
             The "Additionnal informations" section title will be added automatically if the section is
             not empty.
 
@@ -664,16 +664,16 @@ class PluginResponse(object):
 
 
     def add_perf_data(self,data):
-        r""" Add performance object into the response 
-        
+        r""" Add performance object into the response
+
         Args:
-        
-            data (str or :class:`naghelp.PerfData`): the perf data string or PerfData object to add to 
-                the response. Have a look to 
+
+            data (str or :class:`naghelp.PerfData`): the perf data string or PerfData object to add to
+                the response. Have a look to
                 `Performance data string syntax <http://nagios-plugins.org/doc/guidelines.html#AEN200>`_.
-            
+
         Examples:
-        
+
             >>> r = PluginResponse(OK)
             >>> r.add_begin('Begin\n')
             >>> r.add_end('End')
@@ -694,17 +694,17 @@ class PluginResponse(object):
 
     def set_synopsis(self,msg,*args,**kwargs):
         r""" Sets the response synopsis.
-        
+
         By default, if no synopsis has been set manually, the response synopsis (first line of
         the text returned by the plugin) will be :
-            
+
             * The error message if there is only one level message
             * Otherwise, some statistics like : ``STATUS : CRITICAL:2, WARNING:2, UNKNOWN:1, OK:2``
-            
+
         If something else is wanted, one can define a custom synopsis with this method.
-        
+
         Args:
-        
+
             msg (str): the synopsis.
             args (list): if additional arguments are given,
                 ``msg`` will be formatted with ``%`` (old-style python string formatting)
@@ -712,7 +712,7 @@ class PluginResponse(object):
                 ``msg`` will be formatted with :meth:`str.format`
 
         Examples:
-        
+
             >>> r = PluginResponse(OK)
             >>> r.add(CRITICAL,'This is critical !')
             >>> print r     #doctest: +NORMALIZE_WHITESPACE
@@ -729,7 +729,7 @@ class PluginResponse(object):
             <BLANKLINE>
             ----( CRITICAL )----------------------------------------------------------------
             This is critical !
-            <BLANKLINE>        
+            <BLANKLINE>
         """
         if not isinstance(msg,basestring):
             msg = str(msg)
@@ -740,6 +740,26 @@ class PluginResponse(object):
         self.synopsis = msg
 
     def get_default_synopsis(self):
+        """ Returns the default synopsis
+
+        This method is called if no synopsis has been set manually, the response synopsis (first line of
+        the text returned by the plugin) will be :
+
+            * The error message if there is only one level message
+            * Otherwise, some statistics like : ``STATUS : CRITICAL:2, WARNING:2, UNKNOWN:1, OK:2``
+
+        If you want to have a different default synopsis, you can subclass the :class:`PluginResponse`
+        class and redefine this method.
+
+        Examples:
+            >>> r = PluginResponse(OK)
+            >>> r.add(CRITICAL,'This is critical !')
+            >>> print r.get_default_synopsis()
+            This is critical !
+            >>> r.add(WARNING,'This is just a warning.')
+            >>> print r.get_default_synopsis()
+            STATUS : CRITICAL:1, WARNING:1
+        """
         nb_ok = len(self.level_msgs[OK])
         nb_nok = len(self.level_msgs[WARNING]) + len(self.level_msgs[CRITICAL]) + len(self.level_msgs[UNKNOWN])
         if nb_ok + nb_nok == 0:
@@ -751,12 +771,78 @@ class PluginResponse(object):
         return 'STATUS : ' + ', '.join([ '%s:%s' % (level,len(self.level_msgs[level])) for level in [CRITICAL, WARNING, UNKNOWN, OK ] if self.level_msgs[level] ])
 
     def section_format(self,title):
+        """ Returns the section title string
+
+        This method is automatically called when the response is rendered by :meth:`get_outpout`.
+        If you want to have a different output, you can subclass the :class:`PluginResponse`
+        class and redefine this method.
+
+        Args:
+
+            title (str): the section name to be formatted
+
+        Returns:
+
+            str: The foramtted section title
+
+        Example:
+
+            >>> r = PluginResponse(OK)
+            >>> print r.section_format('My section')
+            =================================[ My section ]=================================
+        """
         return '{0:=^80}'.format('[ {0:^8} ]'.format(title))
 
     def subsection_format(self,title):
+        """ Returns the subsection title string
+
+        This method is automatically called when the response is rendered by :meth:`get_outpout`.
+        If you want to have a different output, you can subclass the :class:`PluginResponse`
+        class and redefine this method.
+
+        Args:
+
+            title (str): the subsection name to be formatted
+
+        Returns:
+
+            str: The foramtted subsection title
+
+        Example:
+
+            >>> r = PluginResponse(OK)
+            >>> print r.subsection_format('My subsection')
+            ----( My subsection )-----------------------------------------------------------
+        """
         return '----' + '{0:-<76}'.format('( %s )' % title)
 
     def level_msgs_render(self):
+        """ Renders level messages
+
+        This method is automatically called when the response is rendered by :meth:`get_outpout`.
+        If you want to have a different output, you can subclass the :class:`PluginResponse`
+        class and redefine this method.
+
+        Returns:
+
+            str: The foramtted level messages
+
+        Example:
+
+            >>> r = PluginResponse(OK)
+            >>> r.add(CRITICAL,'This is critical !')
+            >>> r.add(WARNING,'This is just a warning.')
+            >>> print r.level_msgs_render()
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            This is critical !
+            <BLANKLINE>
+            ----( WARNING )-----------------------------------------------------------------
+            This is just a warning.
+            <BLANKLINE>
+            <BLANKLINE>
+        """
         out = self.section_format('STATUS') + '\n'
         have_status = False
         for level in [CRITICAL, WARNING, UNKNOWN, OK ]:
@@ -774,9 +860,68 @@ class PluginResponse(object):
         return out
 
     def escape_msg(self,msg):
+        """ Escapes forbidden chars in messages
+
+        Nagios does not accept the pipe symbol in messages because it is a separator for performance
+        data. This method escapes or replace such forbidden chars.
+        Default behaviour is to replace the pipe ``|`` by an exclamation mark ``!``.
+
+        Args:
+
+            msg(str): The message to escape
+
+        Returns
+
+            str : The escaped message
+        """
         return msg.replace('|','!')
 
     def get_output(self):
+        r""" Renders the whole response following the Nagios syntax
+
+        This method is automatically called when the response is sent by :meth:`send`.
+        If you want to have a different output, you can subclass the :class:`PluginResponse`
+        class and redefine this method.
+
+        Returns:
+
+            str: The response text output following the Nagios syntax
+
+        Note:
+
+            As ``__str__`` directly calls :meth:`get_output`, printing a :class:`PluginResponse`
+            object is equivalent to call :meth:`get_output`.
+
+        Example:
+
+            >>> r = PluginResponse(OK)
+            >>> r.add(CRITICAL,'This is critical !')
+            >>> r.add(WARNING,'This is just a warning.')
+
+            >>> print r.get_output()
+            STATUS : CRITICAL:1, WARNING:1
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            This is critical !
+            <BLANKLINE>
+            ----( WARNING )-----------------------------------------------------------------
+            This is just a warning.
+            <BLANKLINE>
+            <BLANKLINE>
+
+            >>> print r
+            STATUS : CRITICAL:1, WARNING:1
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            This is critical !
+            <BLANKLINE>
+            ----( WARNING )-----------------------------------------------------------------
+            This is just a warning.
+            <BLANKLINE>
+            <BLANKLINE>
+        """
         synopsis = self.synopsis or self.get_default_synopsis()
         synopsis = synopsis.splitlines()[0]
         synopsis = synopsis[:75] + ( synopsis[75:] and '...' )
@@ -799,6 +944,23 @@ class PluginResponse(object):
         return self.get_output()
 
     def send(self, level=None, synopsis='', msg='', sublevel = None):
+        r""" Send the response to Nagios
+
+        This method is automatically called by :meth:`naghelp.ActivePlugin.run` method and
+        follow these steps :
+
+            * if defined, force a level, a sublevel, a synopsis or add a last message
+            * render the response string following the Nagios syntax
+            * display the string on stdout
+            * exit the plugin with the exit code corresponding to the response level.
+
+        Args:
+
+            level(:class:`ResponseLevel`): force a level (optional),
+            synopsis(str): force a synopsis (optional),
+            msg(str): add a last level message (optional),
+            sublevel(int): force a sublevel [0-3] (optional),
+        """
         if isinstance(level,ResponseLevel):
             self.set_level(level)
         if self.level is None:

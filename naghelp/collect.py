@@ -17,22 +17,6 @@ import time
 __all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp',
            'Timeout', 'TimeoutError', 'CollectError', 'ConnectionError', 'NotConnected']
 
-class NotConnected(Exception):
-    """ Exception raised when trying to collect data on an already close connection
-
-    After a run()/mrun() without a ``with:`` clause, the connection is automatically closed.
-    Do not do another run()/mrun() in the row otherwise you will have the exception.
-    Solution : use ``with:``
-    """
-    pass
-
-class ConnectionError(Exception):
-    """ Exception raised when trying to initialize the connection
-
-    It may come from bad login/password, inappropriate parameters and so on
-    """
-    pass
-
 class CollectError(Exception):
     """ Exception raised when a collect is unsuccessful
 
@@ -41,7 +25,23 @@ class CollectError(Exception):
     """
     pass
 
-class TimeoutError(Exception):
+class NotConnected(CollectError):
+    """ Exception raised when trying to collect data on an already close connection
+
+    After a run()/mrun() without a ``with:`` clause, the connection is automatically closed.
+    Do not do another run()/mrun() in the row otherwise you will have the exception.
+    Solution : use ``with:``
+    """
+    pass
+
+class ConnectionError(CollectError):
+    """ Exception raised when trying to initialize the connection
+
+    It may come from bad login/password, inappropriate parameters and so on
+    """
+    pass
+
+class TimeoutError(CollectError):
     """ Exception raised when a connection or a collect it too long to process
 
     It may come from unreachable remote host, too long lasting commands, bad pattern matching on
