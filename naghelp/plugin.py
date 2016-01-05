@@ -29,16 +29,78 @@ pp = pprint.PrettyPrinter(indent=4)
 __all__ = [ 'ActivePlugin' ]
 
 class Plugin(object):
-    "The plugin class"
+    """ Plugin base class
+
+    This is an abstract class used with :class:`ActivePlugin`, it brings :
+
+        * plugin search in a directory of python files
+        * plugin instance generation
+        * plugin logging management
+        * plugin command line options management
+        * plugin persistent data management
+    """
+
     plugin_type = 'plugin'
+    """ For plugin search, it will search for classes having this attribute in all python files"""
+
     plugins_basedir = os.path.dirname(__file__)
+    """ For plugin search, it will search recursively from this directory """
+
     plugins_basemodule = ''
+    """ For plugin search, the module prefix to add to have the module accessible from python path"""
+
     logger_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    """ The logging format to use """
+
     logger_logsize = 1000000
+    """ Log file max size """
+
     logger_logbackup = 5
+    """ Log file backup file number"""
 
     @classmethod
     def get_instance(cls, plugin_name):
+        """ Generate a plugin instance from its name string
+
+        This method is useful when you only know at execution time the name of
+        the plugin to instantiate.
+
+        If you have an active plugin class called ``HpProliant`` in a file located at
+        ``/home/me/myplugin_dir/hp/hp_proliant.py`` then you can get the plugin instance this way :
+
+        For all your plugins, you should first subclass the ActivePlugin to override plugins_basedir::
+
+            class MyActivePlugin(ActivePlugin):
+                plugins_basedir = '/home/me/myplugin_dir'
+
+            class HpProliant(MyActivePlugin):
+                ''' My code '''
+
+        Check that ``/home/me/myplugin_dir`` is in your python path.
+
+        Then you can get an instance by giving only the class name::
+
+            plugin = MyActivePlugin.get_instance('HpProliant')
+
+        Or with the full doted path::
+
+            plugin = MyActivePlugin.get_instance('hp.hp_proliant.HpProliant')
+
+        In first case, it is shorter but a recursive search will occur to find the class
+        in all python files located in ``/home/me/myplugin_dir/``. It is mainly useful in
+        python interactive console.
+
+        In second case, as you specified the full path, the class is found at once : it is faster
+        and should be used in production.
+
+        Once the class is found, an instance is created and returned.
+
+        Of course, if you do not need to get an instance from a string :
+        it is more pythonic to do like this::
+
+            from hp.hp_proliant import HpProliant
+            plugin = HpProliant()
+        """
         plugin_class = cls.get_plugin_class(plugin_name)
         if not plugin_class:
             return None
