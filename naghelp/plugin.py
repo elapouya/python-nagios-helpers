@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-'''
-Création : July 8th, 2015
-
-@author: Eric Lapouyade
-'''
+#
+# Création : July 8th, 2015
+#
+# @author: Eric Lapouyade
+#
 
 import os
 import sys
@@ -31,13 +31,15 @@ __all__ = [ 'ActivePlugin' ]
 class Plugin(object):
     """ Plugin base class
 
-    This is an abstract class used with :class:`ActivePlugin`, it brings :
+    This is an abstract class used with :class:`naghelp.ActivePlugin`, it brings :
 
         * plugin search in a directory of python files
         * plugin instance generation
         * plugin logging management
         * plugin command line options management
         * plugin persistent data management
+
+    This abstract class should be used later with :class:`naghelp.PassivePlugin` when developed.
     """
 
     plugin_type = 'plugin'
@@ -78,11 +80,11 @@ class Plugin(object):
 
         Check that ``/home/me/myplugin_dir`` is in your python path.
 
-        Then you can get an instance by giving only the class name::
+        Then you can get an instance by giving only the class name (case insensitive)::
 
-            plugin = MyActivePlugin.get_instance('HpProliant')
+            plugin = MyActivePlugin.get_instance('hpproliant')
 
-        Or with the full doted path::
+        Or with the full doted path (case sensitive this time)::
 
             plugin = MyActivePlugin.get_instance('hp.hp_proliant.HpProliant')
 
@@ -108,6 +110,21 @@ class Plugin(object):
 
     @classmethod
     def get_plugin(cls,plugin_name):
+        """ find a plugin and return its module and its class name
+
+        To get the class itself, one have to get the corresponding module's attribute::
+
+            module,class_name = MyActivePlugin.get_plugin('hpproliant')
+            plugin_class = getattr(module,class_name,None)
+
+        Args:
+
+            plugin_name(str): the plugin name to find (case insensitive)
+
+        Returns:
+
+            module, str: A tuple containing the plugin's module and plugin's class name
+        """
         plugin_name = plugin_name.lower()
         plugins = cls.find_plugins()
         if plugin_name in plugins:
@@ -116,6 +133,30 @@ class Plugin(object):
 
     @classmethod
     def get_plugin_class(cls,plugin_name):
+        """ get the plugin class from its name
+
+        If the dotted notation is used, the string is case sensitive and the corresponding module
+        is loaded at once, otherwise the plugin name is case insensitive and a recursive file search
+        is done from the directory ``plugin_class.plugins_basedir``
+
+        Args:
+
+            plugin_name(str): the plugin name to find.
+
+        Returns:
+
+            class object or None: plugin's class object or None if not found.
+
+        You can get plugin class object by giving only the class name (case insensitive)::
+
+            plugin_class = MyActivePlugin.get_plugin_class('hpproliant')
+
+        Or with the full dotted path (case sensitive this time)::
+
+            plugin_class = MyActivePlugin.get_plugin_class('hp.hp_proliant.HpProliant')
+
+        If you need a plugin instance, prefer using :meth:`get_instance`
+        """
         module_and_class = plugin_name.rsplit('.',1)
         if len(module_and_class) == 1:
             module_name,class_name = cls.get_plugin(module_and_class[0])
@@ -132,6 +173,24 @@ class Plugin(object):
 
     @classmethod
     def find_plugins(cls):
+        """ Recursively find all plugin classes for all python files present in a directory.
+
+        It finds all python files inside ``YourPluginsBaseClass.plugins_basedir`` then look for
+        all classes having the attribute ``plugin_type`` with the value
+        ``YourPluginsBaseClass.plugin_type``
+
+        It returns a dictionary where keys are plugin class name in lower case and the values
+        are a dictionary containing :
+
+            =======  ==============================================
+            Keys     Values
+            =======  ==============================================
+            name     the class name (case sensitive)
+            module   the plugin module name with a full dotted path
+            path     the module file path
+            desc     the plugin description (first docstring line)
+            =======  ==============================================
+        """
         plugins = {}
         basedir = os.path.normpath(cls.plugins_basedir)
         for root,dirs,files in os.walk(basedir):
@@ -145,7 +204,7 @@ class Plugin(object):
                             for name,member in module.__dict__.items():
                                 try:
                                     if hasattr(member,'plugin_type') and getattr(member,'plugin_type') == cls.plugin_type and  not member.__dict__.get('abstract',False):
-                                        doc = member.__doc__ or ''
+                                        doc = member.get_plugin_desc()
                                         plugins[member.__name__.lower()] = {
                                             'name'  : member.__name__,
                                             'module': cls.plugins_basemodule + module_name,
@@ -162,6 +221,13 @@ class Plugin(object):
 
     @classmethod
     def find_plugins_import_errors(cls):
+        """ Find all import errors all python files present in a directory.
+
+        It finds all python files inside ``YourPluginsBaseClass.plugins_basedir`` and try to import
+        them. If an error occurs, the file path and linked exception is memorized.
+
+        It returns a list of tuples containing the file path and the exception.
+        """
         plugin_files = []
         basedir = os.path.normpath(cls.plugins_basedir)
         for root,dirs,files in os.walk(basedir):
@@ -178,12 +244,20 @@ class Plugin(object):
         return plugin_files
 
     def get_cmd_usage(self):
+        """ Returns the command line usage """
         return self.usage
 
-    def get_plugin_desc(self):
-        return ''
+    @classmethod
+    def get_plugin_desc(cls):
+        """ Returns the plugin description. By default return the class docstring. """
+        return cls.__doc__.strip() or ''
 
     def init_cmd_options(self):
+        """ Create OptionParser instance and add some basic options
+
+        This is automatically called when the plugin is run.
+        Avoid to override this method, prefer to customize :meth:`add_cmd_options`
+        """
         self._cmd_parser = OptionParser(usage = self.get_cmd_usage())
         self._cmd_parser.add_option('-v', action='store_true', dest='verbose',
                                    default=False, help='Verbose : display informational messages')
@@ -195,12 +269,22 @@ class Plugin(object):
                                    default=False, help='Display plugin description')
 
     def add_cmd_options(self):
+        """ This method can be customized to add some OptionParser options for the current plugin
+
+        Example::
+
+            self._cmd_parser.add_option('-z', action='store_true', dest='super_debug',
+                                       default=False, help='Activate the super debug mode')
+
+        """
         pass
 
     def get_logger_format(self):
+        """ gets logger format, by default the one defined in ``logger_format`` attribute """
         return self.logger_format
 
     def get_logger_level(self):
+        """ gets logger level. By default sets to ``logging.ERROR`` to get only errors """
         if self.options.debug:
             return logging.DEBUG
         elif self.options.verbose:
@@ -208,15 +292,23 @@ class Plugin(object):
         return logging.ERROR
 
     def get_logger_file_level(self):
+        """ gets logger level specific for log file output.
+
+        Note : This is possible to set different logger level between log file and console"""
         return self.get_logger_level()
 
     def get_logger_console_level(self):
+        """ gets logger level specific for the console output.
+
+        Note : This is possible to set different logger level between log file and console"""
         return self.get_logger_level()
 
     def get_logger_file_logfile(self):
+        """ get log file path """
         return self.options.logfile
 
     def add_logger_file_handler(self):
+        """ Activate logging to the log file """
         logfile = self.get_logger_file_logfile()
         if logfile:
             fh = logging.handlers.RotatingFileHandler(logfile, maxBytes=self.logger_logsize,
@@ -229,6 +321,7 @@ class Plugin(object):
             self.debug('Debug log file = %s' % logfile)
 
     def add_logger_console_handler(self):
+        """ Activate logging to the console """
         ch = logging.StreamHandler()
         ch.setLevel(self.get_logger_console_level())
         formatter = logging.Formatter(self.logger_format)
@@ -237,42 +330,142 @@ class Plugin(object):
         textops.logger.addHandler(ch)
 
     def init_logger(self):
+        """ Initialize logging """
         naghelp.logger.setLevel(logging.DEBUG)
         textops.logger.setLevel(logging.DEBUG)
         self.add_logger_console_handler()
         self.add_logger_file_handler()
 
     def handle_cmd_options(self):
+        """ Parse command line options
+
+        The parsed options are stored in ``self.options`` and arguments in ``self.args``"""
         (options, args) = self._cmd_parser.parse_args()
         self.options = options
         self.args = args
         if self.options.show_description:
-            print self.__class__.__doc__
+            print self.get_plugin_desc()
             exit(0)
 
     def manage_cmd_options(self):
+        """ Manage commande line options
+
+        OptionParser instance is created, options are added, then command line is parsed.
+        """
         self.init_cmd_options()
         self.add_cmd_options()
         self.handle_cmd_options()
 
     @classmethod
     def error(cls,msg,*args,**kwargs):
+        """ log an error message
+
+        Args:
+
+            msg(str): the message to log
+            args(list): if additional arguments are given,
+                ``msg`` will be formatted with ``%`` (old-style python string formatting)
+
+        Examples:
+
+            This logs an error message in log file and/or console::
+
+                p = Plugin()
+                p.error('Syntax error in line %s',36)
+        """
         naghelp.logger.error(msg,*args,**kwargs)
 
     @classmethod
     def warning(cls,msg,*args,**kwargs):
+        """ log a warning message
+
+        Args:
+
+            msg(str): the message to log
+            args(list): if additional arguments are given,
+                ``msg`` will be formatted with ``%`` (old-style python string formatting)
+
+        Examples:
+
+            This logs an warning message in log file and/or console::
+
+                p = Plugin()
+                p.warning('This variable is not used in line %s',36)
+        """
         naghelp.logger.warning(msg,*args,**kwargs)
 
     @classmethod
     def info(cls,msg,*args,**kwargs):
+        """ log an informational message
+
+        Args:
+
+            msg(str): the message to log
+            args(list): if additional arguments are given,
+                ``msg`` will be formatted with ``%`` (old-style python string formatting)
+
+        Examples:
+
+            This logs an informational message in log file and/or console::
+
+                p = Plugin()
+                p.info('Date : %s',datetime.now())
+        """
         naghelp.logger.info(msg,*args,**kwargs)
 
     @classmethod
     def debug(cls,msg,*args,**kwargs):
+        """ log a debug message
+
+        Args:
+
+            msg(str): the message to log
+            args(list): if additional arguments are given,
+                ``msg`` will be formatted with ``%`` (old-style python string formatting)
+
+        Examples:
+
+            This logs a debug message in log file and/or console::
+
+                p = Plugin()
+                p.debug('my_variable = %s',my_variable)
+        """
         naghelp.logger.debug(msg,*args,**kwargs)
 
     @classmethod
-    def save_data(cls,filename,data, ignore_error = True):
+    def save_data(cls,filename, data, ignore_error = True):
+        """ Serialize and save data into a file
+
+        The data must be a dictionary where values must be simple types :
+        str, int, float, date, list and/or dict. The data are serialized into json format.
+
+        Args:
+
+            filename(str): The file path to store the data.
+                The directories are created if not present.
+            data(dict): The dictionary to save.
+            ignore_error(bool): ignore errors if True (Default: True)
+
+        Notes:
+
+            The data dictionary keys must be strings. If you specify integers, they will be replaced
+            by a string.
+
+        Examples:
+
+            >>> data={'powers': {1:'OK', 2:'Degraded',3:'OK', 4:'Failed'}, 'nb_disks': 36 }
+            >>> ActivePlugin.save_data('/tmp/mydata',data)
+            >>> print open('/tmp/mydata').read()  #doctest: +NORMALIZE_WHITESPACE
+            {
+                "powers": {
+                    "1": "OK",
+                    "2": "Degraded",
+                    "3": "OK",
+                    "4": "Failed"
+                },
+                "nb_disks": 36
+            }
+        """
         cls.debug('Saving data to %s :\n%s',filename,pp.pformat(data))
         try:
             filedir = os.path.dirname(filename)
@@ -288,6 +481,28 @@ class Plugin(object):
 
     @classmethod
     def load_data(cls,filename):
+        """ Load and de-serialize data from a file
+
+        The input file must be a json file.
+
+        Args:
+
+            filename(str): The file path to load.
+
+        Returns:
+
+            :class:`textops.DictExt`: The restored data or ``NoAttr`` on error.
+
+        Examples:
+
+            >>> data = ActivePlugin.load_data('/tmp/mydata')
+            >>> print data
+            {u'powers': {u'1': u'OK', u'3': u'OK', u'2': u'Degraded', u'4': u'Failed'}, u'nb_disks': 36}
+            >>> print type(data)
+            <class 'textops.base.DictExt'>
+
+        See :meth:`save_data` to know how ``/tmp/mydata`` has been generated.
+        """
         cls.debug('Loading data from %s :',filename)
         try:
             with open(filename) as fh:
@@ -299,26 +514,34 @@ class Plugin(object):
         cls.debug('No data found')
         return textops.NoAttr
 
-    @classmethod
-    def load_data_fast(cls,filename):
-        try:
-            with open(filename) as fh:
-                data = json.load(fh)
-                return data
-        except (IOError, OSError, ValueError),e:
-            cls.debug('Exception : %s',e)
-        return None
-
 class ActivePlugin(Plugin):
     """ Python base class for active nagios plugins
 
     This is the base class for developping Active Nagios plugin with the naghelp module
     """
+
     plugin_type = 'active'
+    """ The plugin type
+
+    This is used during plugin recursive search : should be the same string
+    accross all your plugins"""
+
     host_class = Host
+    """ Must contain the host class to use.
+
+    You have to modify this class when you have redefined your own host class """
+
     response_class = PluginResponse
+    """ Must contain the response class to use.
+
+    You have to modify this class when you have redefined your own response class """
+
     usage = 'usage: \n%prog [options]'
+    """ The command line usage """
+
     options = NoAttrDict()
+    """ Contains the command line options as parsed by :class:`optparse.OptionParser` """
+
     host = NoAttrDict()
     cmd_params = ''
     required_params = None
@@ -327,7 +550,14 @@ class ActivePlugin(Plugin):
     udp_ports = ''
     nagios_status_on_error = CRITICAL
     collected_data_filename_pattern = '/tmp/naghelp/%s_collected_data.json'
+
     data = textops.DictExt()
+    """ The place to put collected and parsed data
+
+    As data is a :class:`textops.DictExt` object, one can use the dotted notation for reading and for
+    writing.
+    """
+
     default_level = OK
 
     def __init__(self):

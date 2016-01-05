@@ -10,17 +10,18 @@ Plugin module
 =============
 
 .. automodule:: naghelp.plugin
-.. currentmodule:: naghelp
 
 Plugin
 ------
 
-.. autoclass:: naghelp.plugin.Plugin
+.. currentmodule:: naghelp.plugin
+.. autoclass:: Plugin
    :members:
 
 ActivePlugin
 ------------
 
+.. currentmodule:: naghelp
 .. autoclass:: ActivePlugin
    :members:
 
