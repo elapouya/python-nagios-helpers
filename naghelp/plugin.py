@@ -545,20 +545,55 @@ class ActivePlugin(Plugin):
     host = NoAttrDict()
 
     cmd_params = ''
-    """ Attribute that must contain a list of all possible :class:`naghelp.Host` parameters
+    """ Attribute that must contain a list of all possible :class:`naghelp.Host`
+    parameters for the current plugin
 
     This will automatically add options to the :class:`optparse.OptionParser` object. This means
-    that the given parameters will be available at command line (use '-h' for plugin help to see them
+    that the given parameters can be set at command line (use '-h' for plugin help to see them
     appear).
-    The list of possible Host parameters you can add are keys of the dictionary returned
-    by the method :meth:`get_plugin_host_params_tab`.
     This also ask naghelp to get parameters from environment variable or an optional database if
-    available.
+    available. Once the parameters value found, naghelp will store them into the host object at the
+    same index.
+    For example, if ``plugin.cmd_params = 'user,passwd'`` then parameters values will be available
+    at ``self.host.user`` and ``self.host.passwd`` inside the definition of :meth:`collect_data`.
+
+    It is highly recommended to use the following parameters name as their description has been
+    already defined by the method :meth:`get_plugin_host_params_tab` :
+
+    ==================  ==================================================
+     NAME                DESCRIPTION
+    ==================  ==================================================
+     name               Hostname
+     ip                 Host IP address
+     subtype            Plugin subtype (usually host model)
+     user               User
+     passwd             Password
+     console_ip         Console or controller IP address
+     snmpversion        SNMP protocal version (1,2 or 3)
+     community          SNMP community
+     community_alt      SNMP community for other device
+     authpp             SNMP authentification passphrase
+     authproto          SNMP authentification protocal (md5 or sha)
+     privpp             SNMP privacy passphrase
+     privproto          SNMP privacy protocal (des or aes)
+     protocol           ssh or telnet
+     port               Port number
+     options            Additionnal options
+    ==================  ==================================================
+
+    Note that ``name`` and ``ip`` are hard coded :
+    you must use them for Nagios hostname and hostaddress
 
     The parameter list can be a python list or a coma separated string.
 
     You can force all your plugin to have some default parameters (like 'name' and 'ip') :
     to do so, use the plugin attribute :attr:`forced_params`.
+
+    .. note::
+        **Do not** include the parameters that are not :class:`naghelp.Host` related (like plugin
+        debug mode flag, verbose mode flag, plugin description flag etc...).
+        These parameters are already checked by :class:`optparse.OptionParser` and do not need to
+        get their value from environment variables or a database.
     """
 
     required_params = None
@@ -566,7 +601,7 @@ class ActivePlugin(Plugin):
 
     For example, if your plugin need to connect to a host that requires a password,
     you must add 'passwd' in the list.
-    The list of possible Host parameters you can add are keys of the dictionary returned
+    The list of possible Host parameters you can add should be keys of the dictionary returned
     by the method :meth:`get_plugin_host_params_tab`.
 
     At execution time, ``naghelp`` will automatically check the required parameters presence :
@@ -574,14 +609,8 @@ class ActivePlugin(Plugin):
     (see :class:`naghelp.Host`).
 
     The parameter list can be a python list or a coma separated string.
-    If the list is ``None`` (by default), the required parameters will be taken from attribute
-    :attr:`cmd_params`
-
-    .. note::
-        **Do not** include the parameters that are not :class:`naghelp.Host` related (like plugin
-        debug mode flag, verbose mode flag, plugin description flag etc...).
-        These parameters are already checked by :class:`optparse.OptionParser` and do not need to
-        get their value from environment variables or a database.
+    If the list is ``None`` (by default), this means that all parameters from attribute
+    :attr:`cmd_params` are required.
     """
 
     forced_params = 'name,ip'
@@ -606,12 +635,29 @@ class ActivePlugin(Plugin):
     """
 
     default_level = OK
+    """ Attribute giving the response level to return if no level has been set.
+
+    By default, naghelp consider that if no level message has been added to the response, there is
+    no errors and return the ``OK`` level to Nagios.
+
+    In some situation, one may prefer to send an ``UKNOWN`` state by default.
+    """
 
     def __init__(self):
         self.starttime = datetime.datetime.now()
         self.response = self.response_class(default_level=self.default_level)
 
     def get_plugin_host_params_tab(self):
+        """ Returns a dictionary of Host parameters description
+
+        This dictionary helps naghelp to build the plugin help (``-h`` option in command line).
+
+        It is highly recommended to use, in the attribute :attr:`cmd_params`, only keys from this
+        dictionary. If it is not the case, a pseudo-description will be calculated when needed.
+
+        If you want to create specific parameters, add them in the dictionary with their description
+        by overriding this method in a subclass.
+        """
         return  {   'name'           : 'Hostname',
                     'ip'             : 'Host IP address',
                     'subtype'        : 'Plugin subtype (usually host model)',
