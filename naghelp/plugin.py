@@ -521,31 +521,78 @@ class ActivePlugin(Plugin):
     """
 
     plugin_type = 'active'
-    """ The plugin type
+    """ Attribute for the plugin type
 
     This is used during plugin recursive search : should be the same string
     accross all your plugins"""
 
     host_class = Host
-    """ Must contain the host class to use.
+    """ Attribute that must contain the host class to use.
 
     You have to modify this class when you have redefined your own host class """
 
     response_class = PluginResponse
-    """ Must contain the response class to use.
+    """ Attribute that must contain the response class to use.
 
     You have to modify this class when you have redefined your own response class """
 
     usage = 'usage: \n%prog [options]'
-    """ The command line usage """
+    """ Attribute for the command line usage """
 
     options = NoAttrDict()
-    """ Contains the command line options as parsed by :class:`optparse.OptionParser` """
+    """ Attribute that contains the command line options as parsed by :class:`optparse.OptionParser` """
 
     host = NoAttrDict()
+
     cmd_params = ''
+    """ Attribute that must contain a list of all possible :class:`naghelp.Host` parameters
+
+    This will automatically add options to the :class:`optparse.OptionParser` object. This means
+    that the given parameters will be available at command line (use '-h' for plugin help to see them
+    appear).
+    The list of possible Host parameters you can add are keys of the dictionary returned
+    by the method :meth:`get_plugin_host_params_tab`.
+    This also ask naghelp to get parameters from environment variable or an optional database if
+    available.
+
+    The parameter list can be a python list or a coma separated string.
+
+    You can force all your plugin to have some default parameters (like 'name' and 'ip') :
+    to do so, use the plugin attribute :attr:`forced_params`.
+    """
+
     required_params = None
+    """ Attribute that contains the list of parameters required for the :class:`naghelp.Host` object
+
+    For example, if your plugin need to connect to a host that requires a password,
+    you must add 'passwd' in the list.
+    The list of possible Host parameters you can add are keys of the dictionary returned
+    by the method :meth:`get_plugin_host_params_tab`.
+
+    At execution time, ``naghelp`` will automatically check the required parameters presence :
+    they could come from command line option, environment variable or a database
+    (see :class:`naghelp.Host`).
+
+    The parameter list can be a python list or a coma separated string.
+    If the list is ``None`` (by default), the required parameters will be taken from attribute
+    :attr:`cmd_params`
+
+    .. note::
+        **Do not** include the parameters that are not :class:`naghelp.Host` related (like plugin
+        debug mode flag, verbose mode flag, plugin description flag etc...).
+        These parameters are already checked by :class:`optparse.OptionParser` and do not need to
+        get their value from environment variables or a database.
+    """
+
     forced_params = 'name,ip'
+    """ Attribute you can set to force all your plugins to have some default :class:`naghelp.Host`
+    parameters.
+    These parameters are automatically added to the plugin attribute :attr:`cmd_params`.
+
+    Usually set to ``'name,ip'`` because all the monitored equipments must have a Nagios name and an
+    IP.
+    """
+
     tcp_ports = ''
     udp_ports = ''
     nagios_status_on_error = CRITICAL
@@ -565,8 +612,22 @@ class ActivePlugin(Plugin):
         self.response = self.response_class(default_level=self.default_level)
 
     def get_plugin_host_params_tab(self):
-        return {    'name'  : 'Hostname',
-                    'ip'    : 'Host IP address',
+        return  {   'name'           : 'Hostname',
+                    'ip'             : 'Host IP address',
+                    'subtype'        : 'Plugin subtype (usually host model)',
+                    'user'           : 'User',
+                    'passwd'         : 'Password',
+                    'console_ip'     : 'Console or controller IP address',
+                    'snmpversion'    : 'SNMP protocal version (1,2 or 3)',
+                    'community'      : 'SNMP community',
+                    'community_alt'  : 'SNMP community for other device',
+                    'authpp'         : 'SNMP authentification passphrase',
+                    'authproto'      : 'SNMP authentification protocal (md5 or sha)',
+                    'privpp'         : 'SNMP privacy passphrase',
+                    'privproto'      : 'SNMP privacy protocal (des or aes)',
+                    'protocol'       : 'ssh or telnet',
+                    'port'           : 'Port number',
+                    'options'        : 'Additionnal options',
                 }
 
     def get_plugin_host_params_desc(self):
