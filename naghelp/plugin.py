@@ -788,7 +788,15 @@ class ActivePlugin(Plugin):
     def error(self, msg, sublevel=3, exception=None, *args,**kwargs):
         """Log an error and exit the plugin
 
+        Not only it logs an error to console and/or log file, it also send a fast response that
+        will exit the plugin. If the exception that has generated the error is not derived
+        from CollectError, A stack and available data are also dumped.
 
+        Args:
+
+            msg(str): Message body. Note that it adds a begin message (not a message level).
+            sublevel(int): The message sublevel (displayed into plugin information section)
+            exception(Exception): The exception that is the error's origin (Optional).
         """
         body = ''
         if exception is None or not isinstance(exception, naghelp.CollectError):
@@ -800,22 +808,55 @@ class ActivePlugin(Plugin):
         self.fast_response(self.nagios_status_on_error,msg,body,sublevel)
 
     def warning(self,msg,*args,**kwargs):
+        """Log a warning and add a warning message level
+
+        Not only it logs a warning to console and/or log file,
+        it also add a warning in response's message level section
+
+        Args:
+
+            msg(str): The message to log and add.
+        """
         naghelp.logger.warning(msg,*args,**kwargs)
         self.response.add(msg % args,WARNING)
 
     def save_collected_data(self):
+        """Save collected data
+
+        During development and testing, it may boring to wait the data to be collected : The idea
+        is to save them once, and then use them many times : This is useful when developing
+        :meth:`parse_data` and :meth:`build_response`
+
+        This method is called when using ``-s`` option on command line.
+        """
         self.save_data(self.collected_data_filename_pattern % self.host.name, self.data)
 
     def restore_collected_data(self):
+        """Restore collected data
+
+        During development and testing, it may boring to wait the data to be collected : The idea
+        is to save them once, and then use them many times : This is useful when developing
+        :meth:`parse_data` and :meth:`build_response`
+
+        This method is called when using ``-r`` option on command line.
+        """
         self.data = self.load_data(self.collected_data_filename_pattern % self.host.name)
 
     def get_udp_ports(self):
+        """Returns udp ports
+
+        Manages ``port`` host parameter if defined
+        """
         if self.host.port:
             if not self.tcp_ports:
                 return [self.host.port]
         return self.udp_ports
 
     def get_tcp_ports(self):
+        """Returns tcp ports
+
+        Manages ``port`` and ``protocol`` host parameters if defined
+        """
         if self.host.port:
             if not self.udp_ports:
                 return [self.host.port]
@@ -824,6 +865,11 @@ class ActivePlugin(Plugin):
         return self.tcp_ports
 
     def check_ports(self):
+        """Checks port
+
+        This method is called when an error occurs while collecting data from host : It will check
+        whether the tcp ports are reachable or not. If not, the plugin exits with a fast response.
+        """
         invalid_port = search_invalid_port(self.host.ip,self.get_tcp_ports())
         if invalid_port:
             self.fast_response(CRITICAL,
@@ -832,9 +878,50 @@ class ActivePlugin(Plugin):
                                2, exception=naghelp.ConnectionError('Port unreachable') )
 
     def collect_data(self,data):
+        """Collect data from monitored host
+
+        This method should be overridden when developing a new plugin.
+        One should use :mod:`naghelp.collect` module to retrieve raw data from monitored equipment.
+        Do not parse raw data in this method : see :meth:`parse_data`
+
+        Args:
+
+            data(:class:`textops.DictExt`): the data dictionary to write collected raw data to.
+
+        Example:
+
+            Here we issue the AIX command ``errpt`` via SSH::
+
+                def collect_data(self,data):
+                    data.system = Ssh(self.host.ip,self.host.user,self.host.passwd).run('errpt -d H -T PERM')
+
+            Note that no data is returned : one just have to modify ``data`` with a dotted notation.
+        """
         pass
 
     def parse_data(self,data):
+        r"""Parse data
+
+        This method should be overridden when developing a new plugin.
+        When raw data are no usable at once, one should parse them to structure the informations.
+        :meth:`parse_data` will get the data dictionary updated by :meth:`collect_data`.
+        One should then use `python-textops <http://python-textops.readthedocs.org>`_ to parse the data.
+
+        Args:
+
+            data(:class:`textops.DictExt`): the data dictionary to read collected raw data and write
+                parsed data.
+
+        Example:
+
+            After getting a raw syslog output, we extract warnings and critical errors::
+
+                def parse_data(self,data):
+                    data.warnings  = data.syslog.grepi('EMS Event Notification').grep('MAJORWARNING|SERIOUS')
+                    data.criticals = data.syslog.grepi('EMS Event Notification').grep('CRITICAL')
+
+            Note that no data is returned : one just have to modify ``data`` with a dotted notation.
+        """
         pass
 
     def build_response(self,data):
