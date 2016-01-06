@@ -13,7 +13,7 @@ import re
 __all__ = [ 'ResponseLevel', 'PluginResponse', 'OK', 'WARNING', 'CRITICAL', 'UNKNOWN' ]
 
 class ResponseLevel(object):
-    """ Object to use when exiting a naghelp plugin
+    """Object to use when exiting a naghelp plugin
 
     Instead of using numeric code that may be hard to memorize, predefined objects has be created :
 
@@ -37,7 +37,7 @@ class ResponseLevel(object):
         return self.name
 
     def info(self):
-        """ Get name and exit code for a Response Level
+        """Get name and exit code for a Response Level
 
         Examples:
 
@@ -52,7 +52,7 @@ class ResponseLevel(object):
         return '%s (exit_code=%s)' % (self.name,self.exit_code)
 
     def exit(self):
-        """ This is the official way to exit a naghelp plugin
+        """This is the official way to exit a naghelp plugin
 
         Example:
 
@@ -68,7 +68,7 @@ CRITICAL = ResponseLevel('CRITICAL',2)
 UNKNOWN  = ResponseLevel('UNKNOWN',3)
 
 class PluginResponse(object):
-    """ Response to return to Nagios for a naghelp plugin
+    """Response to return to Nagios for a naghelp plugin
 
     Args:
 
@@ -128,7 +128,7 @@ class PluginResponse(object):
         self.perf_items = []
 
     def set_level(self, level):
-        """ Manually set the response level
+        """Manually set the response level
 
         Args:
 
@@ -149,7 +149,7 @@ class PluginResponse(object):
             self.level = level
 
     def get_current_level(self):
-        """ get current level
+        """get current level
 
         If no level has not been set yet, it will return the default_level.
         Use this method if you want to know what ResponseLevel will be sent.
@@ -170,7 +170,7 @@ class PluginResponse(object):
         return self.default_level if self.level is None else self.level
 
     def set_sublevel(self, sublevel):
-        """ sets sublevel attribute
+        """sets sublevel attribute
 
         Args:
 
@@ -198,7 +198,7 @@ class PluginResponse(object):
         self.sublevel = sublevel
 
     def get_sublevel(self):
-        """ get sublevel
+        """get sublevel
 
         Returns:
 
@@ -228,7 +228,7 @@ class PluginResponse(object):
         return msg
 
     def add_begin(self,msg,*args,**kwargs):
-        r""" Add a message in begin section
+        r"""Add a message in begin section
 
         You can use this method several times and at any time until the :meth:`send` is used.
         The messages will be displayed in begin section in the same order as they have been added.
@@ -268,7 +268,7 @@ class PluginResponse(object):
         self.begin_msgs.append(self._reformat_msg(msg,*args,**kwargs))
 
     def add(self,level,msg,*args,**kwargs):
-        r""" Add a message in levels messages section and sets the response level at the same time
+        r"""Add a message in levels messages section and sets the response level at the same time
 
         Use this method each time your plugin detects a WARNING or a CRITICAL error. You can also
         use this method to add a message saying there is an UNKNOWN or OK state somewhere.
@@ -321,7 +321,7 @@ class PluginResponse(object):
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
     def add_list(self,level,msg_list,*args,**kwargs):
-        """ Add several level messages having a same level
+        """Add several level messages having a same level
 
         Sometimes, you may have to specify a list of faulty parts in the response : this can be done
         by this method in a single line. If a message is empty in the list, it is not added.
@@ -379,7 +379,7 @@ class PluginResponse(object):
                 self.add(level, msg,*args,**kwargs)
 
     def add_many(self,lst,*args,**kwargs):
-        """ Add several level messages NOT having a same level
+        """Add several level messages NOT having a same level
 
         This works like :meth:`add_list` except that instead of giving a list of messages one have
         to specify a list of tuples (level,message). By this way, one can give a level to each
@@ -434,7 +434,7 @@ class PluginResponse(object):
                 self.add(level, msg,*args,**kwargs)
 
     def add_if(self, test, level, msg=None, *args,**kwargs):
-        r""" Test than add a message in levels messages section and sets the response level at the same time
+        r"""Test than add a message in levels messages section and sets the response level at the same time
 
         This works like :meth:`add` except that it is conditionnal : ``test`` must be True.
         If no message is given, the value of ``test`` is used.
@@ -502,7 +502,7 @@ class PluginResponse(object):
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
     def add_elif(self,*add_ifs,**kwargs):
-        r""" Multi-conditionnal message add
+        r"""Multi-conditionnal message add
 
         This works like :meth:`add_if` except that it accepts multiple tests.
         Like python ``elif``, the method stops on first True test and send corresponding message.
@@ -570,7 +570,7 @@ class PluginResponse(object):
                 raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
     def add_more(self,msg,*args,**kwargs):
-        r""" Add a message in "more messages" section (aka "Additionnal informations")
+        r"""Add a message in "more messages" section (aka "Additionnal informations")
 
         You can use this method several times and at any time until the :meth:`send` is used.
         The messages will be displayed in the section in the same order as they have been added.
@@ -615,7 +615,7 @@ class PluginResponse(object):
         self.more_msgs.append(msg)
 
     def add_end(self,msg,*args,**kwargs):
-        r""" Add a message in end section
+        r"""Add a message in end section
 
         You can use this method several times and at any time until the :meth:`send` is used.
         The messages will be displayed in end section in the same order as they have been added.
@@ -664,7 +664,7 @@ class PluginResponse(object):
 
 
     def add_perf_data(self,data):
-        r""" Add performance object into the response
+        r"""Add performance object into the response
 
         Args:
 
@@ -693,7 +693,7 @@ class PluginResponse(object):
         self.perf_items.append(data)
 
     def set_synopsis(self,msg,*args,**kwargs):
-        r""" Sets the response synopsis.
+        r"""Sets the response synopsis.
 
         By default, if no synopsis has been set manually, the response synopsis (first line of
         the text returned by the plugin) will be :
@@ -740,7 +740,7 @@ class PluginResponse(object):
         self.synopsis = msg
 
     def get_default_synopsis(self):
-        """ Returns the default synopsis
+        """Returns the default synopsis
 
         This method is called if no synopsis has been set manually, the response synopsis (first line of
         the text returned by the plugin) will be :
@@ -771,7 +771,7 @@ class PluginResponse(object):
         return 'STATUS : ' + ', '.join([ '%s:%s' % (level,len(self.level_msgs[level])) for level in [CRITICAL, WARNING, UNKNOWN, OK ] if self.level_msgs[level] ])
 
     def section_format(self,title):
-        """ Returns the section title string
+        """Returns the section title string
 
         This method is automatically called when the response is rendered by :meth:`get_outpout`.
         If you want to have a different output, you can subclass the :class:`PluginResponse`
@@ -794,7 +794,7 @@ class PluginResponse(object):
         return '{0:=^80}'.format('[ {0:^8} ]'.format(title))
 
     def subsection_format(self,title):
-        """ Returns the subsection title string
+        """Returns the subsection title string
 
         This method is automatically called when the response is rendered by :meth:`get_outpout`.
         If you want to have a different output, you can subclass the :class:`PluginResponse`
@@ -817,7 +817,7 @@ class PluginResponse(object):
         return '----' + '{0:-<76}'.format('( %s )' % title)
 
     def level_msgs_render(self):
-        """ Renders level messages
+        """Renders level messages
 
         This method is automatically called when the response is rendered by :meth:`get_outpout`.
         If you want to have a different output, you can subclass the :class:`PluginResponse`
@@ -860,7 +860,7 @@ class PluginResponse(object):
         return out
 
     def escape_msg(self,msg):
-        """ Escapes forbidden chars in messages
+        """Escapes forbidden chars in messages
 
         Nagios does not accept the pipe symbol in messages because it is a separator for performance
         data. This method escapes or replace such forbidden chars.
@@ -877,7 +877,7 @@ class PluginResponse(object):
         return msg.replace('|','!')
 
     def get_output(self):
-        r""" Renders the whole response following the Nagios syntax
+        r"""Renders the whole response following the Nagios syntax
 
         This method is automatically called when the response is sent by :meth:`send`.
         If you want to have a different output, you can subclass the :class:`PluginResponse`
@@ -944,7 +944,7 @@ class PluginResponse(object):
         return self.get_output()
 
     def send(self, level=None, synopsis='', msg='', sublevel = None):
-        r""" Send the response to Nagios
+        r"""Send the response to Nagios
 
         This method is automatically called by :meth:`naghelp.ActivePlugin.run` method and
         follow these steps :

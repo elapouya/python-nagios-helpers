@@ -11,7 +11,7 @@ __all__ = ['PerfData']
 import re
 
 class PerfData(object):
-    """ PerfData class is a convenient way to build a performance data object without taking care
+    """PerfData class is a convenient way to build a performance data object without taking care
     of the syntax needed by Nagios. The PerfData object can then be added into to :class:`PluginResponse`
     object, with method :meth:`PluginResponse.add_perf_data`.
 

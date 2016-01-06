@@ -4,7 +4,7 @@
 #
 # @author: Eric Lapouyade
 #
-""" This module provides many funcions and classes to collect data remotely and locally"""
+"""This module provides many funcions and classes to collect data remotely and locally"""
 
 import re
 import socket
@@ -18,7 +18,7 @@ __all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 
            'Timeout', 'TimeoutError', 'CollectError', 'ConnectionError', 'NotConnected']
 
 class CollectError(Exception):
-    """ Exception raised when a collect is unsuccessful
+    """Exception raised when a collect is unsuccessful
 
     It may come from internal error from libraries pexpect/telnetlib/pysnmp. This includes
     some internal timeout exception.
@@ -26,7 +26,7 @@ class CollectError(Exception):
     pass
 
 class NotConnected(CollectError):
-    """ Exception raised when trying to collect data on an already close connection
+    """Exception raised when trying to collect data on an already close connection
 
     After a run()/mrun() without a ``with:`` clause, the connection is automatically closed.
     Do not do another run()/mrun() in the row otherwise you will have the exception.
@@ -35,14 +35,14 @@ class NotConnected(CollectError):
     pass
 
 class ConnectionError(CollectError):
-    """ Exception raised when trying to initialize the connection
+    """Exception raised when trying to initialize the connection
 
-    It may come from bad login/password, inappropriate parameters and so on
+    It may come from bad login/password, bad port, inappropriate parameters and so on
     """
     pass
 
 class TimeoutError(CollectError):
-    """ Exception raised when a connection or a collect it too long to process
+    """Exception raised when a connection or a collect it too long to process
 
     It may come from unreachable remote host, too long lasting commands, bad pattern matching on
     Expect/Telnet/Ssh for connection or prompt search steps.
@@ -50,7 +50,7 @@ class TimeoutError(CollectError):
     pass
 
 class Timeout:
-    """ Set an execution timeout for a block of code
+    """Set an execution timeout for a block of code
 
     It uses process signals, it should not work on windows platforms.
 
@@ -82,7 +82,7 @@ class Timeout:
         signal.alarm(0)
 
 def search_invalid_port(ip,ports):
-    """ Returns the first invalid port encountered or None if all are reachable
+    """Returns the first invalid port encountered or None if all are reachable
 
     Args:
 
@@ -113,7 +113,7 @@ def search_invalid_port(ip,ports):
     return None
 
 def runsh(cmd, context = {}, timeout = 30):
-    r""" Run a local command with a timeout
+    r"""Run a local command with a timeout
 
     | If the command is a string, it will be executed within a shell.
     | If the command is a list (the command and its arguments), the command is executed without a shell.
@@ -161,7 +161,7 @@ def runsh(cmd, context = {}, timeout = 30):
         return textops.run(cmd, context).l
 
 def mrunsh(cmds, context = {},cmd_timeout = 30, total_timeout = 60):
-    r""" Run multiple local commands with timeouts
+    r"""Run multiple local commands with timeouts
 
     It works like :func:`runsh` except that one must provide a dictionary of commands.
     It will generate the same dictionary where values will be replaced by command execution output.
@@ -205,7 +205,7 @@ def debug_pattern_list(pat_list):
     return [ (pat if isinstance(pat,basestring) else pat.pattern) for pat in pat_list ]
 
 class Expect(object):
-    r""" Interact with a spawn command
+    r"""Interact with a spawn command
 
     :class:`Expect` is a class that "talks" to other interactive programs.
     It is based on `pexpect <https://pexpect.readthedocs.org>`_ and is
@@ -441,7 +441,7 @@ class Expect(object):
         return out
 
     def run(self, cmd=None, timeout=30, auto_close=True, **kwargs):
-        r""" Execute one command
+        r"""Execute one command
 
         Runs a single command at the specified prompt and then close the interaction. Timeout
         will not raise any error but will return None.
@@ -497,7 +497,7 @@ class Expect(object):
         return textops.StrExt(out)
 
     def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
-        r""" Execute many commands at the same time
+        r"""Execute many commands at the same time
 
         Runs a dictionary of commands at the specified prompt and then close the interaction.
         Timeout will not raise any error but will return None for the running command.
@@ -554,7 +554,7 @@ class Expect(object):
         return dct
 
 class Telnet(object):
-    r""" Telnet class helper
+    r"""Telnet class helper
 
     This class create a telnet connection in order to run one or many commands.
 
@@ -640,7 +640,7 @@ class Telnet(object):
         return '\n'.join(out)
 
     def run(self, cmd, timeout=30, auto_close=True, **kwargs):
-        r""" Execute one command
+        r"""Execute one command
 
         Runs a single command at the usual prompt and then close the connection. Timeout
         will not raise any error but will return None.
@@ -691,7 +691,7 @@ class Telnet(object):
         return textops.StrExt(out)
 
     def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
-        r""" Execute many commands at the same time
+        r"""Execute many commands at the same time
 
         Runs a dictionary of commands at the specified prompt and then close the connection.
         Timeout will not raise any error but will return None for the running command.
@@ -740,7 +740,7 @@ class Telnet(object):
         return dct
 
 class Ssh(object):
-    r""" Ssh class helper
+    r"""Ssh class helper
 
     This class create a ssh connection in order to run one or many commands.
 
@@ -829,7 +829,7 @@ class Ssh(object):
             return '\n'.join(out)
 
     def run(self, cmd, timeout=30, auto_close=True, **kwargs):
-        r""" Execute one command
+        r"""Execute one command
 
         Runs a single command at the usual prompt and then close the connection. Timeout
         will not raise any error but will return None.
@@ -872,7 +872,7 @@ class Ssh(object):
         return textops.StrExt(out)
 
     def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
-        r""" Execute many commands at the same time
+        r"""Execute many commands at the same time
 
         Runs a dictionary of commands at the specified prompt and then close the connection.
         Timeout will not raise any error but will return None for the running command.
@@ -927,7 +927,7 @@ class Ssh(object):
         return dct
 
 class Snmp(object):
-    r""" Snmp class helper
+    r"""Snmp class helper
 
     This class helps to collect OIDs from a remote snmpd server. One can issue some snmpget and/or
     snmpwalk. Protocols 1, 2c and 3 are managed. It uses pysnmp library.
@@ -1012,7 +1012,7 @@ class Snmp(object):
         return val
 
     def normalize_oid(self,oid):
-        """ Normalize OID object in order to be used with pysnmp methods
+        """Normalize OID object in order to be used with pysnmp methods
 
         Basically, it converts OID with a tuple form into a ObjectIdentity form,
         keeping other forms unchanged.
@@ -1085,7 +1085,7 @@ class Snmp(object):
         return self.to_native_type(varBinds[0][1])
 
     def walk(self,oid_or_mibvar):
-        """ Walk from a OID root path
+        """Walk from a OID root path
 
         Args:
 
@@ -1127,7 +1127,7 @@ class Snmp(object):
         return lst
 
     def mwalk(self,vars_oids):
-        """ Walk from multiple OID root pathes
+        """Walk from multiple OID root pathes
 
         Args:
 
@@ -1173,7 +1173,7 @@ class Snmp(object):
         return oids
 
     def mget(self,vars_oids):
-        """ Get multiple OIDs at the same time
+        """Get multiple OIDs at the same time
 
         This method is much more faster than doing multiple :meth:`get` because it uses the same
         network request. In addition, one can request a range of OID. To build a range, just use a

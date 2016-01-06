@@ -91,7 +91,7 @@ class Host(dict):
         last check time
     """
     persistent_filename_pattern = '/tmp/naghelp/%s_persistent_data.json'
-    """ Default persistent .json file path pattern (note the %s that will be replaced by the hostname)
+    """Default persistent .json file path pattern (note the %s that will be replaced by the hostname)
     """
 
     def __init__(self, plugin):
@@ -105,7 +105,7 @@ class Host(dict):
                     self._params_from_env.get('ip') ) )
 
     def load_data(self):
-        """ load data to the :class:`Host` object
+        """load data to the :class:`Host` object
 
         That is from database and/or persistent file then from environment variables and then from
         command line.
@@ -116,7 +116,7 @@ class Host(dict):
         self._merge(self._params_from_cmd_options)
 
     def to_str(self, str, defvalue='-'):
-        """ Formats a string with Host informations
+        """Formats a string with Host informations
 
         Not available data are replaced by a dash
 
@@ -153,7 +153,7 @@ class Host(dict):
         return dformat(str,self,defvalue)
 
     def to_list(self, lst, defvalue='-'):
-        """ Formats a list of strings with Host informations
+        """Formats a list of strings with Host informations
 
         It works like :meth:`to_str` except that the input is a list of strings : This useful when
         a text has been splitted into lines.
@@ -190,7 +190,7 @@ class Host(dict):
         return [ dformat(l,self) for l in lst ]
 
     def debug(self):
-        """ Log Host informations for debug
+        """Log Host informations for debug
 
         Note:
 
@@ -235,7 +235,7 @@ class Host(dict):
         self.update([ (k,v) for k,v in dct.items() if v not in [None,NoAttr] ])
 
     def _get_env_to_param(self):
-        """ Returns a dict for the environment variable to extract
+        """Returns a dict for the environment variable to extract
 
         The keys are the environment variables to extract, the values are the attribute name to use
         for the Host object.
@@ -270,7 +270,7 @@ class Host(dict):
         return dct
 
     def _get_params_from_db(self,hostname):
-        """ Get host informations from database
+        """Get host informations from database
 
         Getting informations from a database is optionnal. If needed, it is the developer
         responsibility to subclass ``Host`` class and redefine the method ``_get_params_from_db(hostname)``
@@ -286,41 +286,41 @@ class Host(dict):
         Returns:
 
             dict : A dictionary that contains equipment informations AND persistent data merged.
-            
+
         Example:
-        
+
             Here is an example of :meth:`_get_params_from_db` override where informations about a monitored
             host are stored in a json file located at DB_JSON_FILE ::
-            
+
                 class MonitoredHost(Host):
                     def _get_params_from_db(self,hostname):
                         # The first step MUST be to read the persistent data file ( = cache file )
                         params = self._plugin.load_data(self._get_persistent_filename()) or DictExt()
-                        
-                        # Check whether the database file has changed 
+
+                        # Check whether the database file has changed
                         db_file_modif_time = int(os.path.getmtime(DB_JSON_FILE))
                         if db_file_modif_time == params['db_file_modif_time']:
                             # if not, return the cached data
                             return params
-                
+
                         # If database file has changed :
                         db = json.load(open(DB_JSON_FILE))
-                        # find hostname in db : 
+                        # find hostname in db :
                         for h in db.monitored_hosts:
                             if h['datas']['hostname'] == hostname:
-                                # merge the new data into the persistent data dict (will be cached) 
-                                params.update(h.datas) 
+                                # merge the new data into the persistent data dict (will be cached)
+                                params.update(h.datas)
                                 params['db_file_modif_time'] = db_file_modif_time
                                 params['name'] = params.get('hostname','noname')
                                 return params
                         return params
-                        
+
             .. Note::
                 You can do about the same for SQlite or MySQL, do not forget to load persistent
-                data file as a first step and merge data from database after. Like the above 
+                data file as a first step and merge data from database after. Like the above
                 example, you can use the persistent data json file as a cache for your database.
-                By this way, persistent data AND database data are saved in the same file within a 
-                single operation. The dictionary returned by this method will be saved automatically 
+                By this way, persistent data AND database data are saved in the same file within a
+                single operation. The dictionary returned by this method will be saved automatically
                 by the :meth:`naghelp.ActivePlugin.run` method as persistent data.
         """
         return self._plugin.load_data(self._get_persistent_filename()) or DictExt()
@@ -332,7 +332,7 @@ class Host(dict):
         return '\n'.join([ '%-12s : %s' % (k,v) for k,v in sorted(self.items()) ])
 
     def _get_persistent_filename(self):
-        """ Get the full path for the persisten .json file
+        """Get the full path for the persisten .json file
 
         It uses :attr:`persistent_filename_pattern` to get the file pattern, and apply the hostname
         to build the full path.
@@ -340,7 +340,7 @@ class Host(dict):
         return self.persistent_filename_pattern % self.name
 
     def save_data(self):
-        """ Save data to a persistent place
+        """Save data to a persistent place
 
         It actually saves the whole dict into a .json file.
         This is automatically called by the :meth:naghelp.ActivePlugin.run method.

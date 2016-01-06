@@ -29,7 +29,7 @@ pp = pprint.PrettyPrinter(indent=4)
 __all__ = [ 'ActivePlugin' ]
 
 class Plugin(object):
-    """ Plugin base class
+    """Plugin base class
 
     This is an abstract class used with :class:`naghelp.ActivePlugin`, it brings :
 
@@ -43,26 +43,26 @@ class Plugin(object):
     """
 
     plugin_type = 'plugin'
-    """ For plugin search, it will search for classes having this attribute in all python files"""
+    """For plugin search, it will search for classes having this attribute in all python files"""
 
     plugins_basedir = os.path.dirname(__file__)
-    """ For plugin search, it will search recursively from this directory """
+    """For plugin search, it will search recursively from this directory """
 
     plugins_basemodule = ''
-    """ For plugin search, the module prefix to add to have the module accessible from python path"""
+    """For plugin search, the module prefix to add to have the module accessible from python path"""
 
     logger_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    """ The logging format to use """
+    """The logging format to use """
 
     logger_logsize = 1000000
-    """ Log file max size """
+    """Log file max size """
 
     logger_logbackup = 5
-    """ Log file backup file number"""
+    """Log file backup file number"""
 
     @classmethod
     def get_instance(cls, plugin_name):
-        """ Generate a plugin instance from its name string
+        """Generate a plugin instance from its name string
 
         This method is useful when you only know at execution time the name of
         the plugin to instantiate.
@@ -110,7 +110,7 @@ class Plugin(object):
 
     @classmethod
     def get_plugin(cls,plugin_name):
-        """ find a plugin and return its module and its class name
+        """find a plugin and return its module and its class name
 
         To get the class itself, one have to get the corresponding module's attribute::
 
@@ -133,7 +133,7 @@ class Plugin(object):
 
     @classmethod
     def get_plugin_class(cls,plugin_name):
-        """ get the plugin class from its name
+        """get the plugin class from its name
 
         If the dotted notation is used, the string is case sensitive and the corresponding module
         is loaded at once, otherwise the plugin name is case insensitive and a recursive file search
@@ -173,7 +173,7 @@ class Plugin(object):
 
     @classmethod
     def find_plugins(cls):
-        """ Recursively find all plugin classes for all python files present in a directory.
+        """Recursively find all plugin classes for all python files present in a directory.
 
         It finds all python files inside ``YourPluginsBaseClass.plugins_basedir`` then look for
         all classes having the attribute ``plugin_type`` with the value
@@ -221,7 +221,7 @@ class Plugin(object):
 
     @classmethod
     def find_plugins_import_errors(cls):
-        """ Find all import errors all python files present in a directory.
+        """Find all import errors all python files present in a directory.
 
         It finds all python files inside ``YourPluginsBaseClass.plugins_basedir`` and try to import
         them. If an error occurs, the file path and linked exception is memorized.
@@ -244,16 +244,16 @@ class Plugin(object):
         return plugin_files
 
     def get_cmd_usage(self):
-        """ Returns the command line usage """
+        """Returns the command line usage """
         return self.usage
 
     @classmethod
     def get_plugin_desc(cls):
-        """ Returns the plugin description. By default return the class docstring. """
+        """Returns the plugin description. By default return the class docstring. """
         return cls.__doc__.strip() or ''
 
     def init_cmd_options(self):
-        """ Create OptionParser instance and add some basic options
+        """Create OptionParser instance and add some basic options
 
         This is automatically called when the plugin is run.
         Avoid to override this method, prefer to customize :meth:`add_cmd_options`
@@ -269,7 +269,7 @@ class Plugin(object):
                                    default=False, help='Display plugin description')
 
     def add_cmd_options(self):
-        """ This method can be customized to add some OptionParser options for the current plugin
+        """This method can be customized to add some OptionParser options for the current plugin
 
         Example::
 
@@ -280,11 +280,11 @@ class Plugin(object):
         pass
 
     def get_logger_format(self):
-        """ gets logger format, by default the one defined in ``logger_format`` attribute """
+        """gets logger format, by default the one defined in ``logger_format`` attribute """
         return self.logger_format
 
     def get_logger_level(self):
-        """ gets logger level. By default sets to ``logging.ERROR`` to get only errors """
+        """gets logger level. By default sets to ``logging.ERROR`` to get only errors """
         if self.options.debug:
             return logging.DEBUG
         elif self.options.verbose:
@@ -292,23 +292,23 @@ class Plugin(object):
         return logging.ERROR
 
     def get_logger_file_level(self):
-        """ gets logger level specific for log file output.
+        """gets logger level specific for log file output.
 
         Note : This is possible to set different logger level between log file and console"""
         return self.get_logger_level()
 
     def get_logger_console_level(self):
-        """ gets logger level specific for the console output.
+        """gets logger level specific for the console output.
 
         Note : This is possible to set different logger level between log file and console"""
         return self.get_logger_level()
 
     def get_logger_file_logfile(self):
-        """ get log file path """
+        """get log file path """
         return self.options.logfile
 
     def add_logger_file_handler(self):
-        """ Activate logging to the log file """
+        """Activate logging to the log file """
         logfile = self.get_logger_file_logfile()
         if logfile:
             fh = logging.handlers.RotatingFileHandler(logfile, maxBytes=self.logger_logsize,
@@ -321,7 +321,7 @@ class Plugin(object):
             self.debug('Debug log file = %s' % logfile)
 
     def add_logger_console_handler(self):
-        """ Activate logging to the console """
+        """Activate logging to the console """
         ch = logging.StreamHandler()
         ch.setLevel(self.get_logger_console_level())
         formatter = logging.Formatter(self.logger_format)
@@ -330,16 +330,17 @@ class Plugin(object):
         textops.logger.addHandler(ch)
 
     def init_logger(self):
-        """ Initialize logging """
+        """Initialize logging """
         naghelp.logger.setLevel(logging.DEBUG)
         textops.logger.setLevel(logging.DEBUG)
         self.add_logger_console_handler()
         self.add_logger_file_handler()
 
     def handle_cmd_options(self):
-        """ Parse command line options
+        """Parse command line options
 
-        The parsed options are stored in ``self.options`` and arguments in ``self.args``"""
+        The parsed options are stored in ``self.options`` and arguments in ``self.args``
+        """
         (options, args) = self._cmd_parser.parse_args()
         self.options = options
         self.args = args
@@ -348,7 +349,7 @@ class Plugin(object):
             exit(0)
 
     def manage_cmd_options(self):
-        """ Manage commande line options
+        """Manage commande line options
 
         OptionParser instance is created, options are added, then command line is parsed.
         """
@@ -358,7 +359,7 @@ class Plugin(object):
 
     @classmethod
     def error(cls,msg,*args,**kwargs):
-        """ log an error message
+        """log an error message
 
         Args:
 
@@ -377,7 +378,7 @@ class Plugin(object):
 
     @classmethod
     def warning(cls,msg,*args,**kwargs):
-        """ log a warning message
+        """log a warning message
 
         Args:
 
@@ -396,7 +397,7 @@ class Plugin(object):
 
     @classmethod
     def info(cls,msg,*args,**kwargs):
-        """ log an informational message
+        """log an informational message
 
         Args:
 
@@ -415,7 +416,7 @@ class Plugin(object):
 
     @classmethod
     def debug(cls,msg,*args,**kwargs):
-        """ log a debug message
+        """log a debug message
 
         Args:
 
@@ -434,7 +435,7 @@ class Plugin(object):
 
     @classmethod
     def save_data(cls,filename, data, ignore_error = True):
-        """ Serialize and save data into a file
+        """Serialize and save data into a file
 
         The data must be a dictionary where values must be simple types :
         str, int, float, date, list and/or dict. The data are serialized into json format.
@@ -481,7 +482,7 @@ class Plugin(object):
 
     @classmethod
     def load_data(cls,filename):
-        """ Load and de-serialize data from a file
+        """Load and de-serialize data from a file
 
         The input file must be a json file.
 
@@ -515,37 +516,37 @@ class Plugin(object):
         return textops.NoAttr
 
 class ActivePlugin(Plugin):
-    """ Python base class for active nagios plugins
+    """Python base class for active nagios plugins
 
     This is the base class for developping Active Nagios plugin with the naghelp module
     """
 
     plugin_type = 'active'
-    """ Attribute for the plugin type
+    """Attribute for the plugin type
 
     This is used during plugin recursive search : should be the same string
     accross all your plugins"""
 
     host_class = Host
-    """ Attribute that must contain the host class to use.
+    """Attribute that must contain the host class to use.
 
     You have to modify this class when you have redefined your own host class """
 
     response_class = PluginResponse
-    """ Attribute that must contain the response class to use.
+    """Attribute that must contain the response class to use.
 
     You have to modify this class when you have redefined your own response class """
 
     usage = 'usage: \n%prog [options]'
-    """ Attribute for the command line usage """
+    """Attribute for the command line usage """
 
     options = NoAttrDict()
-    """ Attribute that contains the command line options as parsed by :class:`optparse.OptionParser` """
+    """Attribute that contains the command line options as parsed by :class:`optparse.OptionParser` """
 
     host = NoAttrDict()
 
     cmd_params = ''
-    """ Attribute that must contain a list of all possible :class:`naghelp.Host`
+    """Attribute that must contain a list of all possible :class:`naghelp.Host`
     parameters for the current plugin
 
     This will automatically add options to the :class:`optparse.OptionParser` object. This means
@@ -582,7 +583,8 @@ class ActivePlugin(Plugin):
     ==================  ==================================================
 
     Note that ``name`` and ``ip`` are hard coded :
-    you must use them for Nagios hostname and hostaddress
+    you must use them for Nagios hostname and hostaddress.
+    The same for ``protocol`` and ``port`` that are hard coded for port testing.
 
     The parameter list can be a python list or a coma separated string.
 
@@ -597,7 +599,7 @@ class ActivePlugin(Plugin):
     """
 
     required_params = None
-    """ Attribute that contains the list of parameters required for the :class:`naghelp.Host` object
+    """Attribute that contains the list of parameters required for the :class:`naghelp.Host` object
 
     For example, if your plugin need to connect to a host that requires a password,
     you must add 'passwd' in the list.
@@ -614,7 +616,7 @@ class ActivePlugin(Plugin):
     """
 
     forced_params = 'name,ip'
-    """ Attribute you can set to force all your plugins to have some default :class:`naghelp.Host`
+    """Attribute you can set to force all your plugins to have some default :class:`naghelp.Host`
     parameters.
     These parameters are automatically added to the plugin attribute :attr:`cmd_params`.
 
@@ -623,19 +625,31 @@ class ActivePlugin(Plugin):
     """
 
     tcp_ports = ''
+    """Attribute that lists the tcp_ports used by the plugin
+
+    naghelp will check specified ports if a problem is detected while collecting data from host.
+    naghelp also use this attribute in plugin summary to help administrator to configure their
+    firewall.
+
+    The attribute is ignored if the plugin use the ``protocol`` or ``port`` parameters.
+
+    The ports list can be a python list or a coma separated string.
+    """
+
     udp_ports = ''
+
     nagios_status_on_error = CRITICAL
     collected_data_filename_pattern = '/tmp/naghelp/%s_collected_data.json'
 
     data = textops.DictExt()
-    """ The place to put collected and parsed data
+    """The place to put collected and parsed data
 
     As data is a :class:`textops.DictExt` object, one can use the dotted notation for reading and for
     writing.
     """
 
     default_level = OK
-    """ Attribute giving the response level to return if no level has been set.
+    """Attribute giving the response level to return if no level has been set.
 
     By default, naghelp consider that if no level message has been added to the response, there is
     no errors and return the ``OK`` level to Nagios.
@@ -648,7 +662,7 @@ class ActivePlugin(Plugin):
         self.response = self.response_class(default_level=self.default_level)
 
     def get_plugin_host_params_tab(self):
-        """ Returns a dictionary of Host parameters description
+        """Returns a dictionary of Host parameters description
 
         This dictionary helps naghelp to build the plugin help (``-h`` option in command line).
 
@@ -677,6 +691,10 @@ class ActivePlugin(Plugin):
                 }
 
     def get_plugin_host_params_desc(self):
+        """Builds a dictionary giving description of plugin host parameters
+
+        This merges :attr:`cmd_params` and :attr:`forced_params` paramters and returns their description
+        """
         params_tab = self.get_plugin_host_params_tab()
         cmd_params = self.cmd_params.split(',') if isinstance(self.cmd_params,basestring) else self.cmd_params
         forced_params = self.forced_params.split(',') if isinstance(self.forced_params,basestring) else self.forced_params
@@ -684,6 +702,17 @@ class ActivePlugin(Plugin):
         return dict([(k,params_tab.get(k,k.title())) for k in cmd_params if k ])
 
     def init_cmd_options(self):
+        """Initialize command line options
+
+        This create :class:`optparse.OptionParser` instance and add some basic options
+
+        It also add options corresponding to Host parameters. The host parameters will be stored
+        first into OptionParse's options object (``plugin.options``) at ``host__<parameter>`` attribute, later it is
+        set to host object at attribute ``<parameter>``
+
+        This method is automatically called when the plugin is run.
+        Avoid to override this method, prefer to customize :meth:`add_cmd_options`
+        """
         super(ActivePlugin,self).init_cmd_options()
 
         host_params_desc = self.get_plugin_host_params_desc()
@@ -705,12 +734,33 @@ class ActivePlugin(Plugin):
                                    default=False, help='Collect and parse data only and print them')
 
     def handle_cmd_options(self):
+        """Parse command line options
+
+        The parsed options are stored in ``plugin.options`` and arguments in ``plugin.args``
+
+        If the user requests plugin description, it is displayed and the plugin exited
+        with UNKOWN response level.
+
+        You should customize this method if you want to check some options before running the
+        plugin main part.
+        """
         super(ActivePlugin,self).handle_cmd_options()
         if self.options.show_description:
             print self.get_plugin_desc()
             UNKNOWN.exit()
 
     def fast_response(self,level, synopsis, msg='', sublevel = 1):
+        """Exit the plugin at once by sending a basic message level to Nagios
+
+        This is used mainly on errors : the goal is to avoid the plugin to go any further.
+
+        Args:
+
+            level(:class:`ResponseLevel`): Response level to give to Nagios
+            synopsis(str): Response title
+            msg(str): Message body. Note that it adds a begin message (not a message level).
+            sublevel(int): The message sublevel (displayed into plugin information section)
+        """
         self.host.save_data()
         self.response.level = level
         self.response.sublevel = sublevel
@@ -720,10 +770,26 @@ class ActivePlugin(Plugin):
         self.response.send()
 
     def fast_response_if(self,test, level, synopsis, msg='', sublevel = 1):
+        """If test is True, exit the plugin at once by sending a basic message level to Nagios
+
+        This works like :meth:`fast_response` except that it exits only if test is True.
+
+        Args:
+
+            test(bool): Must be True to send response and exit plugin.
+            level(:class:`ResponseLevel`): Response level to give to Nagios
+            synopsis(str): Response title
+            msg(str): Message body. Note that it adds a begin message (not a message level).
+            sublevel(int): The message sublevel (displayed into plugin information section)
+        """
         if test:
             self.fast_response(level, synopsis, msg='', sublevel = 1)
 
     def error(self, msg, sublevel=3, exception=None, *args,**kwargs):
+        """Log an error and exit the plugin
+
+
+        """
         body = ''
         if exception is None or not isinstance(exception, naghelp.CollectError):
             import traceback
@@ -763,7 +829,7 @@ class ActivePlugin(Plugin):
             self.fast_response(CRITICAL,
                                'Port %s is unreachable' % invalid_port,
                                'This plugin uses ports tcp = %s, udp = %s\nplease check your firewall\n\n' % (self.get_tcp_ports() or 'none',self.get_udp_ports() or 'none'),
-                               2)
+                               2, exception=naghelp.ConnectionError('Port unreachable') )
 
     def collect_data(self,data):
         pass
