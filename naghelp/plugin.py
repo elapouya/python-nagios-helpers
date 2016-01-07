@@ -496,6 +496,15 @@ class Plugin(object):
 
         Examples:
 
+            >>> open('/tmp/mydata','w').write('''{
+            ...   "powers": {
+            ...     "1": "OK",
+            ...     "2": "Degraded",
+            ...     "3": "OK",
+            ...     "4": "Failed"
+            ...   },
+            ...   "nb_disks": 36
+            ... }''')
             >>> data = ActivePlugin.load_data('/tmp/mydata')
             >>> print data
             {u'powers': {u'1': u'OK', u'3': u'OK', u'2': u'Degraded', u'4': u'Failed'}, u'nb_disks': 36}
@@ -544,6 +553,7 @@ class ActivePlugin(Plugin):
     """Attribute that contains the command line options as parsed by :class:`optparse.OptionParser` """
 
     host = NoAttrDict()
+    """This will contain the :class:`naghelp.Host` object. not that it is devrived from a dict."""
 
     cmd_params = ''
     """Attribute that must contain a list of all possible :class:`naghelp.Host`
@@ -631,15 +641,28 @@ class ActivePlugin(Plugin):
     naghelp also use this attribute in plugin summary to help administrator to configure their
     firewall.
 
-    The attribute is ignored if the plugin use the ``protocol`` or ``port`` parameters.
+    The attribute is ignored if the plugin uses the ``protocol`` or ``port`` parameters.
 
     The ports list can be a python list or a coma separated string.
     """
 
     udp_ports = ''
+    """Attribute that lists the udp_ports used by the plugin
+
+    naghelp uses this attribute in plugin summary to help administrator to configure their
+    firewall.
+
+    The attribute is ignored if the plugin uses the ``protocol`` or ``port`` parameters.
+
+    The ports list can be a python list or a coma separated string.
+    """
 
     nagios_status_on_error = CRITICAL
+    """Attribute giving the :class:`ResponseLevel` to return to Nagios on error."""
+
     collected_data_filename_pattern = '/tmp/naghelp/%s_collected_data.json'
+    """Attribute giving the pattern for the persistent data file path. ``%s`` will be replaced
+    by the monitored host name (or IP if host name not specified)"""
 
     data = textops.DictExt()
     """The place to put collected and parsed data
@@ -882,7 +905,8 @@ class ActivePlugin(Plugin):
 
         This method should be overridden when developing a new plugin.
         One should use :mod:`naghelp.collect` module to retrieve raw data from monitored equipment.
-        Do not parse raw data in this method : see :meth:`parse_data`
+        Do not parse raw data in this method : see :meth:`parse_data`.
+        Note that no data is returned : one just have to modify ``data`` with a dotted notation.
 
         Args:
 
@@ -890,12 +914,13 @@ class ActivePlugin(Plugin):
 
         Example:
 
-            Here we issue the AIX command ``errpt`` via SSH::
+            Here we execute the command ``dmesg`` on a remote host via SSH to get last logs::
 
                 def collect_data(self,data):
-                    data.system = Ssh(self.host.ip,self.host.user,self.host.passwd).run('errpt -d H -T PERM')
+                    data.syslog = Ssh(self.host.ip,self.host.user,self.host.passwd).run('dmesg')
 
-            Note that no data is returned : one just have to modify ``data`` with a dotted notation.
+            See :meth:`parse_data` example to see how data has been parsed.
+            See :meth:`build_response` example to see how data will be used.
         """
         pass
 
@@ -903,9 +928,10 @@ class ActivePlugin(Plugin):
         r"""Parse data
 
         This method should be overridden when developing a new plugin.
-        When raw data are no usable at once, one should parse them to structure the informations.
+        When raw data are not usable at once, one should parse them to structure the informations.
         :meth:`parse_data` will get the data dictionary updated by :meth:`collect_data`.
         One should then use `python-textops <http://python-textops.readthedocs.org>`_ to parse the data.
+        There is no data to return : one just have to modify ``data`` with a dotted notation.
 
         Args:
 
@@ -920,14 +946,60 @@ class ActivePlugin(Plugin):
                     data.warnings  = data.syslog.grepi('EMS Event Notification').grep('MAJORWARNING|SERIOUS')
                     data.criticals = data.syslog.grepi('EMS Event Notification').grep('CRITICAL')
 
-            Note that no data is returned : one just have to modify ``data`` with a dotted notation.
+            See :meth:`collect_data` example to see how data has been updated.
+            See :meth:`build_response` example to see how data will be used.
+
+        Note:
+
+            The data dictionary is the same for collected data and parsed data, so do not use
+            already existing keys for collected data to store new parsed data.
         """
         pass
 
     def build_response(self,data):
+        r"""Build a response
+
+        This method should be overridden when developing a new plugin.
+        You must use data dictionary to decide what alerts and/or informations to send to Nagios.
+        To do so, a :class:`naghelp.PluginResponse` object has already been initialized by
+        the framework and is available at ``self.response`` : you just have to use `add*` methods.
+
+        Args:
+
+            data(:class:`textops.DictExt`): the data dictionary where are collected and parsed data
+
+        Example:
+
+            After getting a raw syslog output, we extract warnings and critical errors::
+
+                def build_response(self,data):
+                    self.response.add_list(WARNING,data.warnings)
+                    self.response.add_list(CRITICAL,data.criticals)
+
+            See :meth:`parse_data` and :meth:`collect_data` examples to see how data has been updated.
+        """
         pass
 
     def get_plugin_informations(self):
+        r"""Get plugin informations
+
+        This method builds a text giving some informations about the plugin, it will be placed at the
+        end of the plugin response.
+
+        Example:
+
+            Here an output::
+
+                >>> p = ActivePlugin()
+                >>> print p.get_plugin_informations() #doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+                <BLANKLINE>
+                ============================[ Plugin Informations ]=============================
+                Plugin name : naghelp.plugin.ActivePlugin
+                Description : Python base class for active nagios plugins
+                Ports used : tcp = none, udp = none
+                Execution time :...
+                Exit code : 0 (OK), __sublevel__=0
+        """
         out = '\n' + self.response.section_format('Plugin Informations') + '\n'
         out += 'Plugin name : %s.%s\n' % (self.__class__.__module__,self.__class__.__name__)
         out += 'Description : %s\n' % ( self.__class__.__doc__ or 'no description.' ).splitlines()[0].strip()
@@ -939,6 +1011,13 @@ class ActivePlugin(Plugin):
         return out
 
     def check_host_required_fields(self):
+        """Checks host required fields
+
+        This checks the presence of values for host parameters specified in attribute
+        :attr:`required_params`. If this attribute is empty, all parameters specified in attribute
+        :attr:`cmd_params` will  be considerated as required. The method will also check that either
+        `name` or `ip` parameter value is present.
+        """
         req_fields = self.required_params if self.required_params is not None else self.cmd_params
         if isinstance(req_fields, basestring):
             req_fields = req_fields.split(',')
@@ -951,7 +1030,25 @@ class ActivePlugin(Plugin):
                 break
 
     def run(self):
-        """Run the plugin"""
+        """Run the plugin
+
+        This is the only method to call in your plugin script once you have define your own plugin class.
+        It will take care of everything in that order :
+
+            #. Manage command line options (uses :attr:`cmd_params`)
+            #. Create the :class:`naghelp.Host` object (store it in attribute :attr:`host`)
+            #. Activate logging (if asked in command line options with ``-v`` or ``-d``)
+            #. Load persistent data into :attr:`host`
+            #. Collect monitoring informations with :meth:`collect_data`
+            #. Check ports if an error occured while collecting data
+            #. Parse collected data with :meth:`parse_data`
+            #. Build a response with :meth:`build_response`
+            #. Save persistent data (save the :attr:`host` object to a json file)
+            #. Add plugin information at the response ending
+            #. Send the response (render the response to stdout and exit the plugin
+               with appropriate exit code)
+
+        """
         try:
             self.manage_cmd_options()
             self.host = self.host_class(self)

@@ -15,6 +15,7 @@ python-nagios-helpers a.k.a naghelp provides many helper classes to create pytho
    :maxdepth: 2
 
    intro
+   howto
    collect
    host
    perf
