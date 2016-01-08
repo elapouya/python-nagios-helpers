@@ -26,12 +26,9 @@ Naghelp Vs Nagios plugin
 
 There is a little difference between a naghelp plugin and a Nagios plugin :
 
-A naghelp plugin is a python class, a Nagios plugin is a scripts.
+A naghelp plugin is a python class, a Nagios plugin is a script.
 To build a Nagios plugin from a naghelp plugin, you just have to instantiate a naghelp plugin class
 and call the ``run()`` method::
-
-You can have the naghelp class plugin definition inside the Nagios plugin script itself.
-It should look like this::
 
    #!/usr/bin/python
 
@@ -47,7 +44,23 @@ It should look like this::
 Plugin Structure
 ----------------
 
-dd
+A nagios plugin's main structure is :
+
+.. graphviz::
+
+   digraph Flatland {
+
+      a -> b -> c -> g;
+      a  [shape=polygon,sides=4]
+      b  [shape=polygon,sides=5]
+      c  [shape=polygon,sides=6]
+
+      g [peripheries=3,color=yellow];
+      s [shape=invtriangle,peripheries=1,color=red,style=filled];
+      w  [shape=triangle,peripheries=1,color=blue,style=filled];
+
+      }
+
 
 Basic Plugin
 ------------
