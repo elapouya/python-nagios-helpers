@@ -21,8 +21,8 @@ level through a dedicated Nagios pipe.
 Naghelp actually manages only **active** plugins. We plan to extend the framework to passive plugins
 later.
 
-Naghelp Vs Nagios plugin
-------------------------
+Naghelp Vs Nagios
+-----------------
 
 There is a little difference between a naghelp plugin and a Nagios plugin :
 
@@ -41,57 +41,89 @@ and call the ``run()`` method::
       plugin = MyPlugin()
       plugin.run()
 
-Plugin Structure
-----------------
+Plugin execution pattern
+------------------------
 
-A nagios plugin's main structure is :
+A Nagios plugin built with naghelp roughly work like this :
 
 .. graphviz::
 
-   digraph Flatland {
-
-      a -> b -> c -> g;
-      a  [shape=polygon,sides=4]
-      b  [shape=polygon,sides=5]
-      c  [shape=polygon,sides=6]
-
-      g [peripheries=3,color=yellow];
-      s [shape=invtriangle,peripheries=1,color=red,style=filled];
-      w  [shape=triangle,peripheries=1,color=blue,style=filled];
-
+   digraph execpattern {
+      node [shape=box,fontsize=9, height=0]
+      a -> b -> c -> d -> e -> f -> g
+      a  [shape="invhouse",label="Instantiate plugin class and call run()"]
+      b  [label="Manage plugin parameters"]
+      c  [label="Collect raw data from remote equipment"]
+      d  [label="Parse raw data to structure them"]
+      e  [label="Build a response by adding errors and perf data"]
+      f  [label="Send response to stdout with Nagios syntax"]
+      g  [shape="doubleoctagon",label="Exit plugin with appropriate exit code"]
       }
 
+Plugin development
+------------------
 
-Basic Plugin
-------------
+The main steps for coding a plugin with naghelp are :
 
-aaa
+   * Develop a class inherited from :class:`naghelp.ActivePlugin` or inherited from a project
+     common class itself inherited from :class:`naghelp.ActivePlugin`.
 
-step 1
-......
+     The main attributes/method to override are :
 
-bbb
+         * Attribute :attr:`cmd_params` that lists what parameters are awaited on command line.
+         * Attribute :attr:`required_params` tells what parameters are required
+         * Attributes :attr:`tcp_ports` and :attr:`udp_ports` tell what ports to check if needed
+         * Method :meth:`collect_data` to collect raw data
+         * Method :meth:`parse_data` to parse raw data into structured data
+         * Method :meth:`build_response` to use collected and parsed data for updating response object
 
-step 2
-......
+   * Instantiate the plugin class
+   * run it with a :meth:`run()`
 
-ccc
+The :meth:`run()` method takes care of using attributes and calling method specified above. it also
+takes care of rendering the response object into Nagios string syntax, to display it onto stdout and
+exiting the plugin with appropriate exit code.
+
+That's all.
 
 
-Advanced plugin
----------------
+A Plugin explained
+------------------
 
-ddd
+In order to understand how to code a plugin, let's take the plugin from the :doc:`intro` and explain it
+line by line.
 
-step 1
-......
+The plugin class is included into a python scripts (let's say ``fsfull.py``) that will be executed
+by Nagios directly::
 
-eee
+   #!/usr/bin/python
+   from naghelp import *
+   from textops import *
 
-step 2
-......
+   class LinuxFsFull(ActivePlugin):
+       """ Basic plugin to monitor full filesystems on Linux systems"""
+       cmd_params = 'user,passwd'
+       tcp_ports = '22'
 
-fff
+       def collect_data(self,data):
+           data.df = Ssh(self.host.ip,self.host.user,self.host.passwd).run('df -h')
+
+       def parse_data(self,data):
+           df = data.df.skip(1)
+           data.fs_critical = df.greaterequal(98,key=cuts(r'(\d+)%')).cut(col='5,4').renderitems()
+           data.fs_warning = df.inrange(95,98,key=cuts(r'(\d+)%')).cut(col='5,4').renderitems()
+           data.fs_ok = df.lessthan(95,key=cuts(r'(\d+)%')).cut(col='5,4').renderitems()
+
+       def build_response(self,data):
+           self.response.add_list(CRITICAL,data.fs_critical)
+           self.response.add_list(WARNING,data.fs_warning)
+           self.response.add_list(OK,data.fs_ok)
+
+   if __name__ == '__main__':
+      LinuxFsFull().run()
+
+Now let's explain...
+
 
 Create a launcher
 -----------------
