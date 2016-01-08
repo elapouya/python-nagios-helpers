@@ -49,7 +49,7 @@ A Nagios plugin built with naghelp roughly work like this :
 .. graphviz::
 
    digraph execpattern {
-      node [shape=box,fontsize=9, height=0]
+      node [shape=box,fontsize=10, height=0]
       a -> b -> c -> d -> e -> f -> g
       a  [shape="invhouse",label="Instantiate plugin class and call run()"]
       b  [label="Manage plugin parameters"]
@@ -124,6 +124,64 @@ by Nagios directly::
 
 Now let's explain...
 
+Python interpreter
+..................
+
+.. code::
+
+   #!/usr/bin/python
+
+The first line tell what interpreter to run the script with. Above we supposed that naghelp has been
+install system-wide. But may be, you are using ``virtualenv``, in such a case, you should use
+the correct interpreter, when activated run ``which python`` to see where it is,
+modify the first line then::
+
+   #!/home/myproject/myvenv/bin/python
+
+If you are using buildout, replace is by a customized python interpreter, to do so,
+have a ``/home/myproject/buildout.cfg`` about like that::
+
+   [buildout]
+   ...
+   parts = eggs tests wsgi
+   ...
+   eggs =
+       naghelp
+       <other python packages>
+       ...
+
+   [eggs]
+   recipe = zc.recipe.egg
+   eggs =
+       ${buildout:eggs}
+   extra-paths =
+       ${buildout:directory}
+       ${buildout:directory}/my_project_plugins
+       ...
+   interpreter = py2
+   entry-points =
+       pypa=my_project_plugins.pypa:main
+       ...
+
+With buildout, the plugin's first line will become::
+
+   #!/home/myproject/bin/py2
+
+Import modules
+..............
+
+.. code::
+
+   from naghelp import *
+   from textops import *
+
+As you can see, not only we import naghelp but also `python-textops <http://python-textops.readthedocs.org>` :
+it has been developed especially for naghelp so it is highly recommended to use it.
+You will be able to manipulate strings and parse texts very easily.
+
+Instead of importing these two modules, one can choose to build a ``plugin_commons.py`` to import
+all modules needed for all your plugins, initialize some constants and define a common project
+plugin class, see an example in *create a launcher section* :ref:`here <plugin_commons>`.
 
 Create a launcher
 -----------------
@@ -181,6 +239,8 @@ description::
    VIOErrlog                      ibm_aix.py                     IBM plugin using errlog command on all VIO systems
    VmwareEsxi                     vmware_esxi.py                 VMWare ESXi active plugin
    --------------------------------------------------------------------------------------------------------------
+
+.. _plugin_commons:
 
 All your plugins must inherit from a common plugin class where you specify the plugins base directory,
 and type name here is the ``plugin_commons.py``::
