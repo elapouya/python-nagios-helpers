@@ -72,21 +72,22 @@ class Plugin(object):
 
         For all your plugins, you should first subclass the ActivePlugin to override plugins_basedir::
 
-            class MyActivePlugin(ActivePlugin):
+            class MyProjectActivePlugin(ActivePlugin):
                 plugins_basedir = '/home/me/myplugin_dir'
+                plugin_type = 'myproject_plugin'  # you choose whatever you want but not 'plugin'
 
-            class HpProliant(MyActivePlugin):
+            class HpProliant(MyProjectActivePlugin):
                 ''' My code '''
 
         Check that ``/home/me/myplugin_dir`` is in your python path.
 
         Then you can get an instance by giving only the class name (case insensitive)::
 
-            plugin = MyActivePlugin.get_instance('hpproliant')
+            plugin = MyProjectActivePlugin.get_instance('hpproliant')
 
         Or with the full doted path (case sensitive this time)::
 
-            plugin = MyActivePlugin.get_instance('hp.hp_proliant.HpProliant')
+            plugin = MyProjectActivePlugin.get_instance('hp.hp_proliant.HpProliant')
 
         In first case, it is shorter but a recursive search will occur to find the class
         in all python files located in ``/home/me/myplugin_dir/``. It is mainly useful in
@@ -114,7 +115,7 @@ class Plugin(object):
 
         To get the class itself, one have to get the corresponding module's attribute::
 
-            module,class_name = MyActivePlugin.get_plugin('hpproliant')
+            module,class_name = MyProjectActivePlugin.get_plugin('hpproliant')
             plugin_class = getattr(module,class_name,None)
 
         Args:
@@ -149,11 +150,11 @@ class Plugin(object):
 
         You can get plugin class object by giving only the class name (case insensitive)::
 
-            plugin_class = MyActivePlugin.get_plugin_class('hpproliant')
+            plugin_class = MyProjectActivePlugin.get_plugin_class('hpproliant')
 
         Or with the full dotted path (case sensitive this time)::
 
-            plugin_class = MyActivePlugin.get_plugin_class('hp.hp_proliant.HpProliant')
+            plugin_class = MyProjectActivePlugin.get_plugin_class('hp.hp_proliant.HpProliant')
 
         If you need a plugin instance, prefer using :meth:`get_instance`
         """
