@@ -93,7 +93,7 @@ A Plugin explained
 In order to understand how to code a plugin, let's take the plugin from the :doc:`intro` and explain it
 line by line.
 
-The plugin class is included into a python scripts (let's say ``fsfull.py``) that will be executed
+The plugin class is included into a python scripts (let's say ``linux_fs_full_plugin.py``) that will be executed
 by Nagios directly::
 
    #!/usr/bin/python
@@ -174,13 +174,13 @@ Import modules
    from naghelp import *
    from textops import *
 
-As you can see, not only we import naghelp but also `python-textops <http://python-textops.readthedocs.org>` :
+As you can see, not only we import naghelp but also `python-textops <http://python-textops.readthedocs.org>`_ :
 it has been developed especially for naghelp so it is highly recommended to use it.
 You will be able to manipulate strings and parse texts very easily.
 
 Instead of importing these two modules, one can choose to build a ``plugin_commons.py`` to import
 all modules needed for all your plugins, initialize some constants and define a common project
-plugin class, see an example in *create a launcher section* :ref:`here <plugin_commons>`.
+plugin class, see an example in :ref:`plugin_commons <plugin_commons>`.
 
 Subclass the ActivePlugin class
 ...............................
@@ -194,8 +194,8 @@ To create your active plugin class, just subclass :class:`naghelp.ActivePlugin`.
 Nevertheless, if you have many plugin classes, it is highly recommended to subclass a class
 common to all your plugins : see :ref:`plugin_commons <plugin_commons>`.
 
-Specify options
-...............
+Specify parameters
+..................
 
 .. code::
 
@@ -207,6 +207,223 @@ accept on command line ``--user`` and ``--passwd`` options. The given values wil
 :meth:`~naghelp.ActivePlugin.build_response` at ``self.host.user`` and
 ``self.host.passwd``. By default, ``ip`` and ``name`` options are also available in the same way,
 you do not need to specify them.
+
+Note that naghelp automatically sets many other options in command line, use ``-h`` to see the help::
+
+   ./linux_fs_full_plugin.py -h
+   Usage:
+   linux_fs_full_plugin.py [options]
+
+   Options:
+     -h, --help           show this help message and exit
+     -v                   Verbose : display informational messages
+     -d                   Debug : display debug messages
+     -l FILE              Redirect logs into a file
+     -i                   Display plugin description
+     -n                   Must be used when the plugin is started by nagios
+     -s                   Save collected data in a temporary file
+     -r                   Use saved collected data (option -s)
+     -a                   Collect data only and print them
+     -b                   Collect and parse data only and print them
+
+     Host attributes:
+       To be used to force host attributes values
+
+       --passwd=PASSWD    Password
+       --ip=IP            Host IP address
+       --user=USER        User
+       --name=NAME        Hostname
+       --subtype=SUBTYPE  Plugin subtype (usually host model)
+
+     Specific to my project:
+       -c FILE            override default path to the db.json file
+
+Specify tcp/udp ports
+.....................
+
+.. code::
+
+   tcp_ports = '22'
+
+You can specify :attr:`~naghelp.ActivePlugin.tcp_ports` and/or :attr:`~naghelp.ActivePlugin.udp_ports`
+your plugin is using : by this way, the administrator will be warned what port has to be opened on his
+firewall. Port informations will be displayed at the end of each message in plugin informations section.
+
+For tcp_ports, an additional check will be done if an error occurs will collecting data.
+
+Redefine :meth:`~naghelp.ActivePlugin.collect_data`
+...................................................
+
+.. code::
+
+    def collect_data(self,data):
+        data.df = Ssh(self.host.ip,self.host.user,self.host.passwd).run('df -h')
+
+:meth:`~naghelp.ActivePlugin.collect_data` main purpose is to collect **raw data** from the remote
+equipment. Here are some precisions :
+
+   * You have to collect **all** data in :meth:`~naghelp.ActivePlugin.collect_data`, this means
+     it is not recommended to collect some other data in :meth:`~naghelp.ActivePlugin.parse_data`
+     or :meth:`~naghelp.ActivePlugin.build_response`.
+
+   * You have to collect **only raw** data in :meth:`~naghelp.ActivePlugin.collect_data`, this means
+     if raw data cannot be used at once and needs some kind of extraction, you have to do that after
+     into :meth:`~naghelp.ActivePlugin.parse_data` or if there is very little processing to do,
+     into :meth:`~naghelp.ActivePlugin.build_response`.
+
+   * The data collect must be optimized to make as few requests as possible to remote equipment.
+     To do so, use ``mget()``, ``mrun()``, or ``mwalk()`` methods or ``with:`` blocks (see
+     module :mod:`naghelp.collect`).
+
+   * The collected data must be set onto ``data`` object. It is a :class:`~textops.DictExt`
+     dictionary that accepts dotted notation to write information (only one level at a time).
+
+   * The collected data can be saved with ``-s`` comand-line option and restored with ``-r``.
+
+For the example above, it is asked to run the unix command ``df -h`` through :meth:`naghelp.Ssh.run`
+on the remote equipment at ``host = self.host.ip`` with ``user = self.host.user`` and
+``password = self.host.passwd``.
+
+You can run your plugin with option ``-a`` to stop it just after data collect and display all
+harvested informations (ie ``data`` :class:`~textops.DictExt`)::
+
+   # ./linux_fs_full_plugin.py --ip=127.0.0.1 --user=naghelp --passwd=naghelppw -a
+   Collected Data =
+   {   'df': 'Filesystem      Size  Used Avail Use% Mounted on
+   /dev/sdb6           20G     19G  1,0G  95% /
+   udev               7,9G    4,0K  7,9G   1% /dev
+   tmpfs              1,6G    1,1M  1,6G   1% /run
+   none               5,0M       0  5,0M   0% /run/lock
+   none               7,9G     77M  7,8G   1% /run/shm
+   /dev/sda5           92G     91G  0,9G  99% /home
+   '}
+
+Redefine :meth:`~naghelp.ActivePlugin.parse_data`
+.................................................
+
+.. code::
+
+    def parse_data(self,data):
+        df = data.df.skip(1)
+        data.fs_critical = df.greaterequal(98,key=cuts(r'(\d+)%')).cut(col='5,4').renderitems()
+        data.fs_warning = df.inrange(95,98,key=cuts(r'(\d+)%')).cut(col='5,4').renderitems()
+        data.fs_ok = df.lessthan(95,key=cuts(r'(\d+)%')).cut(col='5,4').renderitems()
+
+:meth:`~naghelp.ActivePlugin.parse_data` main purpose is to structure or extract information from
+collected raw data. To do so, it is highly recommended to use
+`python-textops <http://python-textops.readthedocs.org>`_.
+The ``data`` object is the same as the one from :meth:`~naghelp.ActivePlugin.collect_data`
+that is a :class:`~textops.DictExt`, so you can access collected raw data with a dotted notation.
+`textops <http://python-textops.readthedocs.org>`_ methods are also directly available from anywhere
+in the ``data`` object.
+
+``data.df`` should be equal to::
+
+   Filesystem      Size  Used Avail Use% Mounted on
+   /dev/sdb6           20G     19G  1,0G  95% /
+   udev               7,9G    4,0K  7,9G   1% /dev
+   tmpfs              1,6G    1,1M  1,6G   1% /run
+   none               5,0M       0  5,0M   0% /run/lock
+   none               7,9G     77M  7,8G   1% /run/shm
+   /dev/sda5           92G     91G  0,9G  99% /home
+
+In ``df = data.df.skip(1)`` :class:`~textops.skip` will skip the first line of the collect raw data
+and store in ``df`` local variable, this should be equal to::
+
+   /dev/sdb6           20G     19G  1,0G  95% /
+   udev               7,9G    4,0K  7,9G   1% /dev
+   tmpfs              1,6G    1,1M  1,6G   1% /run
+   none               5,0M       0  5,0M   0% /run/lock
+   none               7,9G     77M  7,8G   1% /run/shm
+   /dev/sda5           92G     91G  0,9G  99% /home
+
+In ``df.greaterequal(98,key=cuts(r'(\d+)%'))``, :class:`~textops.greaterequal` will select all lines
+where the column with a percent has a value greater or equal to 98, in our case, there is only one::
+
+   ['/dev/sda5           92G     81G  6,9G  93% /home']
+
+In ``df.greaterequal(98,key=cuts(r'(\d+)%')).cut(col='5,4')`` :class:`~textops.cut` will select
+only column 5 and 4 in that order::
+
+   [['/home', '99%']]
+
+In ``df.greaterequal(98,key=cuts(r'(\d+)%')).cut(col='5,4').renderitems()``
+:class:`~textops.renderitems` will format/render above this way::
+
+   ['/home : 99%']
+
+This will be stored in ``data.fs_critical``. This is about the same for ``data.fs_warning`` and
+``data.fs_ok``.
+
+Finally, if you want to see what has been parsed, use ``-b`` command line option::
+
+   # ./linux_fs_full_plugin.py --ip=127.0.0.1 --user=naghelp --passwd=naghelppw -b
+   ...
+   Parsed Data =
+   {   'fs_critical': [u'/home : 99%'],
+       'fs_ok': [u'/dev : 1%', u'/run : 1%', u'/run/lock : 0%', u'/run/shm : 2%'],
+       'fs_warning': [u'/ : 95%']}
+
+Redefine :meth:`~naghelp.ActivePlugin.build_response`
+.....................................................
+
+.. code::
+
+    def build_response(self,data):
+        self.response.add_list(CRITICAL,data.fs_critical)
+        self.response.add_list(WARNING,data.fs_warning)
+        self.response.add_list(OK,data.fs_ok)
+
+In :meth:`~naghelp.ActivePlugin.build_response`, ``data`` will contain all collected data AND
+all parsed data in the same :class:`~textops.DictExt`.
+Now you just have to use :class:`~naghelp.PluginResponse` methods to modify ``self.response``.
+
+In the script, we are adding lists of messages with :meth:`~naghelp.PluginResponse.add_if` :
+``self.response.add_list(OK,data.fs_ok)`` is the same as writing::
+
+   for msg in data.fs_ok:
+      if msg:
+         self.response.add(OK, msg)
+
+Which is equivalent to::
+
+   self.response.add(OK,'/dev : 1%')
+   self.response.add(OK,'/run : 1%')
+   self.response.add(OK,'/run/lock : 0%')
+   self.response.add(OK,'/run/shm : 2%')
+
+To see what naghelp will finally send to Nagios, just execute the script ::
+
+   STATUS : CRITICAL:1, WARNING:1, OK:4
+   ==================================[  STATUS  ]==================================
+
+   ----( CRITICAL )----------------------------------------------------------------
+   /home : 99%
+
+   ----( WARNING )-----------------------------------------------------------------
+   / : 95%
+
+   ----( OK )----------------------------------------------------------------------
+   /dev : 1%
+   /run : 1%
+   /run/lock : 0%
+   /run/shm : 2%
+
+
+   ============================[ Plugin Informations ]=============================
+   Plugin name : __main__.LinuxFsFull
+   Description : Basic plugin to monitor full filesystems on Linux systems
+   Ports used : tcp = 22, udp = none
+   Execution time : 0:00:00.003662
+   Exit code : 2 (CRITICAL), __sublevel__=0
+
+As you can see :
+
+   * naghelp generated automatically a synopsis : ``STATUS : CRITICAL:1, WARNING:1, OK:4``
+   * naghelp created the ``==[ STATUS ]==`` section where messages has be splitted into
+     several sub-sections corresponding to their level.
+   * naghelp automatically add a ``==[ Plugin Informations ]==`` section with many useful
+     information including ports to be opened on the firewall.
 
 Create a launcher
 -----------------
