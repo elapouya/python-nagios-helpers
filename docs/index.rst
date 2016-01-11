@@ -21,6 +21,7 @@ python-nagios-helpers a.k.a naghelp provides many helper classes to create pytho
    perf
    response
    plugin
+   launcher
 
 
 Indices and tables

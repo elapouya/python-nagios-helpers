@@ -16,8 +16,8 @@ It could be for exemple :
     * ...
 
 One can add some additional data during the plugin execution, they will be persistent accross
-all plugin executions (plugin objects call :meth:`naghelp.Host.save_data` and
-:meth:`naghelp.Host.load_data` methods). This is useful for :
+all plugin executions (plugin objects call :meth:`~naghelp.Host.save_data` and
+:meth:`~naghelp.Host.load_data` methods). This is useful for :
 
     * Counters
     * Gauges
@@ -57,7 +57,7 @@ class Host(dict):
         * By Index
 
     To save and load custom data, one could do a :meth:`save_data` and :meth:`load_data` but this
-    is automatically done by the plugin itself (see :meth:`naghelp.Plugin.run`)
+    is automatically done by the plugin itself (see :meth:`naghelp.ActivePlugin.run`)
 
     Examples :
 

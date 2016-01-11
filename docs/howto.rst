@@ -65,8 +65,8 @@ Plugin development
 
 The main steps for coding a plugin with naghelp are :
 
-   * Develop a class inherited from :class:`naghelp.ActivePlugin` or inherited from a project
-     common class itself inherited from :class:`naghelp.ActivePlugin`.
+   * Develop a class derived from :class:`naghelp.ActivePlugin` or derived from a project
+     common class itself derived from :class:`naghelp.ActivePlugin`.
 
      The main attributes/method to override are :
 
@@ -131,14 +131,15 @@ Python interpreter
 
    #!/usr/bin/python
 
-The first line tell what interpreter to run the script with. Above we supposed that naghelp has been
-install system-wide. But may be, you are using ``virtualenv``, in such a case, you should use
+The first line tell what python interpreter have to run the script. Above we supposed that naghelp
+has been install system-wide.
+But may be, you are using ``virtualenv``, in such a case, you should use
 the correct interpreter, when activated run ``which python`` to see where it is,
 modify the first line then::
 
    #!/home/myproject/myvenv/bin/python
 
-If you are using buildout, replace is by a customized python interpreter, to do so,
+If you are using buildout, replace this by a customized python interpreter, to do so,
 have a ``/home/myproject/buildout.cfg`` about like that::
 
    [buildout]
@@ -159,8 +160,6 @@ have a ``/home/myproject/buildout.cfg`` about like that::
        ${buildout:directory}/my_project_plugins
        ...
    interpreter = py2
-   entry-points =
-       pypa=my_project_plugins.pypa:main
        ...
 
 With buildout, the plugin's first line will become::
@@ -183,6 +182,32 @@ Instead of importing these two modules, one can choose to build a ``plugin_commo
 all modules needed for all your plugins, initialize some constants and define a common project
 plugin class, see an example in *create a launcher section* :ref:`here <plugin_commons>`.
 
+Subclass the ActivePlugin class
+...............................
+
+.. code::
+
+   class LinuxFsFull(ActivePlugin):
+
+To create your active plugin class, just subclass :class:`naghelp.ActivePlugin`.
+
+Nevertheless, if you have many plugin classes, it is highly recommended to subclass a class
+common to all your plugins : see :ref:`plugin_commons <plugin_commons>`.
+
+Specify options
+...............
+
+.. code::
+
+   cmd_params = 'user,passwd'
+
+Here, by setting :attr:`~naghelp.ActivePlugin.cmd_params`, you are asking naghelp to
+accept on command line ``--user`` and ``--passwd`` options. The given values will availabe in
+:meth:`~naghelp.ActivePlugin.collect_data`, :meth:`~naghelp.ActivePlugin.parse_data` and
+:meth:`~naghelp.ActivePlugin.build_response` at ``self.host.user`` and
+``self.host.passwd``. By default, ``ip`` and ``name`` options are also available in the same way,
+you do not need to specify them.
+
 Create a launcher
 -----------------
 
@@ -202,6 +227,9 @@ the Nagios commands.cfg will be something like this::
 
 You just have to write a launcher once, naghelp provide a module for that, here is the ``pypa`` script::
 
+   #!/usr/bin/python
+   # change python interpreter if your are using virtualenv or buildout
+
    from plugin_commons import MyProjectActivePlugin
    from naghelp.launcher import launch
 
@@ -215,9 +243,12 @@ The ``launch`` function will read command line first argument and instantiate th
 a dotted notation. It will also accept only the class name without any dot, in this case,
 a recursive search will be done from the directory given by ``MyProjectActivePlugin.plugins_basedir``
 and will find the class with the right name and having the same ``plugin_type`` attribute value as
-``MyProjectActivePlugin``. The search is case insensitive on the class name. If you start ``pypa``
-without any parameters, it will show you all plugin classes it has discovered with their first line
-description::
+``MyProjectActivePlugin``. the search is case insensitive on the class name.
+``MyProjectActivePlugin`` is the common class to all your plugins and is derived
+from :class:`naghelp.ActivePlugin`.
+
+If you start ``pypa`` without any parameters, it will show you all plugin classes
+it has discovered with their first line description::
 
    $ ./pypa
    Usage : bin/pypa <plugin name or path.to.module.PluginClass> [options]
@@ -240,16 +271,20 @@ description::
    VmwareEsxi                     vmware_esxi.py                 VMWare ESXi active plugin
    --------------------------------------------------------------------------------------------------------------
 
+plugin_commons
+--------------
+
 .. _plugin_commons:
 
-All your plugins must inherit from a common plugin class where you specify the plugins base directory,
-and type name here is the ``plugin_commons.py``::
+All your plugins should (*must* when using a launcher) derive from a common plugin class
+which itself is derived from :class:`naghelp.ActivePlugin`. You will specify the plugins base directory,
+and type name. All this should be placed in a file ``plugin_commons.py``::
 
    from naghelp import *
    from textops import *
 
    class MyProjectActivePlugin(ActivePlugin):
-       plugins_basedir = '/home/me/myplugin_dir'
+       plugins_basedir = '/path/to/my_project_plugins'
        plugin_type = 'myproject_plugin'  # you choose whatever you want but not 'plugin'
 
 Then, a typical code for your plugins would be like this, here ``/path/to/my_project_plugins/myplugin.py``::

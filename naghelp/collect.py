@@ -479,7 +479,7 @@ class Expect(object):
 
             .. note::
 
-                These examples emulate :class:`naghelp.Ssh` class. :class:`naghelp.Expect` is better for non-standard
+                These examples emulate :class:`~naghelp.Ssh` class. :class:`~naghelp.Expect` is better for non-standard
                 commands that requires human interations.
 
 
@@ -533,7 +533,7 @@ class Expect(object):
 
             .. note::
 
-                This example emulate :class:`naghelp.Ssh` class. :class:`naghelp.Expect` is better
+                This example emulate :class:`~naghelp.Ssh` class. :class:`~naghelp.Expect` is better
                 for non-standard commands that requires human interations.
         """
         if not self.is_connected:

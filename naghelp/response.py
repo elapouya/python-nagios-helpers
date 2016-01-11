@@ -668,7 +668,7 @@ class PluginResponse(object):
 
         Args:
 
-            data (str or :class:`naghelp.PerfData`): the perf data string or PerfData object to add to
+            data (str or :class:`~naghelp.PerfData`): the perf data string or PerfData object to add to
                 the response. Have a look to
                 `Performance data string syntax <http://nagios-plugins.org/doc/guidelines.html#AEN200>`_.
 

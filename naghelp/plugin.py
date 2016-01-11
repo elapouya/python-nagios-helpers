@@ -31,7 +31,7 @@ __all__ = [ 'ActivePlugin' ]
 class Plugin(object):
     """Plugin base class
 
-    This is an abstract class used with :class:`naghelp.ActivePlugin`, it brings :
+    This is an abstract class used with :class:`~naghelp.ActivePlugin`, it brings :
 
         * plugin search in a directory of python files
         * plugin instance generation
@@ -45,11 +45,16 @@ class Plugin(object):
     plugin_type = 'plugin'
     """For plugin search, it will search for classes having this attribute in all python files"""
 
-    plugins_basedir = os.path.dirname(__file__)
+    plugins_basedir = '/path/to/your/plugins/python/modules'
     """For plugin search, it will search recursively from this directory """
 
-    plugins_basemodule = ''
-    """For plugin search, the module prefix to add to have the module accessible from python path"""
+    plugins_basemodule = 'plugins.python.'
+    """For plugin search, the module prefix to add to have the module accessible from python path.
+    Do not forget the ending dot. You can set empty if your plugin modules are in python path.
+
+    .. note::
+        Do not forget to put empty ``__init__.py`` file in each directory leading to your plugins.
+    """
 
     logger_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     """The logging format to use """
@@ -554,10 +559,10 @@ class ActivePlugin(Plugin):
     """Attribute that contains the command line options as parsed by :class:`optparse.OptionParser` """
 
     host = NoAttrDict()
-    """This will contain the :class:`naghelp.Host` object. not that it is devrived from a dict."""
+    """This will contain the :class:`~naghelp.Host` object. not that it is devrived from a dict."""
 
     cmd_params = ''
-    """Attribute that must contain a list of all possible :class:`naghelp.Host`
+    """Attribute that must contain a list of all possible :class:`~naghelp.Host`
     parameters for the current plugin
 
     This will automatically add options to the :class:`optparse.OptionParser` object. This means
@@ -603,14 +608,14 @@ class ActivePlugin(Plugin):
     to do so, use the plugin attribute :attr:`forced_params`.
 
     .. note::
-        **Do not** include the parameters that are not :class:`naghelp.Host` related (like plugin
+        **Do not** include the parameters that are not :class:`~naghelp.Host` related (like plugin
         debug mode flag, verbose mode flag, plugin description flag etc...).
         These parameters are already checked by :class:`optparse.OptionParser` and do not need to
         get their value from environment variables or a database.
     """
 
     required_params = None
-    """Attribute that contains the list of parameters required for the :class:`naghelp.Host` object
+    """Attribute that contains the list of parameters required for the :class:`~naghelp.Host` object
 
     For example, if your plugin need to connect to a host that requires a password,
     you must add 'passwd' in the list.
@@ -627,7 +632,7 @@ class ActivePlugin(Plugin):
     """
 
     forced_params = 'name,ip'
-    """Attribute you can set to force all your plugins to have some default :class:`naghelp.Host`
+    """Attribute you can set to force all your plugins to have some default :class:`~naghelp.Host`
     parameters.
     These parameters are automatically added to the plugin attribute :attr:`cmd_params`.
 
@@ -962,7 +967,7 @@ class ActivePlugin(Plugin):
 
         This method should be overridden when developing a new plugin.
         You must use data dictionary to decide what alerts and/or informations to send to Nagios.
-        To do so, a :class:`naghelp.PluginResponse` object has already been initialized by
+        To do so, a :class:`~naghelp.PluginResponse` object has already been initialized by
         the framework and is available at ``self.response`` : you just have to use `add*` methods.
 
         Args:
@@ -1037,7 +1042,7 @@ class ActivePlugin(Plugin):
         It will take care of everything in that order :
 
             #. Manage command line options (uses :attr:`cmd_params`)
-            #. Create the :class:`naghelp.Host` object (store it in attribute :attr:`host`)
+            #. Create the :class:`~naghelp.Host` object (store it in attribute :attr:`host`)
             #. Activate logging (if asked in command line options with ``-v`` or ``-d``)
             #. Load persistent data into :attr:`host`
             #. Collect monitoring informations with :meth:`collect_data`
