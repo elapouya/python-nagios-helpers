@@ -19,10 +19,10 @@ To install::
 Quickstart
 ----------
 
-It is higly recommended to use `python-textops <http://python-textops.readthedocs.org>`
+It is higly recommended to use `python-textops <http://python-textops.readthedocs.org>`_
 to manipulate collected data.
 
-Here is an exemple of a python plugin, create a file linux_fsfull.py::
+Here is an exemple of a python plugin, create a file linux_fs_full_plugin.py::
 
    from naghelp import *
    from textops import *
@@ -51,7 +51,7 @@ Here is an exemple of a python plugin, create a file linux_fsfull.py::
 
 To excute manually::
 
-   python linux_fsfull.py --ip=127.0.0.1 --user=naghelp --passwd=lgpl
+   python linux_fs_full_plugin.py --ip=127.0.0.1 --user=naghelp --passwd=lgpl
 
 On error, it may return something liek this::
 
@@ -91,7 +91,7 @@ Or if no error::
 
 Naghelp will automatically manage some options::
 
-   $ python linux_fsfull.py -h
+   $ python linux_fs_full_plugin.py -h
    Usage:
    linux_fsfull.py [options]
 

@@ -459,7 +459,7 @@ class Expect(object):
 
         Examples:
 
-            SSH::
+            Doing a ssh through Expect::
 
                 e = Expect('ssh www@localhost',
                             login_steps=('(?i)Password[^:]*: ','wwwpassword\n'),
@@ -467,7 +467,7 @@ class Expect(object):
                             logout_cmd='exit')
                 print e.run('ls -la')
 
-            SSH with multiple commands::
+            Expect/ssh with multiple commands::
 
                 with Expect('ssh www@localhost',
                             login_steps=('(?i)Password[^:]*: ','wwwpassword\n'),

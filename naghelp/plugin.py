@@ -636,7 +636,7 @@ class ActivePlugin(Plugin):
     parameters.
     These parameters are automatically added to the plugin attribute :attr:`cmd_params`.
 
-    Usually set to ``'name,ip'`` because all the monitored equipments must have a Nagios name and an
+    Default is ``'name,ip'`` because all the monitored equipments must have a Nagios name and an
     IP.
     """
 

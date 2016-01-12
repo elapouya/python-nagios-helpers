@@ -55,8 +55,8 @@ A Nagios plugin built with naghelp roughly work like this :
       b  [label="Manage plugin parameters"]
       c  [label="Collect raw data from remote equipment"]
       d  [label="Parse raw data to structure them"]
-      e  [label="Build a response by adding errors and perf data"]
-      f  [label="Send response to stdout with Nagios syntax"]
+      e  [label="Add messages and perf data in a response object"]
+      f  [label="Render response to stdout with Nagios syntax"]
       g  [shape="doubleoctagon",label="Exit plugin with appropriate exit code"]
       }
 
@@ -70,7 +70,7 @@ The main steps for coding a plugin with naghelp are :
 
      The main attributes/method to override are :
 
-         * Attribute :attr:`cmd_params` that lists what parameters are awaited on command line.
+         * Attribute :attr:`cmd_params` that lists what parameters may be used on command line.
          * Attribute :attr:`required_params` tells what parameters are required
          * Attributes :attr:`tcp_ports` and :attr:`udp_ports` tell what ports to check if needed
          * Method :meth:`collect_data` to collect raw data
@@ -131,10 +131,10 @@ Python interpreter
 
    #!/usr/bin/python
 
-The first line tell what python interpreter have to run the script. Above we supposed that naghelp
+The first line tells what python interpreter have to run the script. Above we supposed that naghelp
 has been install system-wide.
 But may be, you are using ``virtualenv``, in such a case, you should use
-the correct interpreter, when activated run ``which python`` to see where it is,
+the correct interpreter : when activated run ``which python`` to see where it is,
 modify the first line then::
 
    #!/home/myproject/myvenv/bin/python
@@ -162,7 +162,8 @@ have a ``/home/myproject/buildout.cfg`` about like that::
    interpreter = py2
        ...
 
-With buildout, the plugin's first line will become::
+generate ``bin/py2`` interpreter by running the command ``bin/buildout``.
+Now, modify the plugin's first line to have ::
 
    #!/home/myproject/bin/py2
 
@@ -179,8 +180,7 @@ it has been developed especially for naghelp so it is highly recommended to use 
 You will be able to manipulate strings and parse texts very easily.
 
 Instead of importing these two modules, one can choose to build a ``plugin_commons.py`` to import
-all modules needed for all your plugins, initialize some constants and define a common project
-plugin class, see an example in :ref:`plugin_commons <plugin_commons>`.
+and define everything you need for all your plugins, see an example in :ref:`plugin_commons <plugin_commons>`.
 
 Subclass the ActivePlugin class
 ...............................
@@ -192,7 +192,8 @@ Subclass the ActivePlugin class
 To create your active plugin class, just subclass :class:`naghelp.ActivePlugin`.
 
 Nevertheless, if you have many plugin classes, it is highly recommended to subclass a class
-common to all your plugins : see :ref:`plugin_commons <plugin_commons>`.
+common to all your plugins which itself is derived from :class:`naghelp.ActivePlugin` :
+see :ref:`plugin_commons <plugin_commons>`.
 
 Specify parameters
 ..................
@@ -202,11 +203,12 @@ Specify parameters
    cmd_params = 'user,passwd'
 
 Here, by setting :attr:`~naghelp.ActivePlugin.cmd_params`, you are asking naghelp to
-accept on command line ``--user`` and ``--passwd`` options. The given values will availabe in
-:meth:`~naghelp.ActivePlugin.collect_data`, :meth:`~naghelp.ActivePlugin.parse_data` and
+accept on command line ``--user`` and ``--passwd`` options and to have a look in environment variables
+and in the optionnal database to see whether the informations can be found too. The values will be
+availabe in :meth:`~naghelp.ActivePlugin.collect_data`, :meth:`~naghelp.ActivePlugin.parse_data` and
 :meth:`~naghelp.ActivePlugin.build_response` at ``self.host.user`` and
-``self.host.passwd``. By default, ``ip`` and ``name`` options are also available in the same way,
-you do not need to specify them.
+``self.host.passwd``. By default, because of attribute :attr:`~naghelp.ActivePlugin.forced_params`,
+``ip`` and ``name`` options are also available in the same way, you do not need to specify them.
 
 Note that naghelp automatically sets many other options in command line, use ``-h`` to see the help::
 
@@ -273,7 +275,8 @@ equipment. Here are some precisions :
      into :meth:`~naghelp.ActivePlugin.build_response`.
 
    * The data collect must be optimized to make as few requests as possible to remote equipment.
-     To do so, use ``mget()``, ``mrun()``, or ``mwalk()`` methods or ``with:`` blocks (see
+     To do so, use ``mget()``, ``mrun()``, or ``mwalk()`` methods or ``with:`` blocks to keep
+     connection opened while collecting (see
      module :mod:`naghelp.collect`).
 
    * The collected data must be set onto ``data`` object. It is a :class:`~textops.DictExt`
@@ -310,7 +313,7 @@ Redefine :meth:`~naghelp.ActivePlugin.parse_data`
         data.fs_warning = df.inrange(95,98,key=cuts(r'(\d+)%')).cut(col='5,4').renderitems()
         data.fs_ok = df.lessthan(95,key=cuts(r'(\d+)%')).cut(col='5,4').renderitems()
 
-:meth:`~naghelp.ActivePlugin.parse_data` main purpose is to structure or extract information from
+:meth:`~naghelp.ActivePlugin.parse_data` main purpose is to structure or extract informations from
 collected raw data. To do so, it is highly recommended to use
 `python-textops <http://python-textops.readthedocs.org>`_.
 The ``data`` object is the same as the one from :meth:`~naghelp.ActivePlugin.collect_data`
@@ -377,9 +380,9 @@ Redefine :meth:`~naghelp.ActivePlugin.build_response`
 
 In :meth:`~naghelp.ActivePlugin.build_response`, ``data`` will contain all collected data AND
 all parsed data in the same :class:`~textops.DictExt`.
-Now you just have to use :class:`~naghelp.PluginResponse` methods to modify ``self.response``.
+Now, you just have to use :class:`~naghelp.PluginResponse` methods to modify ``self.response``.
 
-In the script, we are adding lists of messages with :meth:`~naghelp.PluginResponse.add_if` :
+In the script, we are adding lists of messages with :meth:`~naghelp.PluginResponse.add_list` :
 ``self.response.add_list(OK,data.fs_ok)`` is the same as writing::
 
    for msg in data.fs_ok:
@@ -424,8 +427,34 @@ As you can see :
    * naghelp created the ``==[ STATUS ]==`` section where messages has be splitted into
      several sub-sections corresponding to their level.
    * naghelp automatically add a ``==[ Plugin Informations ]==`` section with many useful
-     information including ports to be opened on the firewall.
+     informations including ports to be opened on the firewall.
    * naghelp automatically used the appropriate exit code, here 2 (CRITICAL)
+
+Configure Nagios
+................
+
+Once your plugin is developed, you have to declare a Nagios command using it::
+
+   define command{
+       command_name    myplugin_cmd
+       command_line    /path/to/linux_fs_full_plugin.py --name="$HOSTNAME$" --ip="$HOSTADDRESS" --user="$ARG1$" --passwd="$ARG2"
+       }
+
+Then, you can define a host and a service using that Nagios command::
+
+
+   define host{
+       use                 generic-host
+       host_name           myequipment
+       address             1.2.3.4
+   }
+
+   define service{
+       use                 generic-service
+       host_name           myequipment
+       service_description "myplugin service"
+       check_command       myplugin_cmd!naghelpuser!naghelppassword
+       }
 
 Advanced plugin
 ---------------
@@ -436,8 +465,8 @@ Manage errors
 You can abort the plugin execution when an error is encountered at monitoring level,
 or when it is not relevant to monitor an equipment in some conditions.
 
-For exemple, your have collected data about an equipment controller, but it is not the active one,
-that means data may be incomplete or not relevant : you should use the
+For exemple, let's say you have collected data about an equipment controller,
+but it is not the active one, that means data may be incomplete or not relevant : you should use the
 :meth:`~naghelp.ActivePlugin.fast_response` or :meth:`~naghelp.ActivePlugin.fast_response_if` method::
 
     def build_response(self,data):
@@ -496,7 +525,52 @@ Then use the mixin in your plugin by using multiple inheritage mechanism (mixin 
 
 By this way, you can re-use very easily gauge feature in many plugins.
 Of course, you can use several plugin mixins at a time, just remember to put the
-:meth:``~naghelp.ActivePlugin`` class (or some derived one) at the end of the parent class list.
+:class:`~naghelp.ActivePlugin` class (or some derived from) at the end of the parent class list.
+
+Use a database
+..............
+
+It is possible to have all equipments parameters set in a common database for your project.
+One can configure naghelp to get parameters in that database when not found in environment variables
+nor as command line options.
+The only information that is mandatory is the equipment name : naghelp will use it as an index to
+retreive the information in the database.
+As Nagios sets ``NAGIOS_HOSTNAME`` environment variable, there even no need to give that parameter
+as command argument in nagios configuration files, naghelp will take it for you.
+The only place where you have to specify ``--name`` is while manually testing the plugin on console :
+the environment variable is not set in this case.
+
+With a database, Nagios command declaration will be::
+
+   define command{
+       command_name    myplugin_cmd
+       command_line    /path/to/linux_fs_full_plugin.py
+       }
+
+And the service definition::
+
+   define service{
+       use                 generic-service
+       host_name           myequipment
+       service_description "myplugin service"
+       check_command       myplugin_cmd
+       }
+
+To have naghelp using a database, you have to subclass :class:`naghelp.Host` class and redefine
+:meth:`~naghelp.Host._get_params_from_db` method (see :class:`MonitoredHost` example in that method)
+
+Then you have to subclass :class:`~naghelp.ActivePlugin` and specify that you want naghelp to use
+:class:`MonitoredHost` instead of :class:`naghelp.Host`::
+
+   class MyProjectActivePlugin(ActivePlugin):
+      ...
+      host_class = MonitoredHost
+      ...
+
+Then all your plugins have to derive from this class::
+
+   class MyPlugin(MyProjectActivePlugin):
+      """ My code """
 
 Create a launcher
 -----------------
@@ -561,21 +635,29 @@ it has discovered with their first line description::
    VmwareEsxi                     vmware_esxi.py                 VMWare ESXi active plugin
    --------------------------------------------------------------------------------------------------------------
 
-plugin_commons
---------------
 
 .. _plugin_commons:
 
-All your plugins should (*must* when using a launcher) derive from a common plugin class
-which itself is derived from :class:`naghelp.ActivePlugin`. You will specify the plugins base directory,
-and type name. All this should be placed in a file ``plugin_commons.py``::
+plugin_commons
+--------------
+
+All your plugins should (**must** when using a launcher) derive from a common plugin class
+which itself is derived from :class:`naghelp.ActivePlugin`. You will specify the plugins base
+directory, and other common attributes.
+All this should be placed in a file ``plugin_commons.py`` where you can also import
+and define many other things that can be common to all your plugins::
 
    from naghelp import *
    from textops import *
 
+   PLUGINS_DIR = '/path/to/my_project_plugins'
+
    class MyProjectActivePlugin(ActivePlugin):
-       plugins_basedir = '/path/to/my_project_plugins'
-       plugin_type = 'myproject_plugin'  # you choose whatever you want but not 'plugin'
+      abstract = True                            # to avoid launcher to find this class
+      plugins_basemodule = 'my_project_plugins.' # prefix to add to have module accessible from python path
+      plugins_basedir = PLUGINS_DIR
+      plugin_type = 'myproject_plugin'           # you choose whatever you want but not 'plugin'
+      host_class = MonitoredHost                 # only if you have a database managed by a derived Host class
 
 Then, a typical code for your plugins would be like this, here ``/path/to/my_project_plugins/myplugin.py``::
 
@@ -669,8 +751,10 @@ Debug params
 ............
 
 Before looking your code, check the plugin is receiving the right parameters :
-parameters are taken from command line options THEN envrionment variables THEN from database and
-persistent data. In debug traces, what is set to ``self.host`` is written here::
+They are taken from command line options in priority THEN from envrionment variables THEN
+from database and persistent data.
+
+In debug traces, what is set to ``self.host`` is written here::
 
    2016-01-12 10:12:29,914 - naghelp - DEBUG -
    ------------------------------------------------------------
@@ -683,17 +767,14 @@ persistent data. In debug traces, what is set to ``self.host`` is written here::
 Debug ``collect_data``
 ......................
 
-The main pitfall is to succeed to connect to the remote host and to find prompt pattern.
-When using :class:`~naghelp.Ssh`, there is no problem because the prompt is automatically recognized
-by the internal ssh library (paramiko), but as soon as you have to specify patterns
-for the login steps or to find the prompt or even on remote equipment, this may be a problem.
+The main pitfall is to succeed to connect to the remote host.
 
-naghelp provides possibilities to customize these patterns to be able to connect to many
-kind of equipments. This could be done on :class:`~naghelp.Telnet`, :class:`~naghelp.Expect` or even
+Naghelp provides possibilities to customize patterns for login steps or to find the prompt.
+This could be done on :class:`~naghelp.Telnet`, :class:`~naghelp.Expect` or even
 :class:`~naghelp.Ssh`.
 
 The main symptom when a pattern is wrong, this usually hangs the collect, and the plugin should then
-raise an TimeoutError exception.
+raise an :class:`~naghelp.TimeoutError` exception.
 
 To debug patterns, please do some testing by collecting data manually yourself and test your
 patterns on output. Please check patterns syntax in :mod:`re` module.
@@ -701,7 +782,7 @@ patterns on output. Please check patterns syntax in :mod:`re` module.
 Use ``-a`` plugin option to check what has been collected
 
 .. note::
-   The prompt pattern is mandatory to recognize when a command output has finished and when
+   The prompt pattern is used to recognize when a command output has finished and when
    naghelp can send another one.
 
 Debug ``parse_data``
@@ -709,8 +790,9 @@ Debug ``parse_data``
 
 The main pitfall is to correctly parse or extract data from collected raw data.
 Use ``-b`` plugin option to check what has been collected and what has be parsed.
-and options ``-s`` and ``-r`` to avoid wasting time to collect data.
-Check `textops manual <http://python-textops.readthedocs.org>`_ to see how to do this.
+Use options ``-s`` and ``-r`` to avoid wasting time to collect data.
+
+Check `textops manual <http://python-textops.readthedocs.org>`_ to see how to do parse texts.
 There is no particular tip but to have experience with regular expressions.
 
 Debug ``build_response``
@@ -718,11 +800,12 @@ Debug ``build_response``
 
 The goal is to check that all equipment errors/infos are correctly detected.
 There is a little trick to check everything :
-The first time, use your plugin with ``-s`` option to save the collect_data
-(the ``-h`` will tell you the file path at ``-s`` line).
-To test all cases, you can simulate them by modifying the file for collected data.
-Then, use ``-r`` to restore it and see how your plugin is working.
+The first time, use your plugin with ``-s`` option to save collected data :
+To test all cases, you can simulate errors by modifying the file for collected data.
+Then, use ``-r`` to restore modified data and see how your plugin is working.
 
+The file for collected data is located at the path shown in the plugin usage (``-h`` option),
+by default it is ``/tmp/naghelp/<hostname>_collected_data.json``
 
 * :ref:`genindex`
 * :ref:`modindex`
