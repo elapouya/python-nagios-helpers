@@ -102,7 +102,8 @@ Naghelp will automatically manage some options::
      -l FILE            Redirect logs into a file
      -i                 Display plugin description
      -n                 Must be used when the plugin is started by nagios
-     -s                 Save collected data in a temporary file
+     -s                 Save collected data in a file
+                        (/tmp/naghelp/<hostname>_collected_data.json)
      -r                 Use saved collected data (option -s)
      -a                 Collect data only and print them
      -b                 Collect and parse data only and print them

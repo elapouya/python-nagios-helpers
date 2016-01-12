@@ -572,9 +572,12 @@ class Telnet(object):
             (Default : ``Password\s*:``). One can specify a string, a re.RegexObject,
             a list of string or a list of re.RegexObject
         prompt_pattern (str): The pattern to recognize the usual prompt
-            (Default : ``[\r\n][^\s\$#<>:]*\s?[\$#>:]+\s``). One can specify a string or a re.RegexObject.
+            (Default : ``[\r\n][^\s]*\s?[\$#>:]+\s``). One can specify a string or a re.RegexObject.
+        autherr_pattern (str): The pattern to recognize authentication error
+            (Default : ``bad password|login incorrect|login failed|authentication error``).
+            One can specify a string or a re.RegexObject.
     """
-    def __init__(self,host, user, password=None, timeout=30, port=0, login_pattern=None, passwd_pattern=None, prompt_pattern=None,*args,**kwargs):
+    def __init__(self,host, user, password=None, timeout=30, port=0, login_pattern=None, passwd_pattern=None, prompt_pattern=None, autherr_pattern=None, *args,**kwargs):
         #import is done only on demand, because it takes some little time
         import telnetlib
         self.in_with = False
@@ -582,11 +585,15 @@ class Telnet(object):
         self.prompt = None
         login_pattern = Telnet._normalize_pattern(login_pattern, r'login\s*:')
         passwd_pattern = Telnet._normalize_pattern(passwd_pattern, r'Password\s*:')
-        prompt_pattern = Telnet._normalize_pattern(prompt_pattern, r'[\r\n][^\s\$#<>:]*\s?[\$#>:]+\s')
+        prompt_pattern = Telnet._normalize_pattern(prompt_pattern, r'[\r\n][^\s]*\s?[\$#>:]+\s')
+        autherr_pattern = Telnet._normalize_pattern(autherr_pattern, r'bad password|login incorrect|login failed|authentication error')
         self.prompt_pattern = prompt_pattern
         naghelp.logger.debug('#### Telnet( %s@%s ) ###############',user, host)
         with Timeout(seconds = timeout, error_message='Timeout (%ss) for telnet to %s' % (timeout,host)):
-            self.tn = telnetlib.Telnet(host,port,timeout,**kwargs)
+            try:
+                self.tn = telnetlib.Telnet(host,port,timeout,**kwargs)
+            except Exception,e:
+                raise ConnectionError(e)
             naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(login_pattern))
             self.tn.expect(login_pattern)
             naghelp.logger.debug('  ==> %s',user)
@@ -595,10 +602,13 @@ class Telnet(object):
             self.tn.expect(passwd_pattern)
             naghelp.logger.debug('  ==> (hidden password)')
             self.tn.write(password + "\n")
-            naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(prompt_pattern))
-            pat_id,m,buffer = self.tn.expect(prompt_pattern)
+            naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(prompt_pattern + autherr_pattern))
+            pat_id,m,buffer = self.tn.expect(prompt_pattern + autherr_pattern)
+            print 'pat_id,m,buffer =',pat_id,m,buffer
             if pat_id < 0:
                 raise ConnectionError('No regular prompt found.')
+            if pat_id >= len(prompt_pattern):
+                raise ConnectionError('Authentication error')
             naghelp.logger.debug('Prompt found : is_connected = True')
             self.is_connected = True
 
@@ -782,12 +792,15 @@ class Ssh(object):
             self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.client.load_system_host_keys()
         naghelp.logger.debug('#### Ssh( %s@%s ) ###############',user, host)
-        self.client.connect(host,username=user,password=password, timeout=timeout, **kwargs)
-        if self.prompt_pattern:
-            self.prompt_pattern = re.compile(re.sub(r'^\^',r'[\r\n]',prompt_pattern))
-            self.chan = self.client.invoke_shell(width=160,height=48)
-            self.chan.settimeout(timeout)
-            self._read_to_prompt()
+        try:
+            self.client.connect(host,username=user,password=password, timeout=timeout, **kwargs)
+            if self.prompt_pattern:
+                self.prompt_pattern = re.compile(re.sub(r'^\^',r'[\r\n]',prompt_pattern))
+                self.chan = self.client.invoke_shell(width=160,height=48)
+                self.chan.settimeout(timeout)
+                self._read_to_prompt()
+        except Exception,e:
+            raise ConnectionError(e)
         naghelp.logger.debug('is_connected = True')
         self.is_connected = True
 

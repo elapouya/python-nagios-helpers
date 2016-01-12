@@ -753,8 +753,10 @@ class ActivePlugin(Plugin):
 
         self._cmd_parser.add_option('-n', action='store_true', dest='in_nagios_env',
                                    default=False, help='Must be used when the plugin is started by nagios')
+
+        collected_data_file = self.collected_data_filename_pattern % '<hostname>'
         self._cmd_parser.add_option('-s', action='store_true', dest='save_collected',
-                                   default=False, help='Save collected data in a temporary file')
+                                   default=False, help='Save collected data in a file (%s)' % collected_data_file)
         self._cmd_parser.add_option('-r', action='store_true', dest='restore_collected',
                                    default=False, help='Use saved collected data (option -s)')
         self._cmd_parser.add_option('-a', action='store_true', dest='collect_and_print',
@@ -904,7 +906,7 @@ class ActivePlugin(Plugin):
             self.fast_response(CRITICAL,
                                'Port %s is unreachable' % invalid_port,
                                'This plugin uses ports tcp = %s, udp = %s\nplease check your firewall\n\n' % (self.get_tcp_ports() or 'none',self.get_udp_ports() or 'none'),
-                               2, exception=naghelp.ConnectionError('Port unreachable') )
+                               2)
 
     def collect_data(self,data):
         """Collect data from monitored host

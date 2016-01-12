@@ -221,7 +221,8 @@ Note that naghelp automatically sets many other options in command line, use ``-
      -l FILE              Redirect logs into a file
      -i                   Display plugin description
      -n                   Must be used when the plugin is started by nagios
-     -s                   Save collected data in a temporary file
+     -s                   Save collected data in a file
+                          (/tmp/naghelp/<hostname>_collected_data.json)
      -r                   Use saved collected data (option -s)
      -a                   Collect data only and print them
      -b                   Collect and parse data only and print them
@@ -424,6 +425,78 @@ As you can see :
      several sub-sections corresponding to their level.
    * naghelp automatically add a ``==[ Plugin Informations ]==`` section with many useful
      information including ports to be opened on the firewall.
+   * naghelp automatically used the appropriate exit code, here 2 (CRITICAL)
+
+Advanced plugin
+---------------
+
+Manage errors
+.............
+
+You can abort the plugin execution when an error is encountered at monitoring level,
+or when it is not relevant to monitor an equipment in some conditions.
+
+For exemple, your have collected data about an equipment controller, but it is not the active one,
+that means data may be incomplete or not relevant : you should use the
+:meth:`~naghelp.ActivePlugin.fast_response` or :meth:`~naghelp.ActivePlugin.fast_response_if` method::
+
+    def build_response(self,data):
+        self.fast_response_if(data.hpoa.oa.grep('^OA Role').grepc('Standby'), OK, 'Onboard Administration in Standby mode')
+        ...
+
+Above, if the monitored controller is in standby mode, we get out the plugin at once without
+any error (``OK`` response level).
+
+Create mixins
+.............
+
+To re-use some code, you can create a plugin mixin.
+
+Let's create a mixin that manages gauges : When a metric (for example the number of fans) is seen
+the first time, the metric is memorized as the reference value (``etalon``).
+Next times, it is compared : if the metric goes below, it means that one part has been lost
+and an error should be raise.
+
+Here is the mixin::
+
+   class GaugeMixin(object):
+       def get_gauges(self,data):
+           # To be defined in child class
+           # must return a tuple of tuples like this:
+           # return ( ('gaugeslug','the gauge full name', <calculated gauge value as int>, <responselevel>),
+           #          ('gaugeslug2','the gauge2 full name', <calculated gauge2 value as int>, <responselevel2>) )
+           pass
+
+       def gauge_response(self,data):
+           for gname,fullname,gvalue,level in self.get_gauges(data):
+               self.response.add_more('%s : %s',fullname,gvalue)
+               etalon_name = gname + '_etalon'
+               etalon_value = self.host.get(etalon_name,None)
+               if etalon_value is not None and gvalue < etalon_value:
+                   self.response.add(level,'%s : actual count (%s) not equal to the reference value (%s)' % (fullname, gvalue, etalon_value))
+               if gvalue:
+                   # save the gauge value as the new reference value in host's persistent data
+                   self.host.set(etalon_name,gvalue)
+               else:
+                   self.response.add(UNKNOWN,'%s : unknown count.' % gname.upper())
+
+       def build_response(self,data):
+           self.gauge_response(data)
+           # this will call plugin build_response() or another mixin build_response() if present.
+           super(GaugeMixin,self).build_response(data)
+
+Then use the mixin in your plugin by using multiple inheritage mechanism (mixin first)::
+
+   class SunRsc(GaugeMixin,ActivePlugin):
+      ...
+       def get_gauges(self, data):
+           return ( ('fan',      'Fans',       data.showenv.grep(r'^FAN TRAY|_FAN').grepc('OK'), WARNING ),
+                    ('localdisk','Local disks',data.showenv.grep(r'\bDISK\b').grepc('OK|PRESENT'), WARNING ),
+                    ('power',    'Powers',     data.showenv.after(r'Power Supplies:').grepv(r'^---|Supply|^\s*$').grepc('OK'), WARNING ) )
+
+By this way, you can re-use very easily gauge feature in many plugins.
+Of course, you can use several plugin mixins at a time, just remember to put the
+:meth:``~naghelp.ActivePlugin`` class (or some derived one) at the end of the parent class list.
 
 Create a launcher
 -----------------
@@ -510,6 +583,146 @@ Then, a typical code for your plugins would be like this, here ``/path/to/my_pro
 
    class MyPlugin(MyProjectActivePlugin):
       """ My code """
+
+Debug
+-----
+
+To debug a plugin, the best way is to activate the debug mode with ``-d`` flag::
+
+   $ python ./linux_fs_full_plugin.py --ip=127.0.0.1 --user=naghelp --passwd=naghelppw -d
+   2016-01-12 10:12:29,912 - naghelp - DEBUG - Loading data from /home/elapouya/projects/sebox/src/naghelp/tests/hosts/127.0.0.1/plugin_persistent_data.json :
+   2016-01-12 10:12:29,913 - naghelp - DEBUG - {   u'ip': u'127.0.0.1',
+       u'name': u'127.0.0.1',
+       u'passwd': u'naghelppw2',
+       u'user': u'naghelp'}
+   2016-01-12 10:12:29,913 - naghelp - INFO - Start plugin __main__.LinuxFsFull for 127.0.0.1
+   2016-01-12 10:12:29,913 - naghelp - DEBUG - Host informations :
+   2016-01-12 10:12:29,914 - naghelp - DEBUG - _params_from_db = {   u'ip': u'127.0.0.1',
+       u'name': u'127.0.0.1',
+       u'passwd': u'naghelppw2',
+       u'user': u'naghelp'}
+   2016-01-12 10:12:29,914 - naghelp - DEBUG - _params_from_env = {   }
+   2016-01-12 10:12:29,914 - naghelp - DEBUG - _params_from_cmd_options = {   'ip': '127.0.0.1',
+       'name': None,
+       'passwd': 'naghelppw',
+       'subtype': None,
+       'user': 'naghelp'}
+   2016-01-12 10:12:29,914 - naghelp - DEBUG -
+   ------------------------------------------------------------
+   ip           : 127.0.0.1
+   name         : 127.0.0.1
+   passwd       : naghelppw
+   user         : naghelp
+   ------------------------------------------------------------
+   2016-01-12 10:12:30,101 - naghelp - DEBUG - #### Ssh( naghelp@127.0.0.1 ) ###############
+   2016-01-12 10:12:30,255 - naghelp - DEBUG - is_connected = True
+   2016-01-12 10:12:30,255 - naghelp - DEBUG -   ==> df -h
+   2016-01-12 10:12:30,775 - naghelp - DEBUG - #### Ssh : Connection closed ###############
+   2016-01-12 10:12:30,775 - naghelp - INFO - Data are collected
+   2016-01-12 10:12:30,776 - naghelp - DEBUG - Collected Data =
+   {   'df': 'Sys. de fichiers Taille Utilis\xc3\xa9 Dispo Uti% Mont\xc3\xa9 sur
+   /dev/sdb6           20G     12G  6,5G  65% /
+   udev               7,9G    4,0K  7,9G   1% /dev
+   tmpfs              1,6G    1,1M  1,6G   1% /run
+   none               5,0M       0  5,0M   0% /run/lock
+   none               7,9G    119M  7,8G   2% /run/shm
+   /dev/sda5           92G     81G  6,9G  93% /home
+   '}
+   2016-01-12 10:12:30,777 - naghelp - INFO - Data are parsed
+   2016-01-12 10:12:30,777 - naghelp - DEBUG - Parsed Data =
+   {   'fs_critical': [],
+       'fs_ok': [   '/ : 65%',
+                    '/dev : 1%',
+                    '/run : 1%',
+                    '/run/lock : 0%',
+                    '/run/shm : 2%',
+                    '/home : 93%'],
+       'fs_warning': []}
+   2016-01-12 10:12:30,778 - naghelp - DEBUG - Saving data to /home/elapouya/projects/sebox/src/naghelp/tests/hosts/127.0.0.1/plugin_persistent_data.json :
+   ip           : 127.0.0.1
+   name         : 127.0.0.1
+   passwd       : naghelppw
+   user         : naghelp
+   2016-01-12 10:12:30,778 - naghelp - INFO - Plugin output summary : None
+   2016-01-12 10:12:30,778 - naghelp - DEBUG - Plugin output :
+   ################################################################################
+   OK
+   ==================================[  STATUS  ]==================================
+
+   ----( OK )----------------------------------------------------------------------
+   / : 65%
+   /dev : 1%
+   /run : 1%
+   /run/lock : 0%
+   /run/shm : 2%
+   /home : 93%
+
+
+   ============================[ Plugin Informations ]=============================
+   Plugin name : __main__.LinuxFsFull
+   Description : Basic plugin to monitor full filesystems on Linux systems
+   Ports used : tcp = 22, udp = none
+   Execution time : 0:00:00.866135
+   Exit code : 0 (OK), __sublevel__=0
+
+Debug params
+............
+
+Before looking your code, check the plugin is receiving the right parameters :
+parameters are taken from command line options THEN envrionment variables THEN from database and
+persistent data. In debug traces, what is set to ``self.host`` is written here::
+
+   2016-01-12 10:12:29,914 - naghelp - DEBUG -
+   ------------------------------------------------------------
+   ip           : 127.0.0.1
+   name         : 127.0.0.1
+   passwd       : naghelppw
+   user         : naghelp
+   ------------------------------------------------------------
+
+Debug ``collect_data``
+......................
+
+The main pitfall is to succeed to connect to the remote host and to find prompt pattern.
+When using :class:`~naghelp.Ssh`, there is no problem because the prompt is automatically recognized
+by the internal ssh library (paramiko), but as soon as you have to specify patterns
+for the login steps or to find the prompt or even on remote equipment, this may be a problem.
+
+naghelp provides possibilities to customize these patterns to be able to connect to many
+kind of equipments. This could be done on :class:`~naghelp.Telnet`, :class:`~naghelp.Expect` or even
+:class:`~naghelp.Ssh`.
+
+The main symptom when a pattern is wrong, this usually hangs the collect, and the plugin should then
+raise an TimeoutError exception.
+
+To debug patterns, please do some testing by collecting data manually yourself and test your
+patterns on output. Please check patterns syntax in :mod:`re` module.
+
+Use ``-a`` plugin option to check what has been collected
+
+.. note::
+   The prompt pattern is mandatory to recognize when a command output has finished and when
+   naghelp can send another one.
+
+Debug ``parse_data``
+....................
+
+The main pitfall is to correctly parse or extract data from collected raw data.
+Use ``-b`` plugin option to check what has been collected and what has be parsed.
+and options ``-s`` and ``-r`` to avoid wasting time to collect data.
+Check `textops manual <http://python-textops.readthedocs.org>`_ to see how to do this.
+There is no particular tip but to have experience with regular expressions.
+
+Debug ``build_response``
+........................
+
+The goal is to check that all equipment errors/infos are correctly detected.
+There is a little trick to check everything :
+The first time, use your plugin with ``-s`` option to save the collect_data
+(the ``-h`` will tell you the file path at ``-s`` line).
+To test all cases, you can simulate them by modifying the file for collected data.
+Then, use ``-r`` to restore it and see how your plugin is working.
+
 
 * :ref:`genindex`
 * :ref:`modindex`
