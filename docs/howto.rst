@@ -70,12 +70,12 @@ The main steps for coding a plugin with naghelp are :
 
      The main attributes/method to override are :
 
-         * Attribute :attr:`cmd_params` that lists what parameters may be used on command line.
-         * Attribute :attr:`required_params` tells what parameters are required
-         * Attributes :attr:`tcp_ports` and :attr:`udp_ports` tell what ports to check if needed
-         * Method :meth:`collect_data` to collect raw data
-         * Method :meth:`parse_data` to parse raw data into structured data
-         * Method :meth:`build_response` to use collected and parsed data for updating response object
+         * Attribute :attr:`~naghelp.ActivePlugin.cmd_params` that lists what parameters may be used on command line.
+         * Attribute :attr:`~naghelp.ActivePlugin.required_params` tells what parameters are required
+         * Attributes :attr:`~naghelp.ActivePlugin.tcp_ports` and :attr:`~naghelp.ActivePlugin.udp_ports` tell what ports to check if needed
+         * Method :meth:`~naghelp.ActivePlugin.collect_data` to collect raw data
+         * Method :meth:`~naghelp.ActivePlugin.parse_data` to parse raw data into structured data
+         * Method :meth:`~naghelp.ActivePlugin.build_response` to use collected and parsed data for updating response object
 
    * Instantiate the plugin class
    * run it with a :meth:`run()`
@@ -252,7 +252,7 @@ You can specify :attr:`~naghelp.ActivePlugin.tcp_ports` and/or :attr:`~naghelp.A
 your plugin is using : by this way, the administrator will be warned what port has to be opened on his
 firewall. Port informations will be displayed at the end of each message in plugin informations section.
 
-For tcp_ports, an additional check will be done if an error occurs will collecting data.
+For tcp_ports, an additional check will be done if an error occurs while collecting data.
 
 Redefine :meth:`~naghelp.ActivePlugin.collect_data`
 ...................................................
@@ -267,7 +267,7 @@ equipment. Here are some precisions :
 
    * You have to collect **all** data in :meth:`~naghelp.ActivePlugin.collect_data`, this means
      it is not recommended to collect some other data in :meth:`~naghelp.ActivePlugin.parse_data`
-     or :meth:`~naghelp.ActivePlugin.build_response`.
+     nor :meth:`~naghelp.ActivePlugin.build_response`.
 
    * You have to collect **only raw** data in :meth:`~naghelp.ActivePlugin.collect_data`, this means
      if raw data cannot be used at once and needs some kind of extraction, you have to do that after
@@ -424,7 +424,7 @@ To see what naghelp will finally send to Nagios, just execute the script ::
 As you can see :
 
    * naghelp generated automatically a synopsis : ``STATUS : CRITICAL:1, WARNING:1, OK:4``
-   * naghelp created the ``==[ STATUS ]==`` section where messages has be splitted into
+   * naghelp created the ``==[ STATUS ]==`` section where messages has been splitted into
      several sub-sections corresponding to their level.
    * naghelp automatically add a ``==[ Plugin Informations ]==`` section with many useful
      informations including ports to be opened on the firewall.
@@ -518,10 +518,10 @@ Then use the mixin in your plugin by using multiple inheritage mechanism (mixin 
 
    class SunRsc(GaugeMixin,ActivePlugin):
       ...
-       def get_gauges(self, data):
-           return ( ('fan',      'Fans',       data.showenv.grep(r'^FAN TRAY|_FAN').grepc('OK'), WARNING ),
-                    ('localdisk','Local disks',data.showenv.grep(r'\bDISK\b').grepc('OK|PRESENT'), WARNING ),
-                    ('power',    'Powers',     data.showenv.after(r'Power Supplies:').grepv(r'^---|Supply|^\s*$').grepc('OK'), WARNING ) )
+      def get_gauges(self, data):
+        return ( ('fan',      'Fans',       data.showenv.grep(r'^FAN TRAY|_FAN').grepc('OK'), WARNING ),
+                 ('localdisk','Local disks',data.showenv.grep(r'\bDISK\b').grepc('OK|PRESENT'), WARNING ),
+                 ('power',    'Powers',     data.showenv.after(r'Power Supplies:').grepv(r'^---|Supply|^\s*$').grepc('OK'), WARNING ) )
 
 By this way, you can re-use very easily gauge feature in many plugins.
 Of course, you can use several plugin mixins at a time, just remember to put the
