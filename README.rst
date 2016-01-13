@@ -100,4 +100,4 @@ Naghelp will automatically manage some options::
        --name=NAME      Hostname
 
 
-For more information, `Read The Fabulous Manual<http://python-nagios-helpers.readthedocs.org>`_!
+For more information, `Read The Fabulous Manual <http://python-nagios-helpers.readthedocs.org>`_ !
