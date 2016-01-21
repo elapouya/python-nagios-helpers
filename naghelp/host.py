@@ -200,7 +200,7 @@ class Host(dict):
         self._plugin.debug('_params_from_db = %s', pp.pformat(self._params_from_db))
         self._plugin.debug('_params_from_env = %s',pp.pformat(self._params_from_env))
         self._plugin.debug('_params_from_cmd_options = %s', pp.pformat(self._params_from_cmd_options))
-        self._plugin.debug('\n' + '-'*60 + '\n%r\n' + '-'*60, self)
+        self._plugin.debug('\n' + '-'*60 + '\n%s\n' + '-'*60, self._pprint())
 
     def __getattr__(self, name):
         return self.get(name,NoAttr)
@@ -328,7 +328,7 @@ class Host(dict):
     def _get_params_from_cmd_options(self):
         return dict([(k[6:],v) for k,v in vars(self._plugin.options).items() if k.startswith('host__')])
 
-    def __repr__(self):
+    def _pprint(self):
         return '\n'.join([ '%-12s : %s' % (k,v) for k,v in sorted(self.items()) ])
 
     def _get_persistent_filename(self):
