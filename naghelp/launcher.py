@@ -74,11 +74,11 @@ def launch(plugin_base_class):
 
     Then you can run your plugin class like that (faster)::
 
-        /path/to/your/laucher my_project_plugins.myplugin.MyPlugin --name=myhost --user=nagiosuser --passwd=nagiospwd
+        /path/to/your/launcher my_project_plugins.myplugin.MyPlugin --name=myhost --user=nagiosuser --passwd=nagiospwd
 
     or (slower)::
 
-        /path/to/your/laucher myplugin --name=myhost --user=nagiosuser --passwd=nagiospwd
+        /path/to/your/launcher myplugin --name=myhost --user=nagiosuser --passwd=nagiospwd
 
     """
     args=sys.argv

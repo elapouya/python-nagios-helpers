@@ -595,16 +595,16 @@ class ActivePlugin(Plugin):
      privproto          SNMP privacy protocal (des or aes)
      protocol           ssh or telnet
      port               Port number
-     options            Additionnal options
      maxwarn            Gauge max value for a warning status
      maxcrit            Gauge max value for a critical status
      minwarn            Gauge min value for a warning status
      mincrit            Gauge min value for a critical status
+     options            Additionnal options
     ==================  ==================================================
 
     Note that ``name`` and ``ip`` are hard coded :
     you must use them for Nagios hostname and hostaddress.
-    The same for ``protocol`` and ``port`` that are hard coded for port testing.
+    The same for ``subtype``, ``protocol`` and ``port`` that are hard coded for port testing.
 
     The parameter list can be a python list or a coma separated string.
 
@@ -720,11 +720,11 @@ class ActivePlugin(Plugin):
                     'privproto'      : 'SNMP privacy protocal (des or aes)',
                     'protocol'       : 'ssh or telnet',
                     'port'           : 'Port number',
-                    'options'        : 'Additionnal options',
                     'maxwarn'        : 'Gauge max value for a warning status',
                     'maxcrit'        : 'Gauge max value for a critical status',
                     'minwarn'        : 'Gauge min value for a warning status',
                     'mincrit'        : 'Gauge min value for a critical status',
+                    'options'        : 'Additionnal options',
                 }
 
     def get_plugin_host_params_desc(self):
