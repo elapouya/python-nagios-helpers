@@ -919,7 +919,7 @@ class Ssh(object):
             To be sure to have the commands order respected, use list of items instead of a dict::
 
                 ssh = Ssh('localhost','www','wwwpassword')
-                print ssh.mrun(('cmd':'./mycommand'),('cmd_err','echo $?'))
+                print ssh.mrun( (('cmd','./mycommand'),('cmd_err','echo $?')) )
 
         """
         if not self.is_connected:

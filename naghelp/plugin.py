@@ -596,6 +596,10 @@ class ActivePlugin(Plugin):
      protocol           ssh or telnet
      port               Port number
      options            Additionnal options
+     maxwarn            Gauge max value for a warning status
+     maxcrit            Gauge max value for a critical status
+     minwarn            Gauge min value for a warning status
+     mincrit            Gauge min value for a critical status
     ==================  ==================================================
 
     Note that ``name`` and ``ip`` are hard coded :
@@ -717,6 +721,10 @@ class ActivePlugin(Plugin):
                     'protocol'       : 'ssh or telnet',
                     'port'           : 'Port number',
                     'options'        : 'Additionnal options',
+                    'maxwarn'        : 'Gauge max value for a warning status',
+                    'maxcrit'        : 'Gauge max value for a critical status',
+                    'minwarn'        : 'Gauge min value for a warning status',
+                    'mincrit'        : 'Gauge min value for a critical status',
                 }
 
     def get_plugin_host_params_desc(self):
