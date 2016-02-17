@@ -576,13 +576,16 @@ class Telnet(object):
         autherr_pattern (str): The pattern to recognize authentication error
             (Default : ``bad password|login incorrect|login failed|authentication error``).
             One can specify a string or a re.RegexObject.
+        sleep (int): Add delay in seconds before each write/expect
+        sleep_login (int): Add delay in seconds before login
     """
-    def __init__(self,host, user, password=None, timeout=30, port=0, login_pattern=None, passwd_pattern=None, prompt_pattern=None, autherr_pattern=None, *args,**kwargs):
+    def __init__(self,host, user, password=None, timeout=30, port=0, login_pattern=None, passwd_pattern=None, prompt_pattern=None, autherr_pattern=None, sleep=0, sleep_login=0, *args,**kwargs):
         #import is done only on demand, because it takes some little time
         import telnetlib
         self.in_with = False
         self.is_connected = False
         self.prompt = None
+        self.sleep = sleep
         login_pattern = Telnet._normalize_pattern(login_pattern, r'login\s*:')
         passwd_pattern = Telnet._normalize_pattern(passwd_pattern, r'Password\s*:')
         prompt_pattern = Telnet._normalize_pattern(prompt_pattern, r'[\r\n][^\s]*\s?[\$#>:]+\s')
@@ -592,19 +595,25 @@ class Telnet(object):
         with Timeout(seconds = timeout, error_message='Timeout (%ss) for telnet to %s' % (timeout,host)):
             try:
                 self.tn = telnetlib.Telnet(host,port,timeout,**kwargs)
+                #self.tn.set_debuglevel(1)
             except Exception,e:
                 raise ConnectionError(e)
             naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(login_pattern))
+            time.sleep(sleep_login or sleep)
             self.tn.expect(login_pattern)
             naghelp.logger.debug('  ==> %s',user)
+            time.sleep(sleep)
             self.tn.write(user + "\n")
             naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(passwd_pattern))
+            time.sleep(sleep)
             self.tn.expect(passwd_pattern)
             naghelp.logger.debug('  ==> (hidden password)')
+            time.sleep(sleep)
             self.tn.write(password + "\n")
             naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(prompt_pattern + autherr_pattern))
+            time.sleep(sleep)
             pat_id,m,buffer = self.tn.expect(prompt_pattern + autherr_pattern)
-            print 'pat_id,m,buffer =',pat_id,m,buffer
+            naghelp.logger.debug('pat_id,m,buffer = %s, %s, %s',pat_id,m,buffer)
             if pat_id < 0:
                 raise ConnectionError('No regular prompt found.')
             if pat_id >= len(prompt_pattern):
@@ -638,8 +647,10 @@ class Telnet(object):
 
     def _run_cmd(self,cmd):
         naghelp.logger.debug('  ==> %s',cmd)
+        time.sleep(self.sleep)
         self.tn.write('%s\n' % cmd)
         naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(self.prompt_pattern))
+        time.sleep(self.sleep)
         pat_id,m,buffer = self.tn.expect(self.prompt_pattern)
         out = buffer.replace('\r','')
         # use re.compile to be compatible with python 2.6 (flags in re.sub only for python 2.7+)
