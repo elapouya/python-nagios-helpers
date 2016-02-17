@@ -899,7 +899,7 @@ class ActivePlugin(Plugin):
         if self.host.port:
             if not self.udp_ports:
                 return [self.host.port]
-        if self.host.protocol:
+        if self.host.protocol and 'protocol' in self.cmd_params:
             return [socket.getservbyname(self.host.protocol)]
         return self.tcp_ports
 
