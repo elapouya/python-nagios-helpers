@@ -978,7 +978,7 @@ class PluginResponse(object):
 
         naghelp.logger.debug('Plugin output :\n' + '#' * 80 + '\n' + out + '\n'+ '#' * 80)
 
-        print out
+        print out.encode('utf-8') if isinstance(out,unicode) else out
 
         naghelp.logger.info('Exiting plugin with response level : %s, __sublevel__=%s', self.level.info(), self.sublevel )
         self.level.exit()
