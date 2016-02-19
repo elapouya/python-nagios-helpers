@@ -1089,7 +1089,7 @@ class ActivePlugin(Plugin):
                         self.info('All TCP ports are reachable')
                     else:
                         self.info('No port to check')
-                    msg = 'Failed to collect equipment status : %s\n' % e
+                    msg = 'Failed to collect data : %s\n' % e
                     self.error(msg, sublevel=1, exception=e)
 
                 self.info('Data are collected')
