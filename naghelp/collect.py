@@ -792,12 +792,13 @@ class Ssh(object):
         banner_timeout (float): an optional timeout (in seconds) to wait
             for the SSH banner to be presented.
     """
-    def __init__(self,host, user, password=None, timeout=30, auto_accept_new_host=True, prompt_pattern=None, *args,**kwargs):
+    def __init__(self,host, user, password=None, timeout=30, auto_accept_new_host=True, prompt_pattern=None, get_pty=False, *args,**kwargs):
         #import is done only on demand, because it takes some little time
         import paramiko
         self.in_with = False
         self.is_connected = False
         self.prompt_pattern = prompt_pattern
+        self.get_pty = get_pty
         self.client = paramiko.SSHClient()
         if auto_accept_new_host:
             self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -838,7 +839,7 @@ class Ssh(object):
     def _run_cmd(self,cmd,timeout):
         naghelp.logger.debug('  ==> %s',cmd)
         if self.prompt_pattern is None:
-            stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout)
+            stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout,get_pty=self.get_pty)
             out = stdout.read()
             return out
         else:
