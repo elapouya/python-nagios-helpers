@@ -13,9 +13,11 @@ from addicted import NoAttr
 import textops
 import naghelp
 import time
+import subprocess
 
 __all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp',
-           'Timeout', 'TimeoutError', 'CollectError', 'ConnectionError', 'NotConnected']
+           'Timeout', 'TimeoutError', 'CollectError', 'ConnectionError', 'NotConnected',
+           'UnexpectedResultError']
 
 class CollectError(Exception):
     """Exception raised when a collect is unsuccessful
@@ -46,6 +48,14 @@ class TimeoutError(CollectError):
 
     It may come from unreachable remote host, too long lasting commands, bad pattern matching on
     Expect/Telnet/Ssh for connection or prompt search steps.
+    """
+    pass
+
+class UnexpectedResultError(CollectError):
+    """Exception raised when a command gave an unexpected result
+
+    This works with ``expected_pattern`` and ``unexpected_pattern`` available in some
+    collecting classes.
     """
     pass
 
@@ -112,7 +122,40 @@ def search_invalid_port(ip,ports):
             return port
     return None
 
-def runsh(cmd, context = {}, timeout = 30):
+
+def _raise_unexpected_result(result, key, cmd, help_str=''):
+    if isinstance(result,basestring):
+        result = '\n'.join(result.splitlines()[:10])
+    else:
+        result = '%s (%s)' % (result,type(result))
+    key_str = 'for command key "%s"' % key if key else ''
+    s='Unexpected result %s:\nCommand = %s\n%s\n\n%s\n...' % (key_str,cmd,help_str,result)
+    raise UnexpectedResultError(s)
+
+def _filter_result(result, key, cmd, expected_pattern=r'\S', unexpected_pattern=None, filter=None):
+    if callable(filter):
+        filtered = filter(result, key, cmd)
+        if filtered is not None:
+            result = filtered
+
+    if expected_pattern is not None:
+        if isinstance(expected_pattern,basestring):
+            expected_pattern = re.compile(expected_pattern)
+        if not expected_pattern.search(result):
+            if expected_pattern.pattern==r'\S':
+                _raise_unexpected_result(result, key, cmd, '-> empty result')
+            else:
+                _raise_unexpected_result(result, key, cmd, '-> cannot find the pattern "%s"' % expected_pattern.pattern)
+
+    if unexpected_pattern is not None:
+        if isinstance(unexpected_pattern,basestring):
+            unexpected_pattern = re.compile(unexpected_pattern)
+        if unexpected_pattern.search(result):
+            _raise_unexpected_result(result, key, cmd, '-> found the pattern "%s"' % unexpected_pattern.pattern)
+
+    return result
+
+def runsh(cmd, context = {}, timeout = 30, expected_pattern=r'\S', unexpected_pattern=None, filter=None, key='' ):
     r"""Run a local command with a timeout
 
     | If the command is a string, it will be executed within a shell.
@@ -122,9 +165,21 @@ def runsh(cmd, context = {}, timeout = 30):
     Args:
 
         cmd (str or a list): The command to run
-        context (dict): The context to format the command to run
+        context (dict): The context to format the command to run (Optional)
         timeout (int): The timeout in seconds after with the forked process is killed
-            and TimeoutException is raised.
+            and TimeoutException is raised (Default : 30s).
+        expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found.
+            if None, there is no test. By default, tests the result is not empty.
+        unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+            if None, there is no test. By default, there is no test.
+        filter (callable): call a filter function with ``result, key, cmd`` parameters.
+            The function should return the modified result (if there is no return statement,
+            the original result is used).
+            The filter function is also the place to do some other checks : ``cmd`` is the command
+            that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+            ``mget`` and ``mwalk``.
+            By Default, there is no filter.
+        key (str): a key string to appear in UnexpectedResultError if any.
 
     Returns:
 
@@ -157,10 +212,16 @@ def runsh(cmd, context = {}, timeout = 30):
         >>> print l
         ['ls: cannot access /etc/does_not_exist: No such file or directory']
     """
+    if context:
+        cmd = cmd.format(**context)
     with Timeout(seconds=timeout, error_message='Timeout (%ss) for command : %s' % (timeout,cmd)):
-        return textops.run(cmd, context).l
+        try:
+            result = subprocess.check_output(['sh','-c',cmd])
+        except Exception,e:
+            result = ''
+        return textops.StrExt(_filter_result(result, key, cmd, expected_pattern, unexpected_pattern, filter))
 
-def mrunsh(cmds, context = {},cmd_timeout = 30, total_timeout = 60):
+def mrunsh(cmds, context = {},cmd_timeout = 30, total_timeout = 60, expected_pattern=r'\S', unexpected_pattern=None, filter=None):
     r"""Run multiple local commands with timeouts
 
     It works like :func:`runsh` except that one must provide a dictionary of commands.
@@ -178,6 +239,17 @@ def mrunsh(cmds, context = {},cmd_timeout = 30, total_timeout = 60):
         context (dict): The context to format the command to run
         cmd_timeout (int): The timeout in seconds for a single command
         total_timeout (int): The timeout in seconds for the all commands
+        expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found.
+            if None, there is no test. By default, tests the result is not empty.
+        unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+            if None, there is no test. By default, there is no test.
+        filter (callable): call a filter function with ``result, key, cmd`` parameters.
+            The function should return the modified result (if there is no return statement,
+            the original result is used).
+            The filter function is also the place to do some other checks : ``cmd`` is the command
+            that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+            ``mget`` and ``mwalk``.
+            By Default, there is no filter.
 
     Returns:
 
@@ -198,7 +270,7 @@ def mrunsh(cmds, context = {},cmd_timeout = 30, total_timeout = 60):
         if isinstance(cmds,dict):
             cmds = cmds.items()
         for k,cmd in cmds:
-            dct[k] = runsh(cmd, context, cmd_timeout)
+            dct[k] = runsh(cmd, context, cmd_timeout, expected_pattern, unexpected_pattern, filter, k)
         return dct
 
 def debug_pattern_list(pat_list):
@@ -774,6 +846,19 @@ class Ssh(object):
         prompt_pattern (str): None by Default. If defined, the way to run commands is to capture
             the command output up to the prompt pattern. If not defined, it uses paramiko exec_command()
             method (preferred way).
+        get_pty (bool): Create a pty, this is useful for some ssh connection (Default: False)
+        expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found
+            in methods that collect data (like run,mrun,get,mget,walk,mwalk...)
+            if None, there is no test. By default, tests the result is not empty.
+        unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+            if None, there is no test. By default, there is no test.
+        filter (callable): call a filter function with ``result, key, cmd`` parameters.
+            The function should return the modified result (if there is no return statement,
+            the original result is used).
+            The filter function is also the place to do some other checks : ``cmd`` is the command
+            that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+            ``mget`` and ``mwalk``.
+            By Default, there is no filter.
         port (int): port number to use (Default : 0 = 22)
         pkey (PKey): an optional private key to use for authentication
         key_filename (str):
@@ -792,13 +877,16 @@ class Ssh(object):
         banner_timeout (float): an optional timeout (in seconds) to wait
             for the SSH banner to be presented.
     """
-    def __init__(self,host, user, password=None, timeout=30, auto_accept_new_host=True, prompt_pattern=None, get_pty=False, *args,**kwargs):
+    def __init__(self,host, user, password=None, timeout=30, auto_accept_new_host=True, prompt_pattern=None, get_pty=False, expected_pattern=r'\S', unexpected_pattern=None, filter=None, *args,**kwargs):
         #import is done only on demand, because it takes some little time
         import paramiko
         self.in_with = False
         self.is_connected = False
         self.prompt_pattern = prompt_pattern
         self.get_pty = get_pty
+        self.expected_pattern = expected_pattern
+        self.unexpected_pattern = unexpected_pattern
+        self.filter = filter
         self.client = paramiko.SSHClient()
         if auto_accept_new_host:
             self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -853,7 +941,7 @@ class Ssh(object):
             out = out.splitlines()[:-1]
             return '\n'.join(out)
 
-    def run(self, cmd, timeout=30, auto_close=True, **kwargs):
+    def run(self, cmd, timeout=30, auto_close=True, expected_pattern=None, unexpected_pattern=None, filter=None, **kwargs):
         r"""Execute one command
 
         Runs a single command at the usual prompt and then close the connection. Timeout
@@ -865,6 +953,17 @@ class Ssh(object):
             cmd (str): The command to be executed
             timeout (int): A timeout in seconds after which the result will be None
             auto_close (bool): Automatically close the connection.
+            expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found
+                if None, there is no test. By default, use the value defined at object level.
+            unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+                if None, there is no test. By default, use the value defined at object level.
+            filter (callable): call a filter function with ``result, key, cmd`` parameters.
+                The function should return the modified result (if there is no return statement,
+                the original result is used).
+                The filter function is also the place to do some other checks : ``cmd`` is the command
+                that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+                ``mget`` and ``mwalk``.
+                By default, use the filter defined at object level.
 
         Return:
 
@@ -894,9 +993,11 @@ class Ssh(object):
             pass
         if auto_close:
             self.close()
-        return textops.StrExt(out)
+        return textops.StrExt(_filter_result(out,'',cmd, expected_pattern or self.expected_pattern,
+                                                         unexpected_pattern or self.unexpected_pattern,
+                                                         filter or self.filter))
 
-    def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
+    def mrun(self, cmds, timeout=30, auto_close=True, expected_pattern=None, unexpected_pattern=None, filter=None, **kwargs):
         r"""Execute many commands at the same time
 
         Runs a dictionary of commands at the specified prompt and then close the connection.
@@ -909,6 +1010,17 @@ class Ssh(object):
             cmds (dict or list of items): The commands to be executed by remote host
             timeout (int): A timeout in seconds after which the result will be None
             auto_close (bool): Automatically close the connection.
+            expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found
+                if None, there is no test. By default, use the value defined at object level.
+            unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+                if None, there is no test. By default, use the value defined at object level.
+            filter (callable): call a filter function with ``result, key, cmd`` parameters.
+                The function should return the modified result (if there is no return statement,
+                the original result is used).
+                The filter function is also the place to do some other checks : ``cmd`` is the command
+                that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+                ``mget`` and ``mwalk``.
+                By default, use the filter defined at object level.
 
         Return:
 
@@ -943,7 +1055,9 @@ class Ssh(object):
             try:
                 out = self._run_cmd(cmd,timeout=timeout)
                 if k:
-                    dct[k] = out
+                    dct[k] = _filter_result(out,k,cmd, expected_pattern or self.expected_pattern,
+                                                       unexpected_pattern or self.unexpected_pattern,
+                                                       filter or self.filter)
             except socket.timeout:
                 if k:
                     dct[k] = None

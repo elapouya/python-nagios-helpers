@@ -46,6 +46,7 @@ Exceptions
 .. autoexception:: ConnectionError
 .. autoexception:: CollectError
 .. autoexception:: TimeoutError
+.. autoexception:: UnexpectedError
 
 * :ref:`genindex`
 * :ref:`modindex`
