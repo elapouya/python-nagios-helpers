@@ -837,14 +837,16 @@ class ActivePlugin(Plugin):
             sublevel(int): The message sublevel (displayed into plugin information section)
             exception(Exception): The exception that is the error's origin (Optional).
         """
-        body = ''
+        msg_lines = msg.splitlines()
+        synopsis = ''.join(msg_lines[:1])
+        body = '\n'.join(msg_lines[1:])
         if exception is None or not isinstance(exception, naghelp.CollectError):
             import traceback
             body += 'traceback : ' + traceback.format_exc() + '\n'
             if self.data:
                 body += 'Data = \n%s\n\n' % pp.pformat(self.data).replace('\\n','\n')
         naghelp.logger.error(msg,*args,**kwargs)
-        self.fast_response(self.nagios_status_on_error,msg,body,sublevel)
+        self.fast_response(self.nagios_status_on_error,synopsis,body,sublevel)
 
     def warning(self,msg,*args,**kwargs):
         """Log a warning and add a warning message level

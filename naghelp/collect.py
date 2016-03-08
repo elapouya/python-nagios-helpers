@@ -125,11 +125,14 @@ def search_invalid_port(ip,ports):
 
 def _raise_unexpected_result(result, key, cmd, help_str=''):
     if isinstance(result,basestring):
-        result = '\n'.join(result.splitlines()[:10])
+        if result == '':
+            result = '<empty result>'
+        else:
+            result = '\n'.join(result.splitlines()[:10]) + '\n...'
     else:
         result = '%s (%s)' % (result,type(result))
     key_str = 'for command key "%s"' % key if key else ''
-    s='Unexpected result %s:\nCommand = %s\n%s\n\n%s\n...' % (key_str,cmd,help_str,result)
+    s='Unexpected result %s:\nCommand = %s\n%s\n\n%s\n\nNOTE : Due to nagios restrictions, pipe symbol has been replaced by "!"' % (key_str,cmd,help_str,result)
     raise UnexpectedResultError(s)
 
 def _filter_result(result, key, cmd, expected_pattern=r'\S', unexpected_pattern=None, filter=None):
@@ -293,6 +296,18 @@ class Expect(object):
         logout_steps(list or tuple): steps to execute before closing communication (Default : None)
         context (dict): Dictionary that will be used in steps to .format() strings (Default : None)
         timeout (int): Maximum execution time (Default : 30)
+        expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found
+            in methods that collect data (like run,mrun,get,mget,walk,mwalk...)
+            if None, there is no test. By default, tests the result is not empty.
+        unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+            if None, there is no test. By default, it tests <timeout>.
+        filter (callable): call a filter function with ``result, key, cmd`` parameters.
+            The function should return the modified result (if there is no return statement,
+            the original result is used).
+            The filter function is also the place to do some other checks : ``cmd`` is the command
+            that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+            ``mget`` and ``mwalk``.
+            By Default, there is no filter.
 
     On object creation, :class:`Expect` will :
 
@@ -380,7 +395,14 @@ class Expect(object):
     BREAK = 2
     RESPONSE = 3
 
-    def __init__(self,spawn,login_steps=None,prompt=None,logout_cmd=None,logout_steps=None,context={},timeout = 30,*args,**kwargs):
+    def __init__(self,spawn,login_steps=None,prompt=None,logout_cmd=None,logout_steps=None,context={},
+                 timeout = 30, expected_pattern=r'\S', unexpected_pattern=r'<timeout>',
+                 filter=None,*args,**kwargs):
+
+        self.expected_pattern = expected_pattern
+        self.unexpected_pattern = unexpected_pattern
+        self.filter = filter
+
         # normalizing : transform tuple of string into tuple of tuples of string
         if login_steps and isinstance(login_steps[0],basestring):
             login_steps = (login_steps,)
@@ -512,7 +534,7 @@ class Expect(object):
         out = out.replace('\r','')
         return out
 
-    def run(self, cmd=None, timeout=30, auto_close=True, **kwargs):
+    def run(self, cmd=None, timeout=30, auto_close=True, expected_pattern=None, unexpected_pattern=None, filter=None, **kwargs):
         r"""Execute one command
 
         Runs a single command at the specified prompt and then close the interaction. Timeout
@@ -524,6 +546,17 @@ class Expect(object):
             cmd (str): The command to be executed by the spawned command
             timeout (int): A timeout in seconds after which the result will be None
             auto_close (bool): Automatically close the interaction.
+            expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found
+                if None, there is no test. By default, use the value defined at object level.
+            unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+                if None, there is no test. By default, use the value defined at object level.
+            filter (callable): call a filter function with ``result, key, cmd`` parameters.
+                The function should return the modified result (if there is no return statement,
+                the original result is used).
+                The filter function is also the place to do some other checks : ``cmd`` is the command
+                that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+                ``mget`` and ``mwalk``.
+                By default, use the filter defined at object level.
 
         Return:
 
@@ -563,12 +596,14 @@ class Expect(object):
             with Timeout(seconds = timeout):
                 out = self._run_cmd(cmd)
         except TimeoutError:
-            pass
+            out = '<timeout>'
         if auto_close:
             self.close()
-        return textops.StrExt(out)
+        return textops.StrExt(_filter_result(out,'',cmd, expected_pattern or self.expected_pattern,
+                                                         unexpected_pattern or self.unexpected_pattern,
+                                                         filter or self.filter))
 
-    def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
+    def mrun(self, cmds, timeout=30, auto_close=True, expected_pattern=None, unexpected_pattern=None, filter=None, **kwargs):
         r"""Execute many commands at the same time
 
         Runs a dictionary of commands at the specified prompt and then close the interaction.
@@ -581,6 +616,17 @@ class Expect(object):
             cmds (dict or list of items): The commands to be executed by the spawned command
             timeout (int): A timeout in seconds after which the result will be None
             auto_close (bool): Automatically close the interaction.
+            expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found
+                if None, there is no test. By default, use the value defined at object level.
+            unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+                if None, there is no test. By default, use the value defined at object level.
+            filter (callable): call a filter function with ``result, key, cmd`` parameters.
+                The function should return the modified result (if there is no return statement,
+                the original result is used).
+                The filter function is also the place to do some other checks : ``cmd`` is the command
+                that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+                ``mget`` and ``mwalk``.
+                By default, use the filter defined at object level.
 
         Return:
 
@@ -618,9 +664,14 @@ class Expect(object):
                 with Timeout(seconds = timeout):
                     output = self._run_cmd(cmd)
                     if k:
-                        dct[k] = output
+                        dct[k] = _filter_result(output,k,cmd, expected_pattern or self.expected_pattern,
+                                                              unexpected_pattern or self.unexpected_pattern,
+                                                              filter or self.filter)
             except TimeoutError:
-                dct[k] = None
+                if k:
+                    dct[k] = _filter_result('<timeout>',k,cmd, expected_pattern or self.expected_pattern,
+                                                          unexpected_pattern or self.unexpected_pattern,
+                                                          filter or self.filter)
         if auto_close:
             self.close()
         return dct
@@ -650,8 +701,23 @@ class Telnet(object):
             One can specify a string or a re.RegexObject.
         sleep (int): Add delay in seconds before each write/expect
         sleep_login (int): Add delay in seconds before login
+        expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found
+            in methods that collect data (like run,mrun,get,mget,walk,mwalk...)
+            if None, there is no test. By default, tests the result is not empty.
+        unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+            if None, there is no test. By default, it tests <timeout>.
+        filter (callable): call a filter function with ``result, key, cmd`` parameters.
+            The function should return the modified result (if there is no return statement,
+            the original result is used).
+            The filter function is also the place to do some other checks : ``cmd`` is the command
+            that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+            ``mget`` and ``mwalk``.
+            By Default, there is no filter.
     """
-    def __init__(self,host, user, password=None, timeout=30, port=0, login_pattern=None, passwd_pattern=None, prompt_pattern=None, autherr_pattern=None, sleep=0, sleep_login=0, *args,**kwargs):
+    def __init__(self,host, user, password=None, timeout=30, port=0,
+                 login_pattern=None, passwd_pattern=None, prompt_pattern=None, autherr_pattern=None,
+                 sleep=0, sleep_login=0, expected_pattern=r'\S', unexpected_pattern=r'<timeout>',
+                 filter=None, *args,**kwargs):
         #import is done only on demand, because it takes some little time
         import telnetlib
         self.in_with = False
@@ -663,6 +729,9 @@ class Telnet(object):
         prompt_pattern = Telnet._normalize_pattern(prompt_pattern, r'[\r\n][^\s]*\s?[\$#>:]+\s')
         autherr_pattern = Telnet._normalize_pattern(autherr_pattern, r'bad password|login incorrect|login failed|authentication error')
         self.prompt_pattern = prompt_pattern
+        self.expected_pattern = expected_pattern
+        self.unexpected_pattern = unexpected_pattern
+        self.filter = filter
         naghelp.logger.debug('#### Telnet( %s@%s ) ###############',user, host)
         with Timeout(seconds = timeout, error_message='Timeout (%ss) for telnet to %s' % (timeout,host)):
             try:
@@ -732,7 +801,7 @@ class Telnet(object):
         out = out.splitlines()[:-1]
         return '\n'.join(out)
 
-    def run(self, cmd, timeout=30, auto_close=True, **kwargs):
+    def run(self, cmd, timeout=30, auto_close=True, expected_pattern=None, unexpected_pattern=None, filter=None, **kwargs):
         r"""Execute one command
 
         Runs a single command at the usual prompt and then close the connection. Timeout
@@ -744,6 +813,17 @@ class Telnet(object):
             cmd (str): The command to be executed
             timeout (int): A timeout in seconds after which the result will be None
             auto_close (bool): Automatically close the connection.
+            expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found
+                if None, there is no test. By default, use the value defined at object level.
+            unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+                if None, there is no test. By default, use the value defined at object level.
+            filter (callable): call a filter function with ``result, key, cmd`` parameters.
+                The function should return the modified result (if there is no return statement,
+                the original result is used).
+                The filter function is also the place to do some other checks : ``cmd`` is the command
+                that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+                ``mget`` and ``mwalk``.
+                By default, use the filter defined at object level.
 
         Return:
 
@@ -773,17 +853,19 @@ class Telnet(object):
         """
         if not self.is_connected:
             raise NotConnected('No telnet connection to run your command.')
-        out = None
+        out = ''
         try:
             with Timeout(seconds = timeout):
                 out = self._run_cmd(cmd)
         except TimeoutError:
-            pass
+            out = '<timeout>'
         if auto_close:
             self.close()
-        return textops.StrExt(out)
+        return textops.StrExt(_filter_result(out,'',cmd, expected_pattern or self.expected_pattern,
+                                                         unexpected_pattern or self.unexpected_pattern,
+                                                         filter or self.filter))
 
-    def mrun(self, cmds, timeout=30, auto_close=True, **kwargs):
+    def mrun(self, cmds, timeout=30, auto_close=True, expected_pattern=None, unexpected_pattern=None, filter=None, **kwargs):
         r"""Execute many commands at the same time
 
         Runs a dictionary of commands at the specified prompt and then close the connection.
@@ -796,6 +878,17 @@ class Telnet(object):
             cmds (dict or list of items): The commands to be executed by remote host
             timeout (int): A timeout in seconds after which the result will be None
             auto_close (bool): Automatically close the connection.
+            expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found
+                if None, there is no test. By default, use the value defined at object level.
+            unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+                if None, there is no test. By default, use the value defined at object level.
+            filter (callable): call a filter function with ``result, key, cmd`` parameters.
+                The function should return the modified result (if there is no return statement,
+                the original result is used).
+                The filter function is also the place to do some other checks : ``cmd`` is the command
+                that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+                ``mget`` and ``mwalk``.
+                By default, use the filter defined at object level.
 
         Return:
 
@@ -825,9 +918,13 @@ class Telnet(object):
                 with Timeout(seconds = timeout):
                     output = self._run_cmd(cmd)
                     if k:
-                        dct[k] = output
+                        dct[k] = _filter_result(output,k,cmd, expected_pattern or self.expected_pattern,
+                                                           unexpected_pattern or self.unexpected_pattern,
+                                                           filter or self.filter)
             except TimeoutError:
-                dct[k] = None
+                dct[k] = _filter_result('<timeout>',k,cmd, expected_pattern or self.expected_pattern,
+                                                   unexpected_pattern or self.unexpected_pattern,
+                                                   filter or self.filter)
         if auto_close:
             self.close()
         return dct
@@ -851,7 +948,7 @@ class Ssh(object):
             in methods that collect data (like run,mrun,get,mget,walk,mwalk...)
             if None, there is no test. By default, tests the result is not empty.
         unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
-            if None, there is no test. By default, there is no test.
+            if None, there is no test. By default, it tests <timeout>.
         filter (callable): call a filter function with ``result, key, cmd`` parameters.
             The function should return the modified result (if there is no return statement,
             the original result is used).
@@ -859,6 +956,7 @@ class Ssh(object):
             that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
             ``mget`` and ``mwalk``.
             By Default, there is no filter.
+        add_stderr (bool): If True, the stderr will be added at the end of results (Default: False)
         port (int): port number to use (Default : 0 = 22)
         pkey (PKey): an optional private key to use for authentication
         key_filename (str):
@@ -877,7 +975,9 @@ class Ssh(object):
         banner_timeout (float): an optional timeout (in seconds) to wait
             for the SSH banner to be presented.
     """
-    def __init__(self,host, user, password=None, timeout=30, auto_accept_new_host=True, prompt_pattern=None, get_pty=False, expected_pattern=r'\S', unexpected_pattern=None, filter=None, *args,**kwargs):
+    def __init__(self,host, user, password=None, timeout=30, auto_accept_new_host=True,
+                 prompt_pattern=None, get_pty=False, expected_pattern=r'\S', unexpected_pattern=r'<timeout>',
+                 filter=None, add_stderr=True, *args,**kwargs):
         #import is done only on demand, because it takes some little time
         import paramiko
         self.in_with = False
@@ -887,6 +987,7 @@ class Ssh(object):
         self.expected_pattern = expected_pattern
         self.unexpected_pattern = unexpected_pattern
         self.filter = filter
+        self.add_stderr = add_stderr
         self.client = paramiko.SSHClient()
         if auto_accept_new_host:
             self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -929,6 +1030,8 @@ class Ssh(object):
         if self.prompt_pattern is None:
             stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout,get_pty=self.get_pty)
             out = stdout.read()
+            if self.add_stderr:
+                out += stderr.read()
             return out
         else:
             self.chan.send('%s\n' % cmd)
@@ -986,11 +1089,10 @@ class Ssh(object):
         """
         if not self.is_connected:
             raise NotConnected('No ssh connection to run your command.')
-        out = None
         try:
             out = self._run_cmd(cmd,timeout=timeout)
         except socket.timeout:
-            pass
+            out = '<timeout>'
         if auto_close:
             self.close()
         return textops.StrExt(_filter_result(out,'',cmd, expected_pattern or self.expected_pattern,
@@ -1060,7 +1162,9 @@ class Ssh(object):
                                                        filter or self.filter)
             except socket.timeout:
                 if k:
-                    dct[k] = None
+                    dct[k] = _filter_result('<timeout>',k,cmd,  expected_pattern or self.expected_pattern,
+                                                       unexpected_pattern or self.unexpected_pattern,
+                                                       filter or self.filter)
         if auto_close:
             self.close()
         return dct
