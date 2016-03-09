@@ -870,7 +870,7 @@ class ActivePlugin(Plugin):
 
         This method is called when using ``-s`` option on command line.
         """
-        self.save_data(self.collected_data_filename_pattern % self.host.name, self.data)
+        self.save_data(self.collected_data_filename_pattern % self.host.name, self.data|textops.multilinestring_to_list())
 
     def restore_collected_data(self):
         """Restore collected data
@@ -881,7 +881,8 @@ class ActivePlugin(Plugin):
 
         This method is called when using ``-r`` option on command line.
         """
-        self.data = self.load_data(self.collected_data_filename_pattern % self.host.name)
+        self.data = self.load_data(self.collected_data_filename_pattern % self.host.name) | list_to_multilinestring(in_place=True)
+
 
     def get_udp_ports(self):
         """Returns udp ports
