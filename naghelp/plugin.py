@@ -764,9 +764,11 @@ class ActivePlugin(Plugin):
 
         collected_data_file = self.collected_data_filename_pattern % '<hostname>'
         self._cmd_parser.add_option('-s', action='store_true', dest='save_collected',
-                                   default=False, help='Save collected data in a file (%s)' % collected_data_file)
+                                   default=False, help='Save collected data in a file')
         self._cmd_parser.add_option('-r', action='store_true', dest='restore_collected',
                                    default=False, help='Use saved collected data (option -s)')
+        self._cmd_parser.add_option('-f', action='store', dest='collectfile', metavar="FILE",
+                                   help='Collect file path for -s and -r options (Default : %s)' % collected_data_file)
         self._cmd_parser.add_option('-a', action='store_true', dest='collect_and_print',
                                    default=False, help='Collect data only and print them')
         self._cmd_parser.add_option('-b', action='store_true', dest='parse_and_print',
@@ -870,7 +872,7 @@ class ActivePlugin(Plugin):
 
         This method is called when using ``-s`` option on command line.
         """
-        self.save_data(self.collected_data_filename_pattern % self.host.name, self.data|textops.multilinestring_to_list())
+        self.save_data(self.options.collectfile or self.collected_data_filename_pattern % self.host.name, self.data|textops.multilinestring_to_list())
 
     def restore_collected_data(self):
         """Restore collected data
@@ -881,8 +883,7 @@ class ActivePlugin(Plugin):
 
         This method is called when using ``-r`` option on command line.
         """
-        self.data = self.load_data(self.collected_data_filename_pattern % self.host.name) | list_to_multilinestring(in_place=True)
-
+        self.data = self.load_data(self.options.collectfile or self.collected_data_filename_pattern % self.host.name) | textops.list_to_multilinestring(in_place=True)
 
     def get_udp_ports(self):
         """Returns udp ports
