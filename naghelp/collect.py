@@ -956,7 +956,7 @@ class Ssh(object):
             that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
             ``mget`` and ``mwalk``.
             By Default, there is no filter.
-        add_stderr (bool): If True, the stderr will be added at the end of results (Default: False)
+        add_stderr (bool): If True, the stderr will be added at the end of results (Default: True)
         port (int): port number to use (Default : 0 = 22)
         pkey (PKey): an optional private key to use for authentication
         key_filename (str):
