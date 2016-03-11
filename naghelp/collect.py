@@ -141,6 +141,14 @@ def _filter_result(result, key, cmd, expected_pattern=r'\S', unexpected_pattern=
         if filtered is not None:
             result = filtered
 
+    if unexpected_pattern is not None:
+        if isinstance(unexpected_pattern,basestring):
+            unexpected_pattern = re.compile(unexpected_pattern)
+        if unexpected_pattern.search(result):
+            help_str = '-> found the pattern "%s" :\n\n' % unexpected_pattern.pattern
+            help_str += result | textops.findhighlight(unexpected_pattern,line_nbr=True,nlines=5).tostr()
+            _raise_unexpected_result(result, key, cmd, help_str)
+
     if expected_pattern is not None:
         if isinstance(expected_pattern,basestring):
             expected_pattern = re.compile(expected_pattern)
@@ -149,12 +157,6 @@ def _filter_result(result, key, cmd, expected_pattern=r'\S', unexpected_pattern=
                 _raise_unexpected_result(result, key, cmd, '-> empty result')
             else:
                 _raise_unexpected_result(result, key, cmd, '-> cannot find the pattern "%s"' % expected_pattern.pattern)
-
-    if unexpected_pattern is not None:
-        if isinstance(unexpected_pattern,basestring):
-            unexpected_pattern = re.compile(unexpected_pattern)
-        if unexpected_pattern.search(result):
-            _raise_unexpected_result(result, key, cmd, '-> found the pattern "%s"' % unexpected_pattern.pattern)
 
     return result
 
