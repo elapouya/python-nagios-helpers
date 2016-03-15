@@ -333,7 +333,7 @@ class Host(dict):
         for k,v in sorted(self.items()):
             if isinstance(v,str):
                 v = v.decode('utf-8','replace')
-                lst.append(u'%-12s : %s' % (k,v))
+            lst.append(u'%-12s : %s' % (k,v))
         return u'\n'.join(lst)
 
     def _get_persistent_filename(self):

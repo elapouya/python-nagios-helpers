@@ -734,6 +734,14 @@ class Telnet(object):
         self.expected_pattern = expected_pattern
         self.unexpected_pattern = unexpected_pattern
         self.filter = filter
+        if isinstance(user, unicode):
+            user = user.encode('utf-8','ignore')
+        if isinstance(password, unicode):
+            password = password.encode('utf-8','ignore')
+        if not host:
+            raise ConnectionError('No host specified for Telnet')
+        if not user:
+            raise ConnectionError('No user specified for Telnet')
         naghelp.logger.debug('#### Telnet( %s@%s ) ###############',user, host)
         with Timeout(seconds = timeout, error_message='Timeout (%ss) for telnet to %s' % (timeout,host)):
             try:
@@ -748,11 +756,12 @@ class Telnet(object):
             time.sleep(sleep)
             self.tn.write(user + "\n")
             naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(passwd_pattern))
-            time.sleep(sleep)
-            self.tn.expect(passwd_pattern)
-            naghelp.logger.debug('  ==> (hidden password)')
-            time.sleep(sleep)
-            self.tn.write(password + "\n")
+            if password is not None:
+                time.sleep(sleep)
+                self.tn.expect(passwd_pattern)
+                naghelp.logger.debug('  ==> (hidden password)')
+                time.sleep(sleep)
+                self.tn.write(password + "\n")
             naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(prompt_pattern + autherr_pattern))
             time.sleep(sleep)
             pat_id,m,buffer = self.tn.expect(prompt_pattern + autherr_pattern)
@@ -789,6 +798,8 @@ class Telnet(object):
             naghelp.logger.debug('#### Telnet : Connection closed ###############')
 
     def _run_cmd(self,cmd):
+        if isinstance(cmd, unicode):
+            cmd = cmd.encode('utf-8','ignore')
         naghelp.logger.debug('  ==> %s',cmd)
         time.sleep(self.sleep)
         self.tn.write('%s\n' % cmd)
@@ -991,6 +1002,10 @@ class Ssh(object):
         self.filter = filter
         self.add_stderr = add_stderr
         self.client = paramiko.SSHClient()
+        if not host:
+            raise ConnectionError('No host specified for Ssh')
+        if not user:
+            raise ConnectionError('No user specified for Ssh')
         if auto_accept_new_host:
             self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.client.load_system_host_keys()
