@@ -212,6 +212,7 @@ class Plugin(object):
                                     if hasattr(member,'plugin_type') and getattr(member,'plugin_type') == cls.plugin_type and  not member.__dict__.get('abstract',False):
                                         doc = member.get_plugin_desc()
                                         plugins[member.__name__.lower()] = {
+                                            'class' : member,
                                             'name'  : member.__name__,
                                             'module': cls.plugins_basemodule + module_name,
                                             'path'  : os.sep.join(module_name.split('.'))+'.py',
