@@ -32,7 +32,7 @@ def usage(plugin_base_class,error=''):
             try:
                 raise e
             except:
-                traceback.print_exc()
+                print traceback.format_exc()
             print
             print
 

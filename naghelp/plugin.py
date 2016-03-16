@@ -1041,7 +1041,7 @@ class ActivePlugin(Plugin):
         """
         req_fields = self.required_params if self.required_params is not None else self.cmd_params
         if isinstance(req_fields, basestring):
-            req_fields = req_fields.split(',')
+            req_fields = req_fields.split(',') if req_fields else []
         # either 'name' or 'ip' must be in required params, by default 'ip' is automatically added as required except when 'name' is present
         if 'name' not in req_fields:
             req_fields = set(req_fields + ['ip'])

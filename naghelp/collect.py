@@ -122,17 +122,18 @@ def search_invalid_port(ip,ports):
             return port
     return None
 
-
 def _raise_unexpected_result(result, key, cmd, help_str=''):
+    if isinstance(result,textops.ListExt):
+        result = result.tostr()
     if isinstance(result,basestring):
         if result == '':
             result = '<empty result>'
         else:
-            result = '\n'.join(result.splitlines()[:10]) + '\n...'
+            result = '\n'.join(result.splitlines()[:80]) + '\n...'
     else:
         result = '%s (%s)' % (result,type(result))
     key_str = 'for command key "%s"' % key if key else ''
-    s='Unexpected result %s:\nCommand = %s\n%s\n\n%s\n\nNOTE : Due to nagios restrictions, pipe symbol has been replaced by "!"' % (key_str,cmd,help_str,result)
+    s='Unexpected result %s\nCommand = %s\n%s\n\n%s\n\nNOTE : Due to nagios restrictions, pipe symbol has been replaced by "!"' % (key_str,cmd,help_str,result)
     raise UnexpectedResultError(s)
 
 def _filter_result(result, key, cmd, expected_pattern=r'\S', unexpected_pattern=None, filter=None):
@@ -141,18 +142,18 @@ def _filter_result(result, key, cmd, expected_pattern=r'\S', unexpected_pattern=
         if filtered is not None:
             result = filtered
 
-    if unexpected_pattern is not None:
+    if unexpected_pattern:
         if isinstance(unexpected_pattern,basestring):
             unexpected_pattern = re.compile(unexpected_pattern)
-        if unexpected_pattern.search(result):
+        if result | textops.haspattern(unexpected_pattern):
             help_str = '-> found the pattern "%s" :\n\n' % unexpected_pattern.pattern
             help_str += result | textops.findhighlight(unexpected_pattern,line_nbr=True,nlines=5).tostr()
             _raise_unexpected_result(result, key, cmd, help_str)
 
-    if expected_pattern is not None:
+    if expected_pattern:
         if isinstance(expected_pattern,basestring):
             expected_pattern = re.compile(expected_pattern)
-        if not expected_pattern.search(result):
+        if not result | textops.haspattern(expected_pattern):
             if expected_pattern.pattern==r'\S':
                 _raise_unexpected_result(result, key, cmd, '-> empty result')
             else:
@@ -217,14 +218,9 @@ def runsh(cmd, context = {}, timeout = 30, expected_pattern=r'\S', unexpected_pa
         >>> print l
         ['ls: cannot access /etc/does_not_exist: No such file or directory']
     """
-    if context:
-        cmd = cmd.format(**context)
     with Timeout(seconds=timeout, error_message='Timeout (%ss) for command : %s' % (timeout,cmd)):
-        try:
-            result = subprocess.check_output(['sh','-c',cmd])
-        except Exception,e:
-            result = ''
-        return textops.StrExt(_filter_result(result, key, cmd, expected_pattern, unexpected_pattern, filter))
+        result = textops.run(cmd, context).l
+        return _filter_result(result, key, cmd, expected_pattern, unexpected_pattern, filter)
 
 def mrunsh(cmds, context = {},cmd_timeout = 30, total_timeout = 60, expected_pattern=r'\S', unexpected_pattern=None, filter=None):
     r"""Run multiple local commands with timeouts
@@ -536,7 +532,7 @@ class Expect(object):
         out = out.replace('\r','')
         return out
 
-    def run(self, cmd=None, timeout=30, auto_close=True, expected_pattern=None, unexpected_pattern=None, filter=None, **kwargs):
+    def run(self, cmd=None, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
         r"""Execute one command
 
         Runs a single command at the specified prompt and then close the interaction. Timeout
@@ -601,11 +597,11 @@ class Expect(object):
             out = '<timeout>'
         if auto_close:
             self.close()
-        return textops.StrExt(_filter_result(out,'',cmd, expected_pattern or self.expected_pattern,
-                                                         unexpected_pattern or self.unexpected_pattern,
-                                                         filter or self.filter))
+        return textops.StrExt(_filter_result(out,'',cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                         unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                         filter if filter != 0 else self.filter))
 
-    def mrun(self, cmds, timeout=30, auto_close=True, expected_pattern=None, unexpected_pattern=None, filter=None, **kwargs):
+    def mrun(self, cmds, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
         r"""Execute many commands at the same time
 
         Runs a dictionary of commands at the specified prompt and then close the interaction.
@@ -666,14 +662,14 @@ class Expect(object):
                 with Timeout(seconds = timeout):
                     output = self._run_cmd(cmd)
                     if k:
-                        dct[k] = _filter_result(output,k,cmd, expected_pattern or self.expected_pattern,
-                                                              unexpected_pattern or self.unexpected_pattern,
-                                                              filter or self.filter)
+                        dct[k] = _filter_result(output,k,cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                         unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                         filter if filter != 0 else self.filter)
             except TimeoutError:
                 if k:
-                    dct[k] = _filter_result('<timeout>',k,cmd, expected_pattern or self.expected_pattern,
-                                                          unexpected_pattern or self.unexpected_pattern,
-                                                          filter or self.filter)
+                    dct[k] = _filter_result('<timeout>',k,cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                         unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                         filter if filter != 0 else self.filter)
         if auto_close:
             self.close()
         return dct
@@ -814,7 +810,7 @@ class Telnet(object):
         out = out.splitlines()[:-1]
         return '\n'.join(out)
 
-    def run(self, cmd, timeout=30, auto_close=True, expected_pattern=None, unexpected_pattern=None, filter=None, **kwargs):
+    def run(self, cmd, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
         r"""Execute one command
 
         Runs a single command at the usual prompt and then close the connection. Timeout
@@ -874,11 +870,11 @@ class Telnet(object):
             out = '<timeout>'
         if auto_close:
             self.close()
-        return textops.StrExt(_filter_result(out,'',cmd, expected_pattern or self.expected_pattern,
-                                                         unexpected_pattern or self.unexpected_pattern,
-                                                         filter or self.filter))
+        return textops.StrExt(_filter_result(out,'',cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                         unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                         filter if filter != 0 else self.filter))
 
-    def mrun(self, cmds, timeout=30, auto_close=True, expected_pattern=None, unexpected_pattern=None, filter=None, **kwargs):
+    def mrun(self, cmds, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
         r"""Execute many commands at the same time
 
         Runs a dictionary of commands at the specified prompt and then close the connection.
@@ -931,13 +927,13 @@ class Telnet(object):
                 with Timeout(seconds = timeout):
                     output = self._run_cmd(cmd)
                     if k:
-                        dct[k] = _filter_result(output,k,cmd, expected_pattern or self.expected_pattern,
-                                                           unexpected_pattern or self.unexpected_pattern,
-                                                           filter or self.filter)
+                        dct[k] = _filter_result(output,k,cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                         unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                         filter if filter != 0 else self.filter)
             except TimeoutError:
-                dct[k] = _filter_result('<timeout>',k,cmd, expected_pattern or self.expected_pattern,
-                                                   unexpected_pattern or self.unexpected_pattern,
-                                                   filter or self.filter)
+                dct[k] = _filter_result('<timeout>',k,cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                         unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                         filter if filter != 0 else self.filter)
         if auto_close:
             self.close()
         return dct
@@ -1061,7 +1057,7 @@ class Ssh(object):
             out = out.splitlines()[:-1]
             return '\n'.join(out)
 
-    def run(self, cmd, timeout=30, auto_close=True, expected_pattern=None, unexpected_pattern=None, filter=None, **kwargs):
+    def run(self, cmd, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
         r"""Execute one command
 
         Runs a single command at the usual prompt and then close the connection. Timeout
@@ -1112,11 +1108,11 @@ class Ssh(object):
             out = '<timeout>'
         if auto_close:
             self.close()
-        return textops.StrExt(_filter_result(out,'',cmd, expected_pattern or self.expected_pattern,
-                                                         unexpected_pattern or self.unexpected_pattern,
-                                                         filter or self.filter))
+        return textops.StrExt(_filter_result(out,'',cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                         unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                         filter if filter != 0 else self.filter))
 
-    def mrun(self, cmds, timeout=30, auto_close=True, expected_pattern=None, unexpected_pattern=None, filter=None, **kwargs):
+    def mrun(self, cmds, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
         r"""Execute many commands at the same time
 
         Runs a dictionary of commands at the specified prompt and then close the connection.
@@ -1174,14 +1170,14 @@ class Ssh(object):
             try:
                 out = self._run_cmd(cmd,timeout=timeout)
                 if k:
-                    dct[k] = _filter_result(out,k,cmd, expected_pattern or self.expected_pattern,
-                                                       unexpected_pattern or self.unexpected_pattern,
-                                                       filter or self.filter)
+                    dct[k] = _filter_result(out,k,cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                         unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                         filter if filter != 0 else self.filter)
             except socket.timeout:
                 if k:
-                    dct[k] = _filter_result('<timeout>',k,cmd,  expected_pattern or self.expected_pattern,
-                                                       unexpected_pattern or self.unexpected_pattern,
-                                                       filter or self.filter)
+                    dct[k] = _filter_result('<timeout>',k,cmd,  expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                         unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                         filter if filter != 0 else self.filter)
         if auto_close:
             self.close()
         return dct
