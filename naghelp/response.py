@@ -922,12 +922,20 @@ class PluginResponse(object):
             <BLANKLINE>
             <BLANKLINE>
         """
+        synopsis_maxlen = 75
         synopsis = self.synopsis or self.get_default_synopsis()
-        synopsis = synopsis.splitlines()[0]
-        synopsis = synopsis[:75] + ( synopsis[75:] and '...' )
+        synopsis_lines = synopsis.splitlines()
+        synopsis_first_line = synopsis_lines[0]
+        synopsis_start = synopsis_first_line[:synopsis_maxlen] + ( synopsis_first_line[synopsis_maxlen:] and '...' )
 
-        out = self.escape_msg(synopsis)
+        out = self.escape_msg(synopsis_start)
         out +=  '|%s\n' % self.perf_items[0] if self.perf_items else '\n'
+
+        if synopsis_first_line[synopsis_maxlen:]:
+            out += '... %s\n' % self.escape_msg(synopsis_first_line[synopsis_maxlen:])
+
+        if synopsis_lines[1:]:
+            out += self.escape_msg('\n'.join(synopsis_lines[1:])) + '\n'
 
         body = '\n'.join(self.begin_msgs)
         body += self.level_msgs_render()
