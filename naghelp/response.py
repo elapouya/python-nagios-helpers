@@ -767,7 +767,7 @@ class PluginResponse(object):
         if nb_ok and not nb_nok:
             return str(OK)
         if nb_nok == 1:
-            return re.sub(r'^(.{75}).*$', '\g<1>...',(self.level_msgs[WARNING] + self.level_msgs[CRITICAL] + self.level_msgs[UNKNOWN])[0])
+            return (self.level_msgs[WARNING] + self.level_msgs[CRITICAL] + self.level_msgs[UNKNOWN])[0]
         return 'STATUS : ' + ', '.join([ '%s:%s' % (level,len(self.level_msgs[level])) for level in [CRITICAL, WARNING, UNKNOWN, OK ] if self.level_msgs[level] ])
 
     def section_format(self,title):
