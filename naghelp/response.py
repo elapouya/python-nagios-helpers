@@ -116,7 +116,7 @@ class PluginResponse(object):
         <BLANKLINE>
 
     """
-    def __init__(self,default_level):
+    def __init__(self,default_level=OK):
         self.level = None
         self.default_level = default_level
         self.sublevel = 0
@@ -429,9 +429,9 @@ class PluginResponse(object):
             <BLANKLINE>
             <BLANKLINE>
         """
-        for level,msg in lst:
-            if msg:
-                self.add(level, msg,*args,**kwargs)
+        for alert in lst:
+            if alert and alert[0]:
+                self.add(*alert)
 
     def add_if(self, test, level, msg=None, *args,**kwargs):
         r"""Test than add a message in levels messages section and sets the response level at the same time
@@ -926,16 +926,16 @@ class PluginResponse(object):
         synopsis = self.synopsis or self.get_default_synopsis()
         synopsis_lines = synopsis.splitlines()
         synopsis_first_line = synopsis_lines[0]
-        synopsis_start = synopsis_first_line[:synopsis_maxlen] + ( synopsis_first_line[synopsis_maxlen:] and '...' )
+        synopsis_start = synopsis_first_line[:synopsis_maxlen]
+
+        if synopsis_first_line[synopsis_maxlen:] or len(synopsis_lines)>1:
+            synopsis_start += '...'
 
         out = self.escape_msg(synopsis_start)
         out +=  '|%s\n' % self.perf_items[0] if self.perf_items else '\n'
-
+            
         if synopsis_first_line[synopsis_maxlen:]:
             out += '... %s\n' % self.escape_msg(synopsis_first_line[synopsis_maxlen:])
-
-        if synopsis_lines[1:]:
-            out += self.escape_msg('\n'.join(synopsis_lines[1:])) + '\n'
 
         body = '\n'.join(self.begin_msgs)
         body += self.level_msgs_render()
