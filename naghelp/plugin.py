@@ -1059,6 +1059,7 @@ class ActivePlugin(Plugin):
         self.host = self.host_class(self)
         self.host.name = 'doctest'
         self.host.load_data()
+        self.host.name = 'doctest'  #force again the name
 
     def doctest_end(self):
         """For doctest usage only"""

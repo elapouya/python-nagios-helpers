@@ -141,6 +141,7 @@ class GaugeMixin(object):
 
         At the first call the value is stored in host persistent data. The next times, it adds
         a CRITICAL or WARNING response if the value has changed.
+        The new value is stored and become the new reference value.
 
         Args:
 
@@ -152,12 +153,12 @@ class GaugeMixin(object):
 
         Example:
 
-            >>> from plugin_commons import *
             >>> class MyPluginWithGauges(GaugeMixin, ActivePlugin):
             ...     pass
             ...
             >>> p=MyPluginWithGauges()
-            >>> p.doctest_begin()
+            >>> p.doctest_begin()                    # only for doctest
+            >>> p.gauge_etalon_clear('tempcursor')   # only for doctest
             >>> p.gauge_response_etalon_change('tempcursor','Temperature cursor',20,CRITICAL)
             >>> print p.response                                  #doctest: +NORMALIZE_WHITESPACE
             OK
@@ -165,7 +166,7 @@ class GaugeMixin(object):
             Temperature cursor : 20
             >>> p.doctest_end()
             >>> p=MyPluginWithGauges()
-            >>> p.doctest_begin()
+            >>> p.doctest_begin()                    # only for doctest
             >>> p.gauge_response_etalon_change('tempcursor','Temperature cursor',21,CRITICAL)
             >>> print p.response                                  #doctest: +NORMALIZE_WHITESPACE
             Temperature cursor : actual value (21) has changed (was 20)
@@ -176,7 +177,7 @@ class GaugeMixin(object):
             <BLANKLINE>
             ==========================[ Additionnal informations ]==========================
             Temperature cursor : 21
-            >>> p.doctest_end()
+            >>> p.doctest_end()                      # only for doctest
             >>> p=MyPluginWithGauges()
             >>> p.doctest_begin()
             >>> p.gauge_response_etalon_change('tempcursor','Temperature cursor',21,CRITICAL)
@@ -202,7 +203,57 @@ class GaugeMixin(object):
             self.gauge_response_etalon_down('%s%s' % (id,i),label,value,level)
 
     def gauge_response_etalon_down(self,id,label,value,level):
-        """ qsdqsqsd """
+        """Remember a value, detect if it has changed by going down
+
+        At the first call the value is stored in host persistent data. The next times, it adds
+        a CRITICAL or WARNING response if the value has changed by going down.
+        The new value is stored and become the new reference value.
+
+        Args:
+
+            id (str): The id of the gauge : an arbitrary string without space (aka slug).
+                This is used for storing the value in persistent data and for debug purposes.
+            label (str): The gauge meaning. This will be used to build the response message
+            value (any): The value to test
+            level (:class:`naghelp.ResponseLevel`): WARNING or CRITICAL
+
+        Example:
+
+            >>> class MyPluginWithGauges(GaugeMixin, ActivePlugin):
+            ...     pass
+            ...
+            >>> p=MyPluginWithGauges()                   # 1st plugin execution
+            >>> p.doctest_begin()                        # only for doctest
+            >>> p.gauge_etalon_clear('tempcursor')       # only for doctest
+            >>> p.gauge_response_etalon_down('tempcursor','Temperature cursor',20,CRITICAL)
+            >>> print p.response                                  #doctest: +NORMALIZE_WHITESPACE
+            OK
+            ==========================[ Additionnal informations ]==========================
+            Temperature cursor : 20
+            >>> p.doctest_end()
+            >>> p=MyPluginWithGauges()                   # 2nd plugin execution
+            >>> p.doctest_begin()                        # only for doctest
+            >>> p.gauge_response_etalon_down('tempcursor','Temperature cursor',19,CRITICAL)
+            >>> print p.response                                  #doctest: +NORMALIZE_WHITESPACE
+            Temperature cursor : actual value (19) is less than the reference value (20...
+            ... )
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            Temperature cursor : actual value (19) is less than the reference value (20)
+            <BLANKLINE>
+            ==========================[ Additionnal informations ]==========================
+            Temperature cursor : 19
+            >>> p.doctest_end()                          # only for doctest
+            >>> p=MyPluginWithGauges()
+            >>> p.doctest_begin()                        # only for doctest
+            >>> p.gauge_response_etalon_down('tempcursor','Temperature cursor',19,CRITICAL)
+            >>> print p.response                                  #doctest: +NORMALIZE_WHITESPACE
+            OK
+            ==========================[ Additionnal informations ]==========================
+            Temperature cursor : 19
+            >>> p.doctest_end()                          # only for doctest
+        """
         self.response.add_more('%s : %s',label,value)
         etalon_name = id + '_etalon'
         etalon_value = self.host.get(etalon_name,None)
@@ -219,7 +270,57 @@ class GaugeMixin(object):
             self.gauge_response_etalon_up('%s%s' % (id,i),label,value,level)
 
     def gauge_response_etalon_up(self,id,label,value,level):
-        """ qsdqsqsd """
+        """Remember a value, detect if it has changed by going up
+
+        At the first call the value is stored in host persistent data. The next times, it adds
+        a CRITICAL or WARNING response if the value has changed by going up.
+        The new value is stored and become the new reference value.
+
+        Args:
+
+            id (str): The id of the gauge : an arbitrary string without space (aka slug).
+                This is used for storing the value in persistent data and for debug purposes.
+            label (str): The gauge meaning. This will be used to build the response message
+            value (any): The value to test
+            level (:class:`naghelp.ResponseLevel`): WARNING or CRITICAL
+
+        Example:
+
+            >>> class MyPluginWithGauges(GaugeMixin, ActivePlugin):
+            ...     pass
+            ...
+            >>> p=MyPluginWithGauges()                   # 1st plugin execution
+            >>> p.doctest_begin()                        # only for doctest
+            >>> p.gauge_etalon_clear('tempcursor')       # only for doctest
+            >>> p.gauge_response_etalon_up('tempcursor','Temperature cursor',20,CRITICAL)
+            >>> print p.response                                  #doctest: +NORMALIZE_WHITESPACE
+            OK
+            ==========================[ Additionnal informations ]==========================
+            Temperature cursor : 20
+            >>> p.doctest_end()
+            >>> p=MyPluginWithGauges()                   # 2nd plugin execution
+            >>> p.doctest_begin()                        # only for doctest
+            >>> p.gauge_response_etalon_up('tempcursor','Temperature cursor',21,CRITICAL)
+            >>> print p.response                                  #doctest: +NORMALIZE_WHITESPACE
+            Temperature cursor : actual value (21) is more than the reference value (20...
+            ... )
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            Temperature cursor : actual value (21) is more than the reference value (20)
+            <BLANKLINE>
+            ==========================[ Additionnal informations ]==========================
+            Temperature cursor : 21
+            >>> p.doctest_end()                          # only for doctest
+            >>> p=MyPluginWithGauges()
+            >>> p.doctest_begin()                        # only for doctest
+            >>> p.gauge_response_etalon_up('tempcursor','Temperature cursor',21,CRITICAL)
+            >>> print p.response                                  #doctest: +NORMALIZE_WHITESPACE
+            OK
+            ==========================[ Additionnal informations ]==========================
+            Temperature cursor : 21
+            >>> p.doctest_end()                          # only for doctest
+        """
         self.response.add_more('%s : %s',label,value)
         etalon_name = id + '_etalon'
         etalon_value = self.host.get(etalon_name,None)
@@ -229,3 +330,26 @@ class GaugeMixin(object):
         if isinstance(value,(int,float)):
             # save the gauge value as the new reference value in host's persistent data
             self.host.set(etalon_name,value)
+
+    def gauge_etalon_clear(self,id):
+        """Clear the reference value for an "etalon" gauge
+
+        By this way, you ask the plugin to learn a new reference value
+
+        Args:
+
+            id (str): The id of the gauge
+        """
+        etalon_name = id + '_etalon'
+        self.host.set(etalon_name,None)
+
+    def gauge_etalon_set(self,id,value):
+        """Force a reference value for an "etalon" gauge
+
+        Args:
+
+            id (str): The id of the gauge
+            value (any): The value that will be the new reference value
+        """
+        etalon_name = id + '_etalon'
+        self.host.set(etalon_name,value)
