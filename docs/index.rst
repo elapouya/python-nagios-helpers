@@ -22,6 +22,7 @@ python-nagios-helpers a.k.a naghelp provides many helper classes to create pytho
    response
    plugin
    launcher
+   mixins
 
 
 Indices and tables

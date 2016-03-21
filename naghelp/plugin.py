@@ -984,6 +984,8 @@ class ActivePlugin(Plugin):
         You must use data dictionary to decide what alerts and/or informations to send to Nagios.
         To do so, a :class:`~naghelp.PluginResponse` object has already been initialized by
         the framework and is available at ``self.response`` : you just have to use `add*` methods.
+        It is highly recommended to call the super/parent ``build_response()`` at the end to easily
+        take advantage of optional mixins like :class:`naghelp.GaugeMixin`.
 
         Args:
 
@@ -996,6 +998,8 @@ class ActivePlugin(Plugin):
                 def build_response(self,data):
                     self.response.add_list(WARNING,data.warnings)
                     self.response.add_list(CRITICAL,data.criticals)
+                    ...
+                    super(MyPluginClass,self).build_response(data)
 
             See :meth:`parse_data` and :meth:`collect_data` examples to see how data has been updated.
         """
@@ -1049,6 +1053,16 @@ class ActivePlugin(Plugin):
             if not self.host.get(f):
                 self.fast_response(CRITICAL, 'Missing "%s" parameter' % f, 'Required fields are : %s' % ','.join(req_fields), 3)
                 break
+
+    def doctest_begin(self):
+        """For doctest usage only"""
+        self.host = self.host_class(self)
+        self.host.name = 'doctest'
+        self.host.load_data()
+
+    def doctest_end(self):
+        """For doctest usage only"""
+        self.host.save_data()
 
     def run(self):
         """Run the plugin

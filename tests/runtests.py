@@ -6,6 +6,8 @@ modules = [ 'naghelp.host',
             'naghelp.perf',
             'naghelp.plugin',
             'naghelp.response',
+            'naghelp.launcher',
+            'naghelp.mixins',
             ]
 files = [ 'docs/intro.rst' ]
 

@@ -10,7 +10,7 @@ import naghelp
 from types import NoneType
 import re
 
-__all__ = [ 'ResponseLevel', 'PluginResponse', 'OK', 'WARNING', 'CRITICAL', 'UNKNOWN' ]
+__all__ = [ 'ResponseLevel', 'PluginResponse', 'OK', 'WARNING', 'CRITICAL', 'UNKNOWN', 'LevelComment' ]
 
 class ResponseLevel(object):
     """Object to use when exiting a naghelp plugin
@@ -66,6 +66,9 @@ OK       = ResponseLevel('OK',0)
 WARNING  = ResponseLevel('WARNING',1)
 CRITICAL = ResponseLevel('CRITICAL',2)
 UNKNOWN  = ResponseLevel('UNKNOWN',3)
+
+class LevelComment(str):
+    pass
 
 class PluginResponse(object):
     """Response to return to Nagios for a naghelp plugin
@@ -320,6 +323,45 @@ class PluginResponse(object):
         else:
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
+    def add_comment(self,level,msg,*args,**kwargs):
+        r"""Add a comment in levels messages section and sets the response level at the same time
+
+        it works like :meth:`add` except that the message is not counted into the synopsis
+
+        Args:
+
+            level (ResponseLevel): the message level (Will affect the final response level)
+            msg (str): the message to add in levels messages section.
+            args (list): if additionnal arguments are given,
+                ``msg`` will be formatted with ``%`` (old-style python string formatting)
+            kwargs (dict): if named arguments are given,
+                ``msg`` will be formatted with :meth:`str.format`
+
+        Examples:
+
+            >>> r = PluginResponse(OK)
+            >>> print r.get_current_level()
+            OK
+            >>> r.add_comment(CRITICAL,'Here are some errors')
+            >>> r.add(CRITICAL,'error 1')
+            >>> r.add(CRITICAL,'error 2')
+            >>> print r     #doctest: +NORMALIZE_WHITESPACE
+            STATUS : CRITICAL:2
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            Here are some errors
+            error 1
+            error 2
+            <BLANKLINE>
+            <BLANKLINE>
+        """
+        if isinstance(level,ResponseLevel):
+            self.level_msgs[level].append(LevelComment(self._reformat_msg(msg,*args,**kwargs)))
+            self.set_level(level)
+        else:
+            raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
+
     def add_list(self,level,msg_list,*args,**kwargs):
         """Add several level messages having a same level
 
@@ -429,9 +471,9 @@ class PluginResponse(object):
             <BLANKLINE>
             <BLANKLINE>
         """
-        for alert in lst:
-            if alert and alert[0]:
-                self.add(*alert)
+        for level,msg in lst:
+            if msg:
+                self.add(level, msg,*args,**kwargs)
 
     def add_if(self, test, level, msg=None, *args,**kwargs):
         r"""Test than add a message in levels messages section and sets the response level at the same time
@@ -604,15 +646,16 @@ class PluginResponse(object):
             ==========================[ Additionnal informations ]==========================
             Date : 2105-12-18, Time : 14:55:11
         """
-        if isinstance(msg,(list,tuple)):
-            msg = '\n'.join(msg)
-        elif not isinstance(msg,basestring):
-            msg = str(msg)
-        if args:
-            msg = msg % args
-        if kwargs:
-            msg = msg.format(**kwargs)
-        self.more_msgs.append(msg)
+        if msg:
+            if isinstance(msg,(list,tuple)):
+                msg = '\n'.join(msg)
+            elif not isinstance(msg,basestring):
+                msg = str(msg)
+            if args:
+                msg = msg % args
+            if kwargs:
+                msg = msg.format(**kwargs)
+            self.more_msgs.append(msg)
 
     def add_end(self,msg,*args,**kwargs):
         r"""Add a message in end section
@@ -760,15 +803,16 @@ class PluginResponse(object):
             >>> print r.get_default_synopsis()
             STATUS : CRITICAL:1, WARNING:1
         """
-        nb_ok = len(self.level_msgs[OK])
-        nb_nok = len(self.level_msgs[WARNING]) + len(self.level_msgs[CRITICAL]) + len(self.level_msgs[UNKNOWN])
+        not_comment = lambda s:not isinstance(s, LevelComment)
+        nb_ok = len(filter(not_comment,self.level_msgs[OK]))
+        nb_nok = len(filter(not_comment,self.level_msgs[WARNING])) + len(filter(not_comment,self.level_msgs[CRITICAL])) + len(filter(not_comment,self.level_msgs[UNKNOWN]))
         if nb_ok + nb_nok == 0:
             return str(self.level or self.default_level or UNKNOWN)
         if nb_ok and not nb_nok:
             return str(OK)
         if nb_nok == 1:
             return (self.level_msgs[WARNING] + self.level_msgs[CRITICAL] + self.level_msgs[UNKNOWN])[0]
-        return 'STATUS : ' + ', '.join([ '%s:%s' % (level,len(self.level_msgs[level])) for level in [CRITICAL, WARNING, UNKNOWN, OK ] if self.level_msgs[level] ])
+        return 'STATUS : ' + ', '.join([ '%s:%s' % (level,len(filter(not_comment,self.level_msgs[level]))) for level in [CRITICAL, WARNING, UNKNOWN, OK ] if self.level_msgs[level] ])
 
     def section_format(self,title):
         """Returns the section title string
@@ -933,7 +977,7 @@ class PluginResponse(object):
 
         out = self.escape_msg(synopsis_start)
         out +=  '|%s\n' % self.perf_items[0] if self.perf_items else '\n'
-            
+
         if synopsis_first_line[synopsis_maxlen:]:
             out += '... %s\n' % self.escape_msg(synopsis_first_line[synopsis_maxlen:])
 
