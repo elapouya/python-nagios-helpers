@@ -358,11 +358,10 @@ class PluginResponse(object):
         """
         if isinstance(level,ResponseLevel):
             self.level_msgs[level].append(LevelComment(self._reformat_msg(msg,*args,**kwargs)))
-            self.set_level(level)
         else:
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
 
-    def add_list(self,level,msg_list,*args,**kwargs):
+    def add_list(self,level,msg_list,header=None,footer=None,*args,**kwargs):
         """Add several level messages having a same level
 
         Sometimes, you may have to specify a list of faulty parts in the response : this can be done
@@ -372,6 +371,10 @@ class PluginResponse(object):
 
             level (ResponseLevel): the message level (Will affect the final response level)
             msg_list (list): the messages list to add in levels messages section.
+            header (str): Displayed before the message as a level comment if not None (Default : None)
+              one can use ``{_len}`` in the comment to get list count.
+            footer (str): Displayed after the message as a level comment if not None (Default : None)
+              one can use ``{_len}`` in the comment to get list count.
             args (list): if additionnal arguments are given, messages in ``msg_list``
                 will be formatted with ``%`` (old-style python string formatting)
             kwargs (dict): if named arguments are given, messages in ``msg_list``
@@ -415,10 +418,37 @@ class PluginResponse(object):
             Power 5 is degraded
             <BLANKLINE>
             <BLANKLINE>
+
+            >>> r = PluginResponse()
+            >>> r.add_list(WARNING,['Power warning1','Power warning2'],'{_len} Power warnings:','Power warnings : {_len}')
+            >>> r.add_list(WARNING,['CPU warning1','CPU warning2'],'{_len} CPU warnings:','CPU warnings : {_len}')
+            >>> print r
+            STATUS : WARNING:4
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( WARNING )-----------------------------------------------------------------
+            2 Power warnings:
+            Power warning1
+            Power warning2
+            Power warnings : 2
+            2 CPU warnings:
+            CPU warning1
+            CPU warning2
+            CPU warnings : 2
+            <BLANKLINE>
+            <BLANKLINE>
         """
+
+        have_added=False
+        kwargs['_len'] = len(msg_list)
         for msg in msg_list:
             if msg:
+                if not have_added and header is not None:
+                    self.add_comment(level, header,*args,**kwargs)
                 self.add(level, msg,*args,**kwargs)
+                have_added = True
+        if have_added and footer is not None:
+            self.add_comment(level, footer,*args,**kwargs)
 
     def add_many(self,lst,*args,**kwargs):
         """Add several level messages NOT having a same level
@@ -475,7 +505,7 @@ class PluginResponse(object):
             if msg:
                 self.add(level, msg,*args,**kwargs)
 
-    def add_if(self, test, level, msg=None, *args,**kwargs):
+    def add_if(self, test, level, msg=None, header=None,footer=None, *args,**kwargs):
         r"""Test than add a message in levels messages section and sets the response level at the same time
 
         This works like :meth:`add` except that it is conditionnal : ``test`` must be True.
@@ -487,6 +517,8 @@ class PluginResponse(object):
             level (ResponseLevel): the message level (Will affect the final response level)
             msg (str): the message to add in levels messages section.
                 If no message is given, the value of test is used.
+            header (str): Displayed before the message as a level comment if not None (Default : None)
+            footer (str): Displayed after the message as a level comment if not None (Default : None)
             args (list): if additionnal arguments are given,
                 ``msg`` will be formatted with ``%`` (old-style python string formatting)
             kwargs (dict): if named arguments are given,
@@ -516,7 +548,7 @@ class PluginResponse(object):
             >>> unknowns = logs | grep('unknown').tostr()
             >>> print unknowns
             <BLANKLINE>
-            >>> r.add_if(nb_criticals,CRITICAL,'%s power(s) are critical',nb_criticals)
+            >>> r.add_if(nb_criticals,CRITICAL,'{n} power(s) are critical',n=nb_criticals)
             >>> r.add_if(warnings,WARNING)
             >>> r.add_if(unknowns,UNKNOWN)
             >>> print r.get_current_level()
@@ -538,7 +570,11 @@ class PluginResponse(object):
             msg = test
         if isinstance(level,ResponseLevel):
             if test:
+                if header is not None:
+                    self.add_comment(level, header,*args,**kwargs)
                 self.add(level,msg,*args,**kwargs)
+                if footer is not None:
+                    self.add_comment(level, footer,*args,**kwargs)
                 self.set_level(level)
         else:
             raise Exception('A response level must be an instance of ResponseLevel, Found level=%s (%s).' % (level,type(level)))
@@ -811,7 +847,7 @@ class PluginResponse(object):
         if nb_ok and not nb_nok:
             return str(OK)
         if nb_nok == 1:
-            return (self.level_msgs[WARNING] + self.level_msgs[CRITICAL] + self.level_msgs[UNKNOWN])[0]
+            return filter(not_comment,self.level_msgs[WARNING] + self.level_msgs[CRITICAL] + self.level_msgs[UNKNOWN])[0]
         return 'STATUS : ' + ', '.join([ '%s:%s' % (level,len(filter(not_comment,self.level_msgs[level]))) for level in [CRITICAL, WARNING, UNKNOWN, OK ] if self.level_msgs[level] ])
 
     def section_format(self,title):
