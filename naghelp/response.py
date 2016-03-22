@@ -283,7 +283,7 @@ class PluginResponse(object):
 
             level (ResponseLevel): the message level (Will affect the final response level)
             msg (str): the message to add in levels messages section.
-            args (list): if additionnal arguments are given,
+            args (list): if additional arguments are given,
                 ``msg`` will be formatted with ``%`` (old-style python string formatting)
             kwargs (dict): if named arguments are given,
                 ``msg`` will be formatted with :meth:`str.format`
@@ -375,7 +375,7 @@ class PluginResponse(object):
               one can use ``{_len}`` in the comment to get list count.
             footer (str): Displayed after the message as a level comment if not None (Default : None)
               one can use ``{_len}`` in the comment to get list count.
-            args (list): if additionnal arguments are given, messages in ``msg_list``
+            args (list): if additional arguments are given, messages in ``msg_list``
                 will be formatted with ``%`` (old-style python string formatting)
             kwargs (dict): if named arguments are given, messages in ``msg_list``
                 will be formatted with :meth:`str.format`
@@ -460,7 +460,7 @@ class PluginResponse(object):
         Args:
 
             lst (list): A list of (level,message) tuples to add in levels messages section.
-            args (list): if additionnal arguments are given, messages in ``lst``
+            args (list): if additional arguments are given, messages in ``lst``
                 will be formatted with ``%`` (old-style python string formatting)
             kwargs (dict): if named arguments are given, messages in ``lst``
                 will be formatted with :meth:`str.format`
@@ -519,7 +519,7 @@ class PluginResponse(object):
                 If no message is given, the value of test is used.
             header (str): Displayed before the message as a level comment if not None (Default : None)
             footer (str): Displayed after the message as a level comment if not None (Default : None)
-            args (list): if additionnal arguments are given,
+            args (list): if additional arguments are given,
                 ``msg`` will be formatted with ``%`` (old-style python string formatting)
             kwargs (dict): if named arguments are given,
                 ``msg`` will be formatted with :meth:`str.format`
