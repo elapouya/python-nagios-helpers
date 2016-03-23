@@ -808,7 +808,9 @@ class Telnet(object):
         out = rmcmd.sub('', out)
         # remove cmd and prompt (first and last line)
         out = out.splitlines()[:-1]
-        return '\n'.join(out)
+        cmd_out = '\n'.join(out)
+        naghelp.logger.debug('\n%s\n%s\n%s','v'*80,cmd_out,'^'*80)
+        return cmd_out
 
     def run(self, cmd, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
         r"""Execute one command
@@ -1045,6 +1047,7 @@ class Ssh(object):
             out = stdout.read()
             if self.add_stderr:
                 out += stderr.read()
+            naghelp.logger.debug('\n%s\n%s\n%s','v'*80,out,'^'*80)
             return out
         else:
             self.chan.send('%s\n' % cmd)
@@ -1055,7 +1058,9 @@ class Ssh(object):
             out = rmcmd.sub('', out)
             # remove cmd and prompt (first and last line)
             out = out.splitlines()[:-1]
-            return '\n'.join(out)
+            cmd_out = '\n'.join(out)
+            naghelp.logger.debug('\n%s\n%s\n%s','v'*80,cmd_out,'^'*80)
+            return cmd_out
 
     def run(self, cmd, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
         r"""Execute one command
