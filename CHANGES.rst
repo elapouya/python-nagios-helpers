@@ -1,3 +1,9 @@
+0.1.5 (2016-03-23)
+------------------
+Add Gauges Mixin
+Add docs
+Many other improvements
+
 0.1.4 (2016-03-08)
 ------------------
 Better error management
