@@ -187,14 +187,14 @@ class PluginResponse(object):
 
         Actually, the sublevel meanings are :
 
-        =========  ===========================================================================
+        =========  ====================================================================================================
         Sub-level  Description
-        =========  ===========================================================================
+        =========  ====================================================================================================
         0          The plugin is 100% sure there is a critical error
-        1          The plugin was able to contact remote host but got no answer from agent
-        2          The plugin was unable to contact the remote host, it may be a network issue
+        1          The plugin was able to contact remote host (ping) but got no answer from agent (timeout,credentials)
+        2          The plugin was unable to contact the remote host, it may be a network issue (firewall, ...)
         3          The plugin raised an unexpected exception : it should be a bug.
-        =========  ===========================================================================
+        =========  ====================================================================================================
         """
         if not isinstance(sublevel,int):
             raise Exception('A response sublevel must be an integer')

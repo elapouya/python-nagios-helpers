@@ -1416,6 +1416,28 @@ class Snmp(object):
             dct[var] = self.walk(oid)
         return dct
 
+    def twalk(self,oid_or_mibvar,irow=-2,icol=-1,cols=None):
+        walk = self.walk(oid_or_mibvar)
+        dct={}
+        table=textops.ListExt()
+        for oid,val in walk:
+            oid_bits = oid.split('.')
+            row=int(oid_bits[irow])
+            col=int(oid_bits[icol])
+            dct.setdefault(row,{}).setdefault(col,val)
+        if cols is None:
+            for row_id,rec_dct in sorted(dct.items()):
+                table.append( [ row_id ] + [ rec_dct.get(c) for c in sorted(rec_dct) ] )
+        elif isinstance(cols,(list,tuple)):
+            for row_id,rec_dct in sorted(dct.items()):
+                table.append( [ row_id ] + [ rec_dct.get(c) for c in cols ] )
+        elif isinstance(cols,dict):
+            for row_id,rec_dct in sorted(dct.items()):
+                table.append( dict([ (k,rec_dct.get(v)) for k,v in cols.items() ],_id=row_id) )
+        return table
+
+
+
     def get_oid_range(self,oid_range):
         oids = []
         if oid_range.count('-') == 1:
