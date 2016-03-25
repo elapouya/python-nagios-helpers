@@ -1417,26 +1417,45 @@ class Snmp(object):
         return dct
 
     def twalk(self,oid_or_mibvar,irow=-2,icol=-1,cols=None):
-        walk = self.walk(oid_or_mibvar)
+        walk_data = self.walk(oid_or_mibvar)
         dct={}
         table=textops.ListExt()
-        for oid,val in walk:
-            oid_bits = oid.split('.')
+        for oid,val in walk_data:
+            oid_bits = str(oid).split('.')
             row=int(oid_bits[irow])
             col=int(oid_bits[icol])
             dct.setdefault(row,{}).setdefault(col,val)
         if cols is None:
             for row_id,rec_dct in sorted(dct.items()):
-                table.append( [ row_id ] + [ rec_dct.get(c) for c in sorted(rec_dct) ] )
+                table.append( [ row_id ] + [ rec_dct.get(c,NoAttr) for c in sorted(rec_dct) ] )
         elif isinstance(cols,(list,tuple)):
             for row_id,rec_dct in sorted(dct.items()):
-                table.append( [ row_id ] + [ rec_dct.get(c) for c in cols ] )
+                table.append( [ row_id ] + [ rec_dct.get(c,NoAttr) for c in cols ] )
         elif isinstance(cols,dict):
             for row_id,rec_dct in sorted(dct.items()):
-                table.append( dict([ (k,rec_dct.get(v)) for k,v in cols.items() ],_id=row_id) )
+                table.append( dict([ (k,rec_dct.get(v,NoAttr)) for k,v in cols.items() ],_row=row_id) )
         return table
 
-
+    def jwalk(self,*twalks_args):
+        dct={}
+        tables = textops.ListExt([ self.twalk(*twalk_args) for twalk_args in twalks_args ])
+        if isinstance(twalks_args[0][-1],(list,tuple,type(None))):
+            for args in twalks_args:
+                assert isinstance(args[-1],(list,tuple,type(None))), 'All wanted columns specifications must be lists/tuples/None'
+            for table in tables:
+                for row in table:
+                    row_id = row[0]
+                    l=dct.setdefault(row_id,[row_id])
+                    l+=row[1:]
+            return textops.ListExt(sorted(dct.values(),key=lambda v:v[0]))
+        else:
+            for args in twalks_args:
+                assert isinstance(args[-1],dict), 'All wanted columns specifications must be dicts'
+            for table in tables:
+                for row in table:
+                    row_id = row['_row']
+                    dct.setdefault(row_id,{}).update(row)
+            return textops.ListExt(sorted(dct.values(),key=lambda v:v['_row']))
 
     def get_oid_range(self,oid_range):
         oids = []
