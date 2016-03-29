@@ -14,6 +14,7 @@ import textops
 import naghelp
 import time
 import subprocess
+import traceback
 
 __all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp',
            'Timeout', 'TimeoutError', 'CollectError', 'ConnectionError', 'NotConnected',
@@ -160,6 +161,22 @@ def _filter_result(result, key, cmd, expected_pattern=r'\S', unexpected_pattern=
                 _raise_unexpected_result(result, key, cmd, '-> cannot find the pattern "%s"' % expected_pattern.pattern)
 
     return result
+
+def _debug_caller_info():
+    if naghelp.logger.getEffectiveLevel() == naghelp.logging.DEBUG:
+        prev_call = ''
+        stack = traceback.extract_stack()
+        for file,line,func_name,func_line in reversed(stack):
+            file = os.path.basename(file)
+            if file != 'collect.py':
+                return '[%s:%s]' % (file,line),prev_call
+            prev_call = func_name
+    return '',''
+
+def _debug_caller(self):
+    file_line,prev_call = self._debug_caller_info()
+    return file_line
+
 
 def runsh(cmd, context = {}, timeout = 30, expected_pattern=r'\S', unexpected_pattern=None, filter=None, key='' ):
     r"""Run a local command with a timeout
@@ -415,11 +432,11 @@ class Expect(object):
         import pexpect
         self.in_with = False
         self.is_connected = False
-        naghelp.logger.debug('#### Expect( %s ) ###############',spawn)
+        naghelp.logger.debug('collect -> #### Expect( %s ) ###############',spawn)
         with Timeout(seconds = timeout, error_message='Timeout (%ss) for pexpect : %s' % (timeout,spawn)):
             self.child = pexpect.spawn(spawn)
             if login_steps or prompt:
-                naghelp.logger.debug('==== Login steps up to the prompt =====')
+                naghelp.logger.debug('collect -> ==== Login steps up to the prompt =====')
                 error_msg = self._expect_steps( (login_steps or ()) + ( ((prompt,None),) if prompt else () ) )
                 if error_msg:
                     raise ConnectionError(error_msg)
@@ -436,7 +453,7 @@ class Expect(object):
         nb_steps = len(steps)
         infinite_loop_detect = 0
         while step < nb_steps:
-            naghelp.logger.debug('--------- STEP #%s--------------------------',step)
+            naghelp.logger.debug('collect -> --------- STEP #%s--------------------------',step)
             expects = steps[step]
             # normalizing : transform tuple of string into tuple of tuples of string
             if isinstance(expects[0],basestring):
@@ -452,22 +469,22 @@ class Expect(object):
                         next_expects = (next_expects,)
                     expects += next_expects
                 patterns = [ self._expect_pattern_rewrite(e[0]) for e in expects ]
-                naghelp.logger.debug('<-- expect(%s) ...',patterns)
+                naghelp.logger.debug('collect -> <-- expect(%s) ...',patterns)
                 try:
                     found = self.child.expect(patterns)
                 except pexpect.EOF:
                     naghelp.logger.debug('CollectError : No more data (EOF) from %s' % self.spawn)
                     raise CollectError('No more data (EOF) from %s' % self.spawn)
-                naghelp.logger.debug('  --> found : "%s"',patterns[found])
+                naghelp.logger.debug('collect ->   --> found : "%s"',patterns[found])
             to_send = expects[found][1]
             if to_send is not None:
                 if isinstance(to_send,basestring):
                     to_send = to_send.format(**self.context)
                     if to_send and to_send[-1] == '\n':
-                        naghelp.logger.debug('  ==> sendline : %s',to_send[:-1])
+                        naghelp.logger.debug('collect ->   ==> sendline : %s',to_send[:-1])
                         self.child.sendline(to_send[:-1])
                     else:
-                        naghelp.logger.debug('  ==> send : %s',to_send)
+                        naghelp.logger.debug('collect ->   ==> send : %s',to_send)
                         self.child.send(to_send)
                 elif to_send == Expect.KILL:
                     return_msg = self.child.before+'.'
@@ -488,7 +505,7 @@ class Expect(object):
                 naghelp.logger.debug('Too many expect for %s',patterns)
                 raise CollectError('Too many expect for %s' % patterns)
 
-        naghelp.logger.debug('FINISHED steps')
+        naghelp.logger.debug('collect -> FINISHED steps')
         return ''
 
     def __enter__(self):
@@ -510,15 +527,15 @@ class Expect(object):
                 self.child.kill(0)
             except OSError:
                 pass
-            naghelp.logger.debug('#### Expect : Connection closed ###############')
+            naghelp.logger.debug('collect -> #### Expect : Connection closed ###############')
 
     def _run_cmd(self,cmd):
         if cmd:
-            naghelp.logger.debug('  ==> sendline : %s',cmd)
+            naghelp.logger.debug('collect -> run("%s") %s',cmd,naghelp.debug_caller())
             self.child.sendline('%s' % cmd)
 
         prompt = self._expect_pattern_rewrite(self.prompt)
-        naghelp.logger.debug('<-- expect prompt : %s',prompt)
+        naghelp.logger.debug('collect ->     expect prompt : %s',prompt)
         try:
             self.child.expect(prompt)
         except pexpect.EOF:
@@ -738,35 +755,35 @@ class Telnet(object):
             raise ConnectionError('No host specified for Telnet')
         if not user:
             raise ConnectionError('No user specified for Telnet')
-        naghelp.logger.debug('#### Telnet( %s@%s ) ###############',user, host)
+        naghelp.logger.debug('collect -> #### Telnet( %s@%s ) ###############',user, host)
         with Timeout(seconds = timeout, error_message='Timeout (%ss) for telnet to %s' % (timeout,host)):
             try:
                 self.tn = telnetlib.Telnet(host,port,timeout,**kwargs)
                 #self.tn.set_debuglevel(1)
             except Exception,e:
                 raise ConnectionError(e)
-            naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(login_pattern))
+            naghelp.logger.debug('collect -> <-- expect(%s) ...',debug_pattern_list(login_pattern))
             time.sleep(sleep_login or sleep)
             self.tn.expect(login_pattern)
-            naghelp.logger.debug('  ==> %s',user)
+            naghelp.logger.debug('collect ->   ==> %s',user)
             time.sleep(sleep)
             self.tn.write(user + "\n")
-            naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(passwd_pattern))
+            naghelp.logger.debug('collect -> <-- expect(%s) ...',debug_pattern_list(passwd_pattern))
             if password is not None:
                 time.sleep(sleep)
                 self.tn.expect(passwd_pattern)
-                naghelp.logger.debug('  ==> (hidden password)')
+                naghelp.logger.debug('collect ->   ==> (hidden password)')
                 time.sleep(sleep)
                 self.tn.write(password + "\n")
-            naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(prompt_pattern + autherr_pattern))
+            naghelp.logger.debug('collect -> <-- expect(%s) ...',debug_pattern_list(prompt_pattern + autherr_pattern))
             time.sleep(sleep)
             pat_id,m,buffer = self.tn.expect(prompt_pattern + autherr_pattern)
-            naghelp.logger.debug('pat_id,m,buffer = %s, %s, %s',pat_id,m,buffer)
+            naghelp.logger.debug('collect -> pat_id,m,buffer = %s, %s, %s',pat_id,m,buffer)
             if pat_id < 0:
                 raise ConnectionError('No regular prompt found.')
             if pat_id >= len(prompt_pattern):
                 raise ConnectionError('Authentication error')
-            naghelp.logger.debug('Prompt found : is_connected = True')
+            naghelp.logger.debug('collect -> Prompt found : is_connected = True')
             self.is_connected = True
 
     @staticmethod
@@ -791,15 +808,15 @@ class Telnet(object):
         if not self.in_with:
             self.tn.close()
             self.is_connected = False
-            naghelp.logger.debug('#### Telnet : Connection closed ###############')
+            naghelp.logger.debug('collect -> #### Telnet : Connection closed ###############')
 
     def _run_cmd(self,cmd):
         if isinstance(cmd, unicode):
             cmd = cmd.encode('utf-8','ignore')
-        naghelp.logger.debug('  ==> %s',cmd)
+        naghelp.logger.debug('collect -> run("%s") %s',cmd,naghelp.debug_caller())
         time.sleep(self.sleep)
         self.tn.write('%s\n' % cmd)
-        naghelp.logger.debug('<-- expect(%s) ...',debug_pattern_list(self.prompt_pattern))
+        naghelp.logger.debug('collect -> <-- expect(%s) ...',debug_pattern_list(self.prompt_pattern))
         time.sleep(self.sleep)
         pat_id,m,buffer = self.tn.expect(self.prompt_pattern)
         out = buffer.replace('\r','')
@@ -809,7 +826,7 @@ class Telnet(object):
         # remove cmd and prompt (first and last line)
         out = out.splitlines()[:-1]
         cmd_out = '\n'.join(out)
-        naghelp.logger.debug('\n%s\n%s\n%s','v'*80,cmd_out,'^'*80)
+        naghelp.debug_listing(cmd_out)
         return cmd_out
 
     def run(self, cmd, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
@@ -1007,7 +1024,7 @@ class Ssh(object):
         if auto_accept_new_host:
             self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.client.load_system_host_keys()
-        naghelp.logger.debug('#### Ssh( %s@%s ) ###############',user, host)
+        naghelp.logger.debug('collect -> #### Ssh( %s@%s ) ###############',user, host)
         try:
             self.client.connect(host,username=user,password=password, timeout=timeout, **kwargs)
             if self.prompt_pattern:
@@ -1017,7 +1034,7 @@ class Ssh(object):
                 self._read_to_prompt()
         except Exception,e:
             raise ConnectionError(e)
-        naghelp.logger.debug('is_connected = True')
+        naghelp.logger.debug('collect -> is_connected = True')
         self.is_connected = True
 
     def __enter__(self):
@@ -1032,7 +1049,7 @@ class Ssh(object):
         if not self.in_with:
             self.client.close()
             self.is_connected = False
-            naghelp.logger.debug('#### Ssh : Connection closed ###############')
+            naghelp.logger.debug('collect -> #### Ssh : Connection closed ###############')
 
     def _read_to_prompt(self):
         buff = ''
@@ -1041,13 +1058,13 @@ class Ssh(object):
         return buff
 
     def _run_cmd(self,cmd,timeout):
-        naghelp.logger.debug('  ==> %s',cmd)
+        naghelp.logger.debug('collect -> run("%s") %s',cmd,naghelp.debug_caller())
         if self.prompt_pattern is None:
             stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout,get_pty=self.get_pty)
             out = stdout.read()
             if self.add_stderr:
                 out += stderr.read()
-            naghelp.logger.debug('\n%s\n%s\n%s','v'*80,out,'^'*80)
+            naghelp.debug_listing(out)
             return out
         else:
             self.chan.send('%s\n' % cmd)
@@ -1059,7 +1076,7 @@ class Ssh(object):
             # remove cmd and prompt (first and last line)
             out = out.splitlines()[:-1]
             cmd_out = '\n'.join(out)
-            naghelp.logger.debug('\n%s\n%s\n%s','v'*80,cmd_out,'^'*80)
+            naghelp.debug_listing(cmd_out)
             return cmd_out
 
     def run(self, cmd, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
@@ -1330,6 +1347,7 @@ class Snmp(object):
                 >>> snmp.get(('SNMPv2-MIB', 'sysDescr', 0))
                 'SunOS zeus.snmplabs.com 4.1.3_U1 1 sun4m'
         """
+        naghelp.logger.debug('collect -> get(%s) %s',oid_or_mibvar,naghelp.debug_caller())
         oid_or_mibvar = self.normalize_oid(oid_or_mibvar)
         args = list(self.cmd_args)
         args.append(oid_or_mibvar)
@@ -1368,6 +1386,7 @@ class Snmp(object):
                  ...
 
         """
+        naghelp.logger.debug('collect -> walk(%s) %s',oid_or_mibvar,naghelp.debug_caller())
         oid_or_mibvar = self.normalize_oid(oid_or_mibvar)
         lst = textops.ListExt()
         args = list(self.cmd_args)
@@ -1415,6 +1434,16 @@ class Snmp(object):
         for var,oid in vars_oids.items():
             dct[var] = self.walk(oid)
         return dct
+
+    def dwalk(self,oid_or_mibvar,irow=-2,icol=-1,cols=None):
+        walk_data = self.walk(oid_or_mibvar)
+        dct={}
+        for oid,val in walk_data:
+            oid_bits = str(oid).split('.')
+            row=int(oid_bits[irow])
+            col=int(oid_bits[icol])
+            dct.setdefault(row,{}).setdefault(col,val)
+        return textops.DictExt(dct)
 
     def twalk(self,oid_or_mibvar,irow=-2,icol=-1,cols=None):
         walk_data = self.walk(oid_or_mibvar)
@@ -1500,6 +1529,7 @@ class Snmp(object):
              'other' : ['value for 1.3.6.1.2.1.1.2.0', 'value for 1.3.6.1.2.1.1.3.0', etc... ] }
 
         """
+        naghelp.logger.debug('collect -> mget(...) %s',naghelp.debug_caller())
         dct = textops.DictExt()
         oid_to_var = {}
         args = list(self.cmd_args)

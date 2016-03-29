@@ -231,21 +231,6 @@ class PluginResponse(object):
             msg = msg.format(**kwargs)
         return msg
 
-    def _debug_caller_info(self):
-        if naghelp.logger.getEffectiveLevel() == naghelp.logging.DEBUG:
-            prev_call = ''
-            stack = traceback.extract_stack()
-            for file,line,func_name,func_line in reversed(stack):
-                file = os.path.basename(file)
-                if file != 'response.py':
-                    return '[%s:%s]' % (file,line),prev_call
-                prev_call = func_name
-        return '',''
-
-    def _debug_caller(self):
-        file_line,prev_call = self._debug_caller_info()
-        return file_line
-
     def add_begin(self,msg,*args,**kwargs):
         r"""Add a message in begin section
 
@@ -284,7 +269,7 @@ class PluginResponse(object):
             <BLANKLINE>
             <BLANKLINE>
         """
-        naghelp.logger.debug('response -> add_begin("%s") %s',msg,self._debug_caller())
+        naghelp.logger.debug('response -> add_begin("%s") %s',msg,naghelp.debug_caller())
         self.begin_msgs.append(self._reformat_msg(msg,*args,**kwargs))
 
     def add(self,level,msg,*args,**kwargs):
@@ -334,9 +319,8 @@ class PluginResponse(object):
             <BLANKLINE>
             <BLANKLINE>
         """
-        file_line,prev_call = self._debug_caller_info()
-        if prev_call == 'add':
-            naghelp.logger.debug('response -> add(%s,"%s") %s',level,msg,file_line)
+        if not kwargs.get('no_debug'):
+            naghelp.logger.debug('response -> add(%s,"%s") %s',level,msg,naghelp.debug_caller())
         if isinstance(level,ResponseLevel):
             self.level_msgs[level].append(self._reformat_msg(msg,*args,**kwargs))
             self.set_level(level)
@@ -376,7 +360,7 @@ class PluginResponse(object):
             <BLANKLINE>
             <BLANKLINE>
         """
-        naghelp.logger.debug('response -> add_comment(%s,"%s") %s',level,msg,self._debug_caller())
+        naghelp.logger.debug('response -> add_comment(%s,"%s") %s',level,msg,naghelp.debug_caller())
         if isinstance(level,ResponseLevel):
             self.level_msgs[level].append(LevelComment(self._reformat_msg(msg,*args,**kwargs)))
         else:
@@ -462,13 +446,13 @@ class PluginResponse(object):
 
         have_added=False
         kwargs['_len'] = len(msg_list)
-        naghelp.logger.debug('response -> add_list(...) %s',self._debug_caller())
+        naghelp.logger.debug('response -> add_list(...) %s',naghelp.debug_caller())
         for i,msg in enumerate(msg_list):
             naghelp.logger.debug('response -> [%s] %s',i,msg)
             if msg:
                 if not have_added and header is not None:
                     self.add_comment(level, header,*args,**kwargs)
-                self.add(level, msg,*args,**kwargs)
+                self.add(level, msg,no_debug=True,*args,**kwargs)
                 have_added = True
         if have_added and footer is not None:
             self.add_comment(level, footer,*args,**kwargs)
@@ -524,7 +508,7 @@ class PluginResponse(object):
             <BLANKLINE>
             <BLANKLINE>
         """
-        naghelp.logger.debug('response -> add_many(...) %s',self._debug_caller())
+        naghelp.logger.debug('response -> add_many(...) %s',naghelp.debug_caller())
         for i,(level,msg) in enumerate(lst):
             naghelp.logger.debug('response -> [%s] (%s,"%s")',i,level,msg)
             if msg:
@@ -591,7 +575,7 @@ class PluginResponse(object):
             <BLANKLINE>
             <BLANKLINE>
         """
-        naghelp.logger.debug('response -> add_if(%s,%s,"%s") %s',test,level,msg,self._debug_caller())
+        naghelp.logger.debug('response -> add_if(%s,%s,"%s") %s',test,level,msg,naghelp.debug_caller())
         if msg is None:
             msg = test
         if isinstance(level,ResponseLevel):
@@ -662,7 +646,7 @@ class PluginResponse(object):
             <BLANKLINE>
             <BLANKLINE>
         """
-        naghelp.logger.debug('response -> add_elif(...) %s',self._debug_caller())
+        naghelp.logger.debug('response -> add_elif(...) %s',naghelp.debug_caller())
         for i,(test,level,msg) in enumerate(add_ifs):
             naghelp.logger.debug('response -> [%s] (%s,%s,"%s")',i,test,level,msg)
             if msg is None:
@@ -710,7 +694,9 @@ class PluginResponse(object):
             ==========================[ Additionnal informations ]==========================
             Date : 2105-12-18, Time : 14:55:11
         """
-        naghelp.logger.debug('response -> add_more("%s")',msg)
+        if not kwargs.get('no_debug'):
+            naghelp.logger.debug('response -> add_more("%s") %s',msg,naghelp.debug_caller())
+
         if msg:
             if isinstance(msg,(list,tuple)):
                 msg = '\n'.join(msg)
@@ -760,7 +746,7 @@ class PluginResponse(object):
             ========================================
             Date : 2105-12-18, Time : 14:55:11
         """
-        naghelp.logger.debug('response -> add_more("%s") %s',msg,self._debug_caller())
+        naghelp.logger.debug('response -> add_more("%s") %s',msg,naghelp.debug_caller())
         if isinstance(msg,(list,tuple)):
             msg = '\n'.join(msg)
         elif not isinstance(msg,basestring):
@@ -797,7 +783,7 @@ class PluginResponse(object):
             cpu_wait=88%;40;60;0;100
             cpu_user=12%;80;95;0;100
         """
-        naghelp.logger.debug('response -> add_perf_data("%s") %s',data,self._debug_caller())
+        naghelp.logger.debug('response -> add_perf_data("%s") %s',data,naghelp.debug_caller())
         if not isinstance(data,basestring):
             data = str(data)
         self.perf_items.append(data)

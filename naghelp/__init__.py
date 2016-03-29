@@ -19,6 +19,7 @@ from response import *
 from collect import *
 from perf import *
 from mixins import *
+import traceback
 
 import logging
 try:  # Python 2.7+
@@ -36,3 +37,22 @@ def activate_debug():
     ch.setLevel(logging.DEBUG)
     logger.addHandler(ch)
     logger.setLevel(logging.DEBUG)
+
+def debug_caller():
+    if logger.getEffectiveLevel() == logging.DEBUG:
+        stack = list(reversed(traceback.extract_stack()))
+        for file,line,func_name,func_line in stack:
+            if '/naghelp/' not in file:
+                return '[%s:%s]' % (file,line)
+    return ''
+
+def debug_listing(data):
+    if isinstance(data, basestring):
+        data = data.splitlines()
+    for line in data:
+        logger.debug('| %s',line)
+
+def debug_or_empty(s):
+    if logger.getEffectiveLevel() == logging.DEBUG:
+        return s
+    return ''

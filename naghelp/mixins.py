@@ -112,8 +112,7 @@ class GaugeMixin(object):
             Test gauge : Temperature=110C
             <BLANKLINE>
         """
-        self.response.add_more('%s : %s',label,value)
-        self.debug('Gauge id=%s, value=%s (warn_min=%s,crit_min=%s,warn_max=%s,crit_max=%s)',id,value,warn_min,crit_min,warn_max,crit_max)
+        self.response.add_more('%s : %s',label,value,no_debug=True)
         if isinstance(value,basestring):
             value = find_pattern.op(value,r'(-?[\d,\.]+)').replace(',','.')
             if value:
@@ -121,6 +120,7 @@ class GaugeMixin(object):
                     value=float(value)
                 else:
                     value=int(value)
+        self.debug('response -> Gauge id=%s, value=%s (warn_min=%s,crit_min=%s,warn_max=%s,crit_max=%s)',id,value,warn_min,crit_min,warn_max,crit_max)
         if isinstance(value,(int,float)):
             if isinstance(crit_min,(int,float)) and value <= crit_min:
                 self.response.add(CRITICAL,'%s : %s <= MIN CRITICAL (%s)' % (label, value, crit_min))
@@ -187,10 +187,10 @@ class GaugeMixin(object):
             Temperature cursor : 21
             >>> p.doctest_end()
         """
-        self.response.add_more('%s : %s',label,value)
+        self.response.add_more('%s : %s',label,value,no_debug=True)
         etalon_name = id + '_etalon'
         etalon_value = self.host.get(etalon_name,None)
-        self.debug('Gauge id=%s, was:%s, now:%s',id,etalon_value,value)
+        self.debug('response -> Gauge id=%s, was:%s, now:%s',id,etalon_value,value)
         if etalon_value is not None and value != etalon_value:
             self.response.add(level,'%s : actual value (%s) has changed (was %s)' % (label, value, etalon_value))
         if value not in [ NoAttr, None ]:
@@ -254,10 +254,10 @@ class GaugeMixin(object):
             Temperature cursor : 19
             >>> p.doctest_end()                          # only for doctest
         """
-        self.response.add_more('%s : %s',label,value)
+        self.response.add_more('%s : %s',label,value,no_debug=True)
         etalon_name = id + '_etalon'
         etalon_value = self.host.get(etalon_name,None)
-        self.debug('Gauge id=%s, was:%s, now:%s',id,etalon_value,value)
+        self.debug('response -> Gauge id=%s, was:%s, now:%s',id,etalon_value,value)
         if etalon_value is not None and value < etalon_value:
             self.response.add(level,'%s : actual value (%s) is less than the reference value (%s)' % (label, value, etalon_value))
         if isinstance(value,(int,float)):
@@ -321,10 +321,10 @@ class GaugeMixin(object):
             Temperature cursor : 21
             >>> p.doctest_end()                          # only for doctest
         """
-        self.response.add_more('%s : %s',label,value)
+        self.response.add_more('%s : %s',label,value,no_debug=True)
         etalon_name = id + '_etalon'
         etalon_value = self.host.get(etalon_name,None)
-        self.debug('Gauge id=%s, was:%s, now:%s',id,etalon_value,value)
+        self.debug('response -> Gauge id=%s, was:%s, now:%s',id,etalon_value,value)
         if etalon_value is not None and value > etalon_value:
             self.response.add(level,'%s : actual value (%s) is more than the reference value (%s)' % (label, value, etalon_value))
         if isinstance(value,(int,float)):
