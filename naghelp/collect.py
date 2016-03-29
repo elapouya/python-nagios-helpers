@@ -1533,3 +1533,34 @@ class Snmp(object):
             else:
                 dct[var] = val
         return dct
+
+    def exists(self,oid_or_mibvar):
+        """Return True if the OID exists
+
+        It return False if the OID does not exists or raise an exception if snmp server is unreachable
+
+        Args:
+
+            oid_or_mibvar (str or ObjectIdentity): an OID path or a pysnmp ObjectIdentity
+
+        Returns:
+
+            bool: True if OID exists
+
+        Examples:
+
+            To collect a numerical OID::
+
+                >>> snmp = Snmp('demo.snmplabs.com')
+                >>> snmp.exists('1.3.6.1.2.1.1.1.0')
+                True
+                >>> snmp.exists('1.3.6.1.2.1.1.1.999')
+                False
+        """
+        oid_or_mibvar = self.normalize_oid(oid_or_mibvar)
+        args = list(self.cmd_args)
+        args.append(oid_or_mibvar)
+        errorIndication, errorStatus, errorIndex, varBinds = self.cmdGenerator.getCmd(*args)
+        if errorIndication or errorStatus:
+            return False
+        return True
