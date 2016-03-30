@@ -16,7 +16,7 @@ import time
 import subprocess
 import traceback
 
-__all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp',
+__all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'Http',
            'Timeout', 'TimeoutError', 'CollectError', 'ConnectionError', 'NotConnected',
            'UnexpectedResultError']
 
@@ -1594,3 +1594,61 @@ class Snmp(object):
         if errorIndication or errorStatus:
             return False
         return True
+
+class Http(object):
+    r"""Http class helper
+
+    This class helps to collect web pages.
+
+    Args:
+
+        host (str): IP address or hostname to connect to
+        port (int): port number to use (Default : 80 TCP)
+        timeout (int): Time in seconds before raising an error or a None value
+    """
+    def __init__(self,*args,**kwargs):
+        import requests
+        self.requests = requests
+        self.kwargs = kwargs
+
+    def get(self,url,*args,**kwargs):
+        """get one URL
+
+        Args:
+
+            url (str): The url to get
+            timeout (int): Time in seconds before raising an error or a None value
+
+        Returns:
+
+            str: The page or NoAttr if URL is reachable but returned a Http Error
+        """
+        naghelp.logger.debug('collect -> get("%s") %s',url,naghelp.debug_caller())
+        params = dict(self.kwargs)
+        params.update(kwargs)
+        try:
+            r = self.requests.get(url,**params)
+        except self.requests.Timeout,e:
+            raise ConnectionError(e)
+        return r.text if r.status_code==200 else NoAttr
+
+    def mget(self,urls,*args,**kwargs):
+        """Get multiple URLs at the same time
+
+        Args:
+
+            urls (dict): The urls to get
+            timeout (int): Time in seconds before raising an error or a None value
+
+        Returns:
+
+            :class:`textops.DictExt`: List of pages or NoAttr if not availables
+        """
+        naghelp.logger.debug('collect -> mget(...) %s',naghelp.debug_caller())
+        dct = textops.DictExt()
+        if isinstance(cmds,dict):
+            cmds = cmds.items()
+        for k,cmd in cmds:
+            if k:
+                dct[k] = self.get(url,*args,**kwargs)
+        return dct
