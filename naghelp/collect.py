@@ -1630,7 +1630,7 @@ class Http(object):
             r = self.requests.get(url,**params)
         except self.requests.Timeout,e:
             raise ConnectionError(e)
-        return r.text if r.status_code==200 else NoAttr
+        return textops.UnicodeExt(r.text) if r.status_code==200 else NoAttr
 
     def mget(self,urls,*args,**kwargs):
         """Get multiple URLs at the same time
