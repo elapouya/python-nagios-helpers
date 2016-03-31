@@ -1065,6 +1065,9 @@ class ActivePlugin(Plugin):
         """For doctest usage only"""
         self.host.save_data()
 
+    def send_response(self):
+        self.response.send()
+
     def run(self):
         """Run the plugin
 
@@ -1138,7 +1141,7 @@ class ActivePlugin(Plugin):
             self.build_response(self.data)
             self.host.save_data()
             self.response.add_end(self.get_plugin_informations())
-            self.response.send()
+            self.send_response()
         except Exception,e:
             self.error('Plugin internal error : %s' % e, exception=e)
 

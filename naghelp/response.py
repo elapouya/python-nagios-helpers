@@ -1048,7 +1048,7 @@ class PluginResponse(object):
     def __str__(self):
         return self.get_output()
 
-    def send(self, level=None, synopsis='', msg='', sublevel = None):
+    def send(self, level=None, synopsis='', msg='', sublevel=None, nagios_host=None, nagios_svc=None, nagios_cmd=None):
         r"""Send the response to Nagios
 
         This method is automatically called by :meth:`naghelp.ActivePlugin.run` method and
@@ -1083,7 +1083,11 @@ class PluginResponse(object):
 
         naghelp.logger.debug('Plugin output :\n' + '#' * 80 + '\n' + out + '\n'+ '#' * 80)
 
-        print out.encode('utf-8') if isinstance(out,unicode) else out
-
-        naghelp.logger.info('Exiting plugin with response level : %s, __sublevel__=%s', self.level.info(), self.sublevel )
-        self.level.exit()
+        if nagios_cmd:
+            naghelp.logger.debug('Sending response to command pipe for %s/%s ...',nagios_host,nagios_svc)
+            nagios_cmd.process_service_check_result(nagios_host,nagios_svc,self.level.exit_code,out.replace('\n',r'\n'))
+        else:
+            naghelp.logger.debug('Sending response on stdout...')
+            print out.encode('utf-8') if isinstance(out,unicode) else out
+            naghelp.logger.info('Exiting plugin with response level : %s, __sublevel__=%s', self.level.info(), self.sublevel )
+            self.level.exit()

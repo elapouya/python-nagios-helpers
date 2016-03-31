@@ -9,7 +9,7 @@
 from naghelp import *
 from textops import *
 
-__all__ = ['GaugeMixin','GaugeException']
+__all__ = ['GaugeMixin','GaugeException','HostsManagerMixin']
 
 class GaugeException(Exception):
     pass
@@ -353,3 +353,54 @@ class GaugeMixin(object):
         """
         etalon_name = id + '_etalon'
         self.host.set(etalon_name,value)
+
+class HostsManagerMixin(object):
+    managed_default_level = OK
+    managed_service_description = 'MAILTRAP'
+    managed_response_retention_delta = 0
+
+    def build_manager_response(self,data):
+        pass
+
+    def build_managed_responses(self,data):
+        pass
+
+    def init_managed_hosts(self,data):
+        from pynag.Control import Command
+        self.pynag_cmd = Command
+        self.managed_responses = {}
+
+    def get_managed_response(self,hostname):
+        if hostname in self.managed_responses:
+            return self.managed_responses[hostname]
+        response_class = getattr(self,'managed_reponse_class',self.response_class)
+        response = response_class(default_level=self.managed_default_level)
+        self.managed_responses[hostname] = response
+        return response
+
+    def build_response(self,data):
+        self.init_managed_hosts(data)
+        self.clear_last_managed_responses(self.managed_response_retention_delta)
+        self.build_manager_response(data)
+        self.build_managed_responses(data)
+
+    def send_managed_responses(self):
+        from pynag.Control import Command
+        for hostname, response in self.managed_responses.items():
+            managed_host = self.host.managed_hosts[hostname]
+            managed_host.last_state = response.get_current_level().exit_code
+            managed_host.modif_time = datetime.now()
+            response.send(nagios_host=hostname,nagios_svc=self.managed_service_description,nagios_cmd=Command)
+
+    def clear_last_managed_responses(self,delta_time):
+        for hostname, managed_host in self.host.managed_hosts.items():
+            if isinstance(managed_host.last_state,int) and managed_host.last_state != OK.exit_code:
+                # this set a blank response : that will send an OK state to last managed_host
+                # if not modified after :
+                self.get_managed_response(self,hostname)
+
+    def send_response(self):
+        self.send_managed_responses()
+        super(HostsManagerMixin,self).send_response()
+
+
