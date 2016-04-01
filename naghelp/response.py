@@ -10,6 +10,7 @@ import naghelp
 from types import NoneType
 import re
 import traceback
+import hashlib
 
 __all__ = [ 'ResponseLevel', 'PluginResponse', 'OK', 'WARNING', 'CRITICAL', 'UNKNOWN', 'LevelComment' ]
 
@@ -1047,6 +1048,9 @@ class PluginResponse(object):
 
     def __str__(self):
         return self.get_output()
+    
+    def get_hash(self):
+        return hashlib.md5(self.get_output()).hexdigest()
 
     def send(self, level=None, synopsis='', msg='', sublevel=None, nagios_host=None, nagios_svc=None, nagios_cmd=None):
         r"""Send the response to Nagios

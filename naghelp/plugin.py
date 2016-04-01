@@ -1065,6 +1065,10 @@ class ActivePlugin(Plugin):
         """For doctest usage only"""
         self.host.save_data()
 
+    def save_host_data(self):
+        """Save data before sending the built response"""
+        self.host.save_data()
+        
     def send_response(self):
         self.response.send()
 
@@ -1139,7 +1143,7 @@ class ActivePlugin(Plugin):
                 exit(0)
 
             self.build_response(self.data)
-            self.host.save_data()
+            self.save_host_data()
             self.response.add_end(self.get_plugin_informations())
             self.send_response()
         except Exception,e:

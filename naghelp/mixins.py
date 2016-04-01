@@ -356,7 +356,7 @@ class GaugeMixin(object):
 
 class HostsManagerMixin(object):
     managed_default_level = OK
-    managed_service_description = 'MAILTRAP'
+    managed_service_description = 'ManagedHost'
     managed_response_retention_delta = 0
 
     def build_manager_response(self,data):
@@ -384,20 +384,41 @@ class HostsManagerMixin(object):
         self.build_manager_response(data)
         self.build_managed_responses(data)
 
+    def get_plugin_managed_informations(self,hostname):
+        r"""Get plugin informations for managed hosts"""
+        out = '\n' + self.response.section_format('Plugin Informations') + '\n'
+        out += 'This host is managed by : %s (%s)\n' % (self.host.name, self.host.ip)
+        out += 'Manager plugin name : %s.%s\n' % (self.__class__.__module__,self.__class__.__name__)
+        level = self.response.get_current_level()
+        out += 'Response level : %s (%s), __sublevel__=%s' % (level.exit_code,level.name,self.response.sublevel)
+        return out
+
     def send_managed_responses(self):
-        from pynag.Control import Command
         for hostname, response in self.managed_responses.items():
             managed_host = self.host.managed_hosts[hostname]
-            managed_host.last_state = response.get_current_level().exit_code
-            managed_host.modif_time = datetime.now()
-            response.send(nagios_host=hostname,nagios_svc=self.managed_service_description,nagios_cmd=Command)
+            if managed_host.new_hash != managed_host.prev_hash:
+                response.add_end(self.get_plugin_managed_informations(hostname))
+                response.send(nagios_host=hostname,nagios_svc=self.managed_service_description,nagios_cmd=self.pynag_cmd)
+            # do not manage anymore when the state is OK
+            if managed_host.new_state == OK.exit_code:
+                del self.host.managed_hosts[hostname]
 
     def clear_last_managed_responses(self,delta_time):
         for hostname, managed_host in self.host.managed_hosts.items():
-            if isinstance(managed_host.last_state,int) and managed_host.last_state != OK.exit_code:
+            if managed_host.updated:
                 # this set a blank response : that will send an OK state to last managed_host
                 # if not modified after :
-                self.get_managed_response(self,hostname)
+                self.get_managed_response(hostname)
+
+    def save_host_data(self):
+        for hostname, response in self.managed_responses.items():
+            managed_host = self.host.managed_hosts[hostname]
+            managed_host.prev_hash = managed_host.new_hash
+            managed_host.new_hash = response.get_hash()
+            managed_host.prev_state = managed_host.new_state
+            managed_host.new_state = response.get_current_level().exit_code
+            managed_host.updated = datetime.now()
+        super(HostsManagerMixin,self).save_host_data()
 
     def send_response(self):
         self.send_managed_responses()
