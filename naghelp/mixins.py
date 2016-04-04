@@ -358,6 +358,9 @@ class HostsManagerMixin(object):
     managed_default_level = OK
     managed_service_description = 'ManagedHost'
     managed_response_retention_delta = 0
+    managed_hosts = None
+    managed_data_filename = '/tmp/managed_hosts.json'
+
 
     def build_manager_response(self,data):
         pass
@@ -365,10 +368,35 @@ class HostsManagerMixin(object):
     def build_managed_responses(self,data):
         pass
 
+    def get_managed_data_filename(self):
+        return self.managed_data_filename
+    
+    def load_managed_data(self):
+        self.managed_data=self.load_data(self.get_managed_data_filename())
+    
+    def is_managed_host(self, hostname_or_serial):
+        if not hostname_or_serial:
+            return False
+        if hostname_or_serial in self.managed_data.hosts:
+            return True
+        hostname = self.managed_data.serials[hostname_or_serial]
+        return hostname and hostname in self.managed_data.hosts
+    
+    def save_managed_data(self):
+        for hostname, response in self.managed_responses.items():
+            managed_host = self.managed_data.hosts[hostname]
+            managed_host.prev_hash = managed_host.new_hash
+            managed_host.new_hash = response.get_hash()
+            managed_host.prev_state = managed_host.new_state
+            managed_host.new_state = response.get_current_level().exit_code
+            managed_host.updated = datetime.now()
+        self.save_data(self.get_managed_data_filename(),self.managed_data)
+    
     def init_managed_hosts(self,data):
         from pynag.Control import Command
         self.pynag_cmd = Command
         self.managed_responses = {}
+        self.load_managed_data()
 
     def get_managed_response(self,hostname):
         if hostname in self.managed_responses:
@@ -380,7 +408,6 @@ class HostsManagerMixin(object):
 
     def build_response(self,data):
         self.init_managed_hosts(data)
-        self.clear_last_managed_responses(self.managed_response_retention_delta)
         self.build_manager_response(data)
         self.build_managed_responses(data)
 
@@ -395,33 +422,15 @@ class HostsManagerMixin(object):
 
     def send_managed_responses(self):
         for hostname, response in self.managed_responses.items():
-            managed_host = self.host.managed_hosts[hostname]
+            managed_host = self.managed_data.hosts[hostname]
             if managed_host.new_hash != managed_host.prev_hash:
                 response.add_end(self.get_plugin_managed_informations(hostname))
                 response.send(nagios_host=hostname,nagios_svc=self.managed_service_description,nagios_cmd=self.pynag_cmd)
-            # do not manage anymore when the state is OK
-            if managed_host.new_state == OK.exit_code:
-                del self.host.managed_hosts[hostname]
-
-    def clear_last_managed_responses(self,delta_time):
-        for hostname, managed_host in self.host.managed_hosts.items():
-            if managed_host.updated:
-                # this set a blank response : that will send an OK state to last managed_host
-                # if not modified after :
-                self.get_managed_response(hostname)
 
     def save_host_data(self):
-        for hostname, response in self.managed_responses.items():
-            managed_host = self.host.managed_hosts[hostname]
-            managed_host.prev_hash = managed_host.new_hash
-            managed_host.new_hash = response.get_hash()
-            managed_host.prev_state = managed_host.new_state
-            managed_host.new_state = response.get_current_level().exit_code
-            managed_host.updated = datetime.now()
+        self.save_managed_data()
         super(HostsManagerMixin,self).save_host_data()
 
     def send_response(self):
         self.send_managed_responses()
         super(HostsManagerMixin,self).send_response()
-
-

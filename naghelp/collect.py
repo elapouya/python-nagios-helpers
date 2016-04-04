@@ -15,10 +15,13 @@ import naghelp
 import time
 import subprocess
 import traceback
+import fcntl
+import errno
+import os
 
 __all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'Http',
            'Timeout', 'TimeoutError', 'CollectError', 'ConnectionError', 'NotConnected',
-           'UnexpectedResultError']
+           'UnexpectedResultError', 'Lockfile']
 
 class CollectError(Exception):
     """Exception raised when a collect is unsuccessful
@@ -92,6 +95,67 @@ class Timeout:
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
 
+class Lockfile:
+    """Acquire a lock on a file, release it at the end
+
+    It uses :func:`fcntl.lockf`. It will wait until the lock is aquired or a Timeout is reached.
+    A file with a ``.lock`` extension will be created.
+
+    Args:
+
+        filename (str): The filename to lock (without the ``.lock`` extension)
+        seconds (int): The time in seconds after which a TimeoutError will be raised if the lock
+            cannot be aquired. None : No timeout. 0 : no waiting
+
+    Raises:
+
+        TimeoutError: When the lock is not aquired on-time.
+
+    """
+    def __init__(self, filename, timeout=10, delay=0.1):
+        self.is_locked = False
+        self.lockfile = '%s.lock' % filename
+        self.filename = filename
+        self.timeout = timeout
+        self.delay = delay
+ 
+    def acquire(self):
+        start_time = time.time()
+        while True:
+            try:
+                self.fd = open(self.lockfile,'w')
+                fcntl.lockf(self.fd, fcntl.LOCK_EX|fcntl.LOCK_NB)
+                break;
+            except IOError as e:
+                if e.errno not in [ errno.EACCES, errno.EAGAIN ]:
+                    raise 
+                if (time.time() - start_time) >= self.timeout:
+                    raise TimeoutError("Timeout occured for locking %s" % self.filename)
+                time.sleep(self.delay)
+        self.is_locked = True
+  
+    def release(self):
+        if self.is_locked:
+            fcntl.lockf(self.fd, fcntl.LOCK_UN)            
+            self.fd.close()
+            try:
+                os.unlink(self.lockfile)
+            except (OSError,IOError):
+                pass
+            self.is_locked = False
+ 
+    def __enter__(self):
+        if not self.is_locked:
+            self.acquire()
+        return self
+ 
+    def __exit__(self, type, value, traceback):
+        if self.is_locked:
+            self.release()
+ 
+    def __del__(self):
+        self.release()
+        
 def search_invalid_port(ip,ports):
     """Returns the first invalid port encountered or None if all are reachable
 
