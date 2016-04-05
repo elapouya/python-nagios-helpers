@@ -8,6 +8,7 @@
 
 from naghelp import *
 from textops import *
+import re
 
 __all__ = ['GaugeMixin','GaugeException','HostsManagerMixin']
 
@@ -370,19 +371,31 @@ class HostsManagerMixin(object):
 
     def get_managed_data_filename(self):
         return self.managed_data_filename
-    
+
+    def get_managed_host_data(self,hostname):
+        hostname = self.normalize_hostname(hostname)
+        return self.get_managed_hosts_data().setdefault(hostname,DictExt())
+
+    def get_managed_hosts_data(self):
+        return self.managed_data.setdefault('hosts',DictExt())
+
     def load_managed_data(self):
         self.managed_data=self.load_data(self.get_managed_data_filename())
-    
+
+    def normalize_hostname(self,name):
+        return re.sub(r'[^\w-]+','_',name.strip())
+
     def is_managed_host(self, hostname_or_serial):
+        hostname_or_serial = self.normalize_hostname(hostname_or_serial)
         if not hostname_or_serial:
             return False
         if hostname_or_serial in self.managed_data.hosts:
             return True
         hostname = self.managed_data.serials[hostname_or_serial]
         return hostname and hostname in self.managed_data.hosts
-    
+
     def save_managed_data(self):
+        self.debug('**************************************************** save_managed_data')
         for hostname, response in self.managed_responses.items():
             managed_host = self.managed_data.hosts[hostname]
             managed_host.prev_hash = managed_host.new_hash
@@ -391,14 +404,16 @@ class HostsManagerMixin(object):
             managed_host.new_state = response.get_current_level().exit_code
             managed_host.updated = datetime.now()
         self.save_data(self.get_managed_data_filename(),self.managed_data)
-    
+
     def init_managed_hosts(self,data):
         from pynag.Control import Command
-        self.pynag_cmd = Command
+        #self.pynag_cmd = Command
+        self.pynag_cmd = NoAttr
         self.managed_responses = {}
         self.load_managed_data()
 
     def get_managed_response(self,hostname):
+        hostname = self.normalize_hostname(hostname)
         if hostname in self.managed_responses:
             return self.managed_responses[hostname]
         response_class = getattr(self,'managed_reponse_class',self.response_class)
