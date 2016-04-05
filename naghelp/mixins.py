@@ -9,6 +9,7 @@
 from naghelp import *
 from textops import *
 import re
+import time
 
 __all__ = ['GaugeMixin','GaugeException','HostsManagerMixin']
 
@@ -395,21 +396,21 @@ class HostsManagerMixin(object):
         return hostname and hostname in self.managed_data.hosts
 
     def save_managed_data(self):
-        self.debug('**************************************************** save_managed_data')
         for hostname, response in self.managed_responses.items():
             managed_host = self.managed_data.hosts[hostname]
             managed_host.prev_hash = managed_host.new_hash
             managed_host.new_hash = response.get_hash()
             managed_host.prev_state = managed_host.new_state
             managed_host.new_state = response.get_current_level().exit_code
-            managed_host.updated = datetime.now()
+            managed_host.updated = int(time.time())
         self.save_data(self.get_managed_data_filename(),self.managed_data)
 
     def init_managed_hosts(self,data):
         from pynag.Control import Command
-        #self.pynag_cmd = Command
-        self.pynag_cmd = NoAttr
+        self.pynag_cmd = Command
         self.managed_responses = {}
+        self.managed_lock = Lockfile(self.get_managed_data_filename())
+        self.managed_lock.acquire()
         self.load_managed_data()
 
     def get_managed_response(self,hostname):

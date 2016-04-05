@@ -18,6 +18,7 @@ from host import *
 from response import *
 from collect import *
 from perf import *
+from tools import *
 from mixins import *
 import traceback
 
