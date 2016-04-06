@@ -15,7 +15,7 @@ import os
 
 __all__ = ['Timeout', 'TimeoutError', 'Lockfile']
 
-class TimeoutError(naghelp.CollectError):
+class TimeoutError(Exception):
     """Exception raised when a connection or a collect it too long to process
 
     It may come from unreachable remote host, too long lasting commands, bad pattern matching on

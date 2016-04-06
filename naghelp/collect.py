@@ -18,6 +18,7 @@ import traceback
 import fcntl
 import errno
 import os
+from .tools import Timeout, TimeoutError
 
 __all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'Http',
            'CollectError', 'ConnectionError', 'NotConnected', 'UnexpectedResultError']

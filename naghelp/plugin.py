@@ -843,7 +843,7 @@ class ActivePlugin(Plugin):
         msg_lines = msg.splitlines()
         synopsis = ''.join(msg_lines[:1])
         body = '\n'.join(msg_lines[1:])
-        if exception is None or not isinstance(exception, naghelp.CollectError):
+        if exception is None or not isinstance(exception, (naghelp.CollectError,naghelp.TimeoutError)):
             import traceback
             body += 'traceback : ' + traceback.format_exc() + '\n'
             if self.data:

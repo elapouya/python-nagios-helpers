@@ -362,7 +362,13 @@ class HostsManagerMixin(object):
     managed_response_retention_delta = 0
     managed_hosts = None
     managed_data_filename = '/tmp/managed_hosts.json'
-
+    
+    def __init__(self,*args,**kwargs):
+        from pynag.Control import Command
+        from pynag import Model
+        self.pynag_cmd = Command
+        self.pynag_model = Model
+        super(HostsManagerMixin,self).__init__(*args,**kwargs)
 
     def build_manager_response(self,data):
         pass
@@ -406,9 +412,8 @@ class HostsManagerMixin(object):
         self.save_data(self.get_managed_data_filename(),self.managed_data)
 
     def init_managed_hosts(self,data):
-        from pynag.Control import Command
-        self.pynag_cmd = Command
         self.managed_responses = {}
+        self.managed_nagios_states = dict([(srv.host_name,int(srv.get_current_status().current_state)) for srv in self.pynag_model.Service.objects.filter(service_description='ManagedHost')])
         self.managed_lock = Lockfile(self.get_managed_data_filename())
         self.managed_lock.acquire()
         self.load_managed_data()
@@ -427,20 +432,23 @@ class HostsManagerMixin(object):
         self.build_manager_response(data)
         self.build_managed_responses(data)
 
-    def get_plugin_managed_informations(self,hostname):
-        r"""Get plugin informations for managed hosts"""
-        out = '\n' + self.response.section_format('Plugin Informations') + '\n'
-        out += 'This host is managed by : %s (%s)\n' % (self.host.name, self.host.ip)
+    def get_plugin_managed_informations(self,response):
+        """Get plugin informations for managed hosts"""
+        managers = getattr(response,'managers',[self.host.name])
+        out = '\n' + response.section_format('Plugin Informations') + '\n'
+        out += 'This host is managed by : %s\n' % ','.join(managers)
         out += 'Manager plugin name : %s.%s\n' % (self.__class__.__module__,self.__class__.__name__)
-        level = self.response.get_current_level()
-        out += 'Response level : %s (%s), __sublevel__=%s' % (level.exit_code,level.name,self.response.sublevel)
+        level = response.get_current_level()
+        out += 'Response level : %s (%s), __sublevel__=%s' % (level.exit_code,level.name,response.sublevel)
         return out
 
     def send_managed_responses(self):
         for hostname, response in self.managed_responses.items():
             managed_host = self.managed_data.hosts[hostname]
-            if managed_host.new_hash != managed_host.prev_hash:
-                response.add_end(self.get_plugin_managed_informations(hostname))
+            self.debug('[%s] before : hash=%s,state=%s now : hash=%s,state=%s',hostname,managed_host.prev_hash,self.managed_nagios_states.get(hostname,0),managed_host.new_hash,managed_host.new_state)
+            if managed_host.new_hash != managed_host.prev_hash or self.managed_nagios_states.get(hostname,0) != managed_host.new_state:
+                self.debug('[%s] ---> sending alert',hostname)
+                response.add_end(self.get_plugin_managed_informations(response))
                 response.send(nagios_host=hostname,nagios_svc=self.managed_service_description,nagios_cmd=self.pynag_cmd)
 
     def save_host_data(self):
