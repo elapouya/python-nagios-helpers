@@ -390,9 +390,13 @@ class HostsManagerMixin(object):
         self.managed_data=self.load_data(self.get_managed_data_filename())
 
     def normalize_hostname(self,name):
+        if not name:
+            return 'noname'
         return re.sub(r'[^\w-]+','_',name.strip())
 
     def is_managed_host(self, hostname_or_serial):
+        if not hostname_or_serial:
+            return False
         hostname_or_serial = self.normalize_hostname(hostname_or_serial)
         if not hostname_or_serial:
             return False
@@ -413,7 +417,7 @@ class HostsManagerMixin(object):
 
     def init_managed_hosts(self,data):
         self.managed_responses = {}
-        self.managed_nagios_states = dict([(srv.host_name,int(srv.get_current_status().current_state)) for srv in self.pynag_model.Service.objects.filter(service_description='ManagedHost')])
+        self.managed_nagios_states = dict([(srv.host_name,int(srv.get_current_status().current_state)) for srv in self.pynag_model.Service.objects.filter(service_description=self.managed_service_description)])
         self.managed_lock = Lockfile(self.get_managed_data_filename())
         self.managed_lock.acquire()
         self.load_managed_data()
