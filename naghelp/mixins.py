@@ -362,7 +362,7 @@ class HostsManagerMixin(object):
     managed_response_retention_delta = 0
     managed_hosts = None
     managed_data_filename = '/tmp/managed_hosts.json'
-    
+
     def __init__(self,*args,**kwargs):
         from pynag.Control import Command
         from pynag import Model
@@ -379,6 +379,9 @@ class HostsManagerMixin(object):
     def get_managed_data_filename(self):
         return self.managed_data_filename
 
+    def clean_managed_host_data(self,hostname):
+        """Method to clean old managed data after loading them"""
+
     def get_managed_host_data(self,hostname):
         hostname = self.normalize_hostname(hostname)
         return self.get_managed_hosts_data().setdefault(hostname,DictExt())
@@ -388,6 +391,7 @@ class HostsManagerMixin(object):
 
     def load_managed_data(self):
         self.managed_data=self.load_data(self.get_managed_data_filename())
+        self.clean_managed_host_data()
 
     def normalize_hostname(self,name):
         if not name:
@@ -415,9 +419,12 @@ class HostsManagerMixin(object):
             managed_host.updated = int(time.time())
         self.save_data(self.get_managed_data_filename(),self.managed_data)
 
+    def get_managed_nagios_states(self):
+        return dict([(srv.host_name,int(srv.get_current_status().current_state)) for srv in self.pynag_model.Service.objects.filter(service_description=self.managed_service_description)])
+
     def init_managed_hosts(self,data):
         self.managed_responses = {}
-        self.managed_nagios_states = dict([(srv.host_name,int(srv.get_current_status().current_state)) for srv in self.pynag_model.Service.objects.filter(service_description=self.managed_service_description)])
+        self.managed_nagios_states = self.get_managed_nagios_states()
         self.managed_lock = Lockfile(self.get_managed_data_filename())
         self.managed_lock.acquire()
         self.load_managed_data()

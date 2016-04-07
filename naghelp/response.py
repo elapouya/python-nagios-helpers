@@ -11,6 +11,7 @@ from types import NoneType
 import re
 import traceback
 import hashlib
+from datetime import datetime
 
 __all__ = [ 'ResponseLevel', 'PluginResponse', 'OK', 'WARNING', 'CRITICAL', 'UNKNOWN', 'LevelComment' ]
 
@@ -1048,7 +1049,7 @@ class PluginResponse(object):
 
     def __str__(self):
         return self.get_output()
-    
+
     def get_hash(self):
         return hashlib.md5(self.get_output()).hexdigest()
 
@@ -1088,8 +1089,17 @@ class PluginResponse(object):
         naghelp.logger.debug('Plugin output :\n' + '#' * 80 + '\n' + out + '\n'+ '#' * 80)
 
         if nagios_cmd:
-            naghelp.logger.debug('Sending response to command pipe for %s/%s ...',nagios_host,nagios_svc)
-            nagios_cmd.process_service_check_result(nagios_host,nagios_svc,self.level.exit_code,out.replace('\n',r'\n'))
+            # if nagios_cmd is a string, response will be added into the specified file (useful for testing)
+            if isinstance(nagios_cmd,basestring):
+                naghelp.logger.debug('Sending response for %s/%s in file %s ...',nagios_host,nagios_svc,nagios_cmd)
+                with open(nagios_cmd,'w+') as fh:
+                    fh.write('='*80)
+                    fh.write('[%s] Response for %s/%s' % (datetime.now(),nagios_host,nagios_svc))
+                    fh.write('-'*80)
+                    fh.write(out)
+            else:
+                naghelp.logger.debug('Sending response to command pipe for %s/%s ...',nagios_host,nagios_svc)
+                nagios_cmd.process_service_check_result(nagios_host,nagios_svc,self.level.exit_code,out.replace('\n',r'\n'))
         else:
             naghelp.logger.debug('Sending response on stdout...')
             print out.encode('utf-8') if isinstance(out,unicode) else out
