@@ -459,6 +459,83 @@ class PluginResponse(object):
         if have_added and footer is not None:
             self.add_comment(level, footer,*args,**kwargs)
 
+    def add_mlist(self,levels,lists,headers=[],footers=[],*args,**kwargs):
+        """Add a list of lists of messages
+
+        This is useful with :class:`textops.sgrep` utility that returns lists of lists of messages.
+        first level will be affected to first list, second level to the second list and so on.
+
+        Args:
+
+            levels (ResponseLevel): a list of message levels. use a ``None`` level to skip a list.
+            lists (list): list of message lists.
+            header (str): Displayed before the message as a level comment if not None (Default : None)
+              one can use ``{_len}`` in the comment to get list count.
+            footer (str): Displayed after the message as a level comment if not None (Default : None)
+              one can use ``{_len}`` in the comment to get list count.
+            args (list): if additional arguments are given, messages in ``msg_list``
+                will be formatted with ``%`` (old-style python string formatting)
+            kwargs (dict): if named arguments are given, messages in ``msg_list``
+                will be formatted with :meth:`str.format`
+
+
+        Examples:
+
+            >>> from textops import StrExt
+            >>> r = PluginResponse(OK)
+            >>> logs = StrExt('''
+            ... Power 0 is critical
+            ... Power 1 is OK
+            ... Power 2 is degraded
+            ... Power 3 is failed
+            ... Power 4 is OK
+            ... Power 5 is degraded
+            ... ''')
+            >>>
+            >>> print logs.sgrep(('critical|failed','degraded|warning'))  #doctest: +NORMALIZE_WHITESPACE
+            [['Power 0 is critical', 'Power 3 is failed'],
+            ['Power 2 is degraded', 'Power 5 is degraded'],
+            ['', 'Power 1 is OK', 'Power 4 is OK']]
+            >>> r.add_mlist((CRITICAL,WARNING,OK),logs.sgrep(('critical|failed','degraded|warning')))
+            >>> print r                                                   #doctest: +NORMALIZE_WHITESPACE
+            STATUS : CRITICAL:2, WARNING:2, OK:2
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            Power 0 is critical
+            Power 3 is failed
+            <BLANKLINE>
+            ----( WARNING )-----------------------------------------------------------------
+            Power 2 is degraded
+            Power 5 is degraded
+            <BLANKLINE>
+            ----( OK )----------------------------------------------------------------------
+            Power 1 is OK
+            Power 4 is OK
+            <BLANKLINE>
+            >>> r = PluginResponse(OK)
+            >>> r.add_mlist((CRITICAL,WARNING,None),logs.sgrep(('critical|failed','degraded|warning')))
+            >>> print r
+            STATUS : CRITICAL:2, WARNING:2
+            ==================================[  STATUS  ]==================================
+            <BLANKLINE>
+            ----( CRITICAL )----------------------------------------------------------------
+            Power 0 is critical
+            Power 3 is failed
+            <BLANKLINE>
+            ----( WARNING )-----------------------------------------------------------------
+            Power 2 is degraded
+            Power 5 is degraded
+            <BLANKLINE>
+            <BLANKLINE>
+        """
+        for i,level in enumerate(levels):
+            if level is not None:
+                msg_list = lists[i] if i<len(lists) else []
+                header = headers[i] if i<len(headers) else None
+                footer = footers[i] if i<len(footers) else None
+                self.add_list(level,msg_list,header,footer,*args,**kwargs)
+
     def add_many(self,lst,*args,**kwargs):
         """Add several level messages NOT having a same level
 
