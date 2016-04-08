@@ -34,7 +34,9 @@ Telnet
 Local commands
 --------------
 .. autofunction:: runsh
+.. autofunction:: runshex
 .. autofunction:: mrunsh
+.. autofunction:: mrunshex
 
 Others
 ------

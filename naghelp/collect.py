@@ -20,7 +20,7 @@ import errno
 import os
 from .tools import Timeout, TimeoutError
 
-__all__ = ['search_invalid_port', 'runsh', 'mrunsh', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'Http',
+__all__ = ['search_invalid_port', 'runsh', 'runshex', 'mrunsh', 'mrunshex', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'Http',
            'CollectError', 'ConnectionError', 'NotConnected', 'UnexpectedResultError']
 
 class CollectError(Exception):
@@ -202,6 +202,64 @@ def runsh(cmd, context = {}, timeout = 30, expected_pattern=r'\S', unexpected_pa
         result = textops.run(cmd, context).l
         return _filter_result(result, key, cmd, expected_pattern, unexpected_pattern, filter)
 
+def runshex(cmd, context = {}, timeout = 30, expected_pattern=r'\S', unexpected_pattern=None,filter=None, key='',unexpected_stderr=True ):
+    r"""Run a local command with a timeout
+
+    | If the command is a string, it will be executed within a shell.
+    | If the command is a list (the command and its arguments), the command is executed without a shell.
+    | If a context dict is specified, the command is formatted with that context (:meth:`str.format`)
+
+    Args:
+
+        cmd (str or a list): The command to run
+        context (dict): The context to format the command to run (Optional)
+        timeout (int): The timeout in seconds after with the forked process is killed
+            and TimeoutException is raised (Default : 30s).
+        expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found.
+            if None, there is no test. By default, tests the result is not empty.
+        unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+            if None, there is no test. By default, there is no test.
+        filter (callable): call a filter function with ``result, key, cmd`` parameters.
+            The function should return the modified result (if there is no return statement,
+            the original result is used).
+            The filter function is also the place to do some other checks : ``cmd`` is the command
+            that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+            ``mget`` and ``mwalk``.
+            By Default, there is no filter.
+        key (str): a key string to appear in UnexpectedResultError if any.
+        unexpected_stderr (bool): When True (Default), it raises an error if stderr is not empty
+
+    Returns:
+
+        tuple: stdout, stderr, return code tuple
+
+    Note:
+
+        It returns **ONLY** stdout. If you want to get stderr, you need to redirect it to stdout.
+    """
+    with Timeout(seconds=timeout, error_message='Timeout (%ss) for command : %s' % (timeout,cmd)):
+        if isinstance(cmd, basestring):
+            if context:
+                cmd = cmd.format(**context)
+            p=subprocess.Popen(['sh','-c',cmd],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        elif isinstance(cmd, list):
+            if context:
+                cmd = [ i.format(**context) for i in cmd ]
+            p=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        stdout_msg = ''
+        stderr_msg = ''
+        while p.returncode is None:
+            (stdout, stderr) = p.communicate()
+            stdout_msg += stdout
+            stderr_msg += stderr
+        if isinstance(cmd, unicode):
+            cmd=cmd.encode('utf-8','replace')
+        else:
+            cmd=str(cmd)
+        if unexpected_stderr and stderr_msg:
+            _raise_unexpected_result(stderr_msg, key, cmd, help_str='<stderr> returned :')
+        return _filter_result(stdout_msg, key, cmd, expected_pattern, unexpected_pattern, filter),stderr_msg,p.returncode
+
 def mrunsh(cmds, context = {},cmd_timeout = 30, total_timeout = 60, expected_pattern=r'\S', unexpected_pattern=None, filter=None):
     r"""Run multiple local commands with timeouts
 
@@ -252,6 +310,60 @@ def mrunsh(cmds, context = {},cmd_timeout = 30, total_timeout = 60, expected_pat
             cmds = cmds.items()
         for k,cmd in cmds:
             dct[k] = runsh(cmd, context, cmd_timeout, expected_pattern, unexpected_pattern, filter, k)
+        return dct
+
+def mrunshex(cmds, context = {},cmd_timeout = 30, total_timeout = 60, expected_pattern=r'\S', unexpected_pattern=None, filter=None,unexpected_stderr=True):
+    r"""Run multiple local commands with timeouts
+
+    It works like :func:`runshex` except that one must provide a dictionary of commands.
+    It will generate the same dictionary where values will be replaced by command execution output.
+    It is possible to specify a by-command timeout and a global timeout for the whole dictionary.
+    stderr are store in ``<key>_stderr`` and return codes in ``<key>_rcode``
+
+    Args:
+
+        cmds (dict): dictionary where values are the commands to execute.
+
+            | If the command is a string, it will be executed within a shell.
+            | If the command is a list (the command and its arguments), the command is executed without a shell.
+            | If a context dict is specified, the command is formatted with that context (:meth:`str.format`)
+
+        context (dict): The context to format the command to run
+        cmd_timeout (int): The timeout in seconds for a single command
+        total_timeout (int): The timeout in seconds for the all commands
+        expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found.
+            if None, there is no test. By default, tests the result is not empty.
+        unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+            if None, there is no test. By default, there is no test.
+        filter (callable): call a filter function with ``result, key, cmd`` parameters.
+            The function should return the modified result (if there is no return statement,
+            the original result is used).
+            The filter function is also the place to do some other checks : ``cmd`` is the command
+            that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+            ``mget`` and ``mwalk``.
+            By Default, there is no filter.
+        unexpected_stderr (bool): When True (Default), it raises an error if stderr is not empty
+
+    Returns:
+
+        :class:`textops.DictExt`: Dictionary where each value is the Command execution stdout as a list of lines.
+
+    Note:
+
+        Command execution returns **ONLY** stdout. If you want to get stderr, you need to redirect it to stdout.
+
+    Examples:
+
+        >>> mrunsh({'now':'LANG=C date','quisuisje':'whoami'})
+        {'now': ['Wed Dec 16 11:50:08 CET 2015'], 'quisuisje': ['elapouya']}
+
+    """
+    with Timeout(seconds=total_timeout, error_message='Timeout (%ss) for mrunsh commands : %s' % (total_timeout,cmds)):
+        dct = textops.DictExt()
+        if isinstance(cmds,dict):
+            cmds = cmds.items()
+        for k,cmd in cmds:
+            dct[k],dct[k+'_stderr'],dct[k+'_rcode'] = runshex(cmd, context, cmd_timeout, expected_pattern, unexpected_pattern, filter, k,unexpected_stderr)
         return dct
 
 def debug_pattern_list(pat_list):

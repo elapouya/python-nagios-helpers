@@ -1068,7 +1068,7 @@ class ActivePlugin(Plugin):
     def save_host_data(self):
         """Save data before sending the built response"""
         self.host.save_data()
-        
+
     def send_response(self):
         self.response.send()
 
