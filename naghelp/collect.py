@@ -109,7 +109,7 @@ def _filter_result(result, key, cmd, expected_pattern=r'\S', unexpected_pattern=
     if unexpected_pattern:
         if isinstance(unexpected_pattern,basestring):
             unexpected_pattern = re.compile(unexpected_pattern)
-        if result | textops.haspattern(unexpected_pattern):
+        if result and result | textops.haspattern(unexpected_pattern):
             help_str = '-> found the pattern "%s" :\n\n' % unexpected_pattern.pattern
             help_str += result | textops.findhighlight(unexpected_pattern,line_nbr=True,nlines=5).tostr()
             _raise_unexpected_result(result, key, cmd, help_str)
@@ -1681,12 +1681,26 @@ class Http(object):
         port (int): port number to use (Default : 80 TCP)
         timeout (int): Time in seconds before raising an error or a None value
     """
-    def __init__(self,*args,**kwargs):
+    def __init__(self, expected_pattern=r'\S', unexpected_pattern=r'<timeout>',
+                 filter=None,*args,**kwargs):
         import requests
         self.requests = requests
+        self.expected_pattern = expected_pattern
+        self.unexpected_pattern = unexpected_pattern
+        self.filter = filter
         self.kwargs = kwargs
 
-    def get(self,url,*args,**kwargs):
+    def _get(self,url,*args,**kwargs):
+        naghelp.logger.debug('collect -> get("%s") %s',url,naghelp.debug_caller())
+        params = dict(self.kwargs)
+        params.update(kwargs)
+        try:
+            r = self.requests.get(url,**params)
+        except self.requests.Timeout,e:
+            raise ConnectionError(e)
+        return r.text if r.status_code==200 else ''
+
+    def get(self,url, expected_pattern=0, unexpected_pattern=0, filter=0,*args,**kwargs):
         """get one URL
 
         Args:
@@ -1698,16 +1712,12 @@ class Http(object):
 
             str: The page or NoAttr if URL is reachable but returned a Http Error
         """
-        naghelp.logger.debug('collect -> get("%s") %s',url,naghelp.debug_caller())
-        params = dict(self.kwargs)
-        params.update(kwargs)
-        try:
-            r = self.requests.get(url,**params)
-        except self.requests.Timeout,e:
-            raise ConnectionError(e)
-        return textops.UnicodeExt(r.text) if r.status_code==200 else NoAttr
+        out = self._get(url,*args,**kwargs)
+        return textops.UnicodeExt(_filter_result(out,'','GET %s' % url, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                         unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                         filter if filter != 0 else self.filter))
 
-    def mget(self,urls,*args,**kwargs):
+    def mget(self,urls, expected_pattern=0, unexpected_pattern=0, filter=0,*args,**kwargs):
         """Get multiple URLs at the same time
 
         Args:
@@ -1725,5 +1735,8 @@ class Http(object):
             cmds = cmds.items()
         for k,cmd in cmds:
             if k:
-                dct[k] = self.get(url,*args,**kwargs)
+                out = self._get(url,*args,**kwargs)
+                dct[k] = textops.UnicodeExt(_filter_result(out,k,url, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                                 unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                                 filter if filter != 0 else self.filter))
         return dct
