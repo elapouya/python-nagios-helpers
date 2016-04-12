@@ -1,4 +1,4 @@
-0.1.6 (2016-03-05)
+0.1.6 (2016-04-12)
 ------------------
 Add HostsManager Mixin
 Add collect.Http class
