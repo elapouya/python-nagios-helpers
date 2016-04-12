@@ -16,6 +16,11 @@ Expect
 .. autoclass:: Expect
    :members:
 
+Http
+----
+.. autoclass:: Http
+   :members:
+
 Snmp
 ----
 .. autoclass:: Snmp

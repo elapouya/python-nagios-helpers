@@ -54,6 +54,7 @@ setup(name='python-nagios-helpers',
                           'pexpect',
                           'python-textops',
                           'pysnmp',
+                          'requests',
                           ],
       eager_resources = ['docs'],
       zip_safe=False)
