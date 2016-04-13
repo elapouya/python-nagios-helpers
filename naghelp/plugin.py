@@ -1029,6 +1029,7 @@ class ActivePlugin(Plugin):
         out += 'Plugin name : %s.%s\n' % (self.__class__.__module__,self.__class__.__name__)
         out += 'Description : %s\n' % ( self.__class__.__doc__ or 'no description.' ).splitlines()[0].strip()
         out += 'Ports used : tcp = %s, udp = %s\n' % (self.get_tcp_ports() or 'none',self.get_udp_ports() or 'none')
+        out += 'Execution date : %s\n' % datetime.datetime.now()
         delta = datetime.datetime.now() - self.starttime
         out += 'Execution time : %s\n' % delta
         level = self.response.get_current_level()
