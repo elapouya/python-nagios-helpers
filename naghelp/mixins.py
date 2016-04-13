@@ -449,7 +449,7 @@ class HostsManagerMixin(object):
         out = '\n' + response.section_format('Plugin Informations') + '\n'
         out += 'This host is managed by : %s\n' % ','.join(managers)
         out += 'Manager plugin name : %s.%s\n' % (self.__class__.__module__,self.__class__.__name__)
-        out += 'Execution date : %s\n' % datetime.datetime.now()
+        out += 'Update date : %s\n' % datetime.datetime.now()
         level = response.get_current_level()
         out += 'Response level : %s (%s), __sublevel__=%s' % (level.exit_code,level.name,response.sublevel)
         return out
