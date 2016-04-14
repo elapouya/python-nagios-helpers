@@ -1,3 +1,8 @@
+0.1.7 (2016-04-14)
+------------------
+Add Execution date for active plugins in plugin informations section
+Add Update date in plugin informations for Managed hosts
+
 0.1.6 (2016-04-12)
 ------------------
 Add HostsManager Mixin
