@@ -15,6 +15,8 @@ from datetime import datetime
 
 __all__ = [ 'ResponseLevel', 'PluginResponse', 'OK', 'WARNING', 'CRITICAL', 'UNKNOWN', 'LevelComment' ]
 
+MAX_PIPE_OUTPUT_LENGTH = 7000
+
 class ResponseLevel(object):
     """Object to use when exiting a naghelp plugin
 
@@ -1052,7 +1054,7 @@ class PluginResponse(object):
         """
         return msg.replace('|','!')
 
-    def get_output(self):
+    def get_output(self,body_max_length=None):
         r"""Renders the whole response following the Nagios syntax
 
         This method is automatically called when the response is sent by :meth:`send`.
@@ -1118,6 +1120,10 @@ class PluginResponse(object):
         if self.more_msgs:
             body += self.section_format('Additionnal informations') + '\n'
             body += '\n'.join(self.more_msgs)
+
+        if body_max_length and len(body) > body_max_length:
+            body = body[:body_max_length] + '...\n\n--- Message is too big for nagios : it has been truncated ---\n\n'
+
         body += '\n'.join(self.end_msgs)
 
         out += self.escape_msg(body)
@@ -1147,6 +1153,12 @@ class PluginResponse(object):
             synopsis(str): force a synopsis (optional),
             msg(str): add a last level message (optional),
             sublevel(int): force a sublevel [0-3] (optional),
+            nagios_host (str): nagios hostname (only for passive response)
+            nagios_svc (str): nagios service (only for passive response)
+            nagios_cmd (str or pynag obj): if None, the response goes to stdout : this is for
+                active plugin. if string the response is sent to the corresponding file for debug.
+                if it is a pynag cmd object, the response is sent to the nagios pipe for
+                host ``nagios_host`` and for service ``nagios_svc`` : this is for a passive plugin.
         """
         if isinstance(level,ResponseLevel):
             self.set_level(level)
@@ -1161,7 +1173,7 @@ class PluginResponse(object):
 
         naghelp.logger.info('Plugin output summary : %s' % self.synopsis)
 
-        out = self.get_output()
+        out = self.get_output(MAX_PIPE_OUTPUT_LENGTH if nagios_cmd else None)
 
         naghelp.logger.debug('Plugin output :\n' + '#' * 80 + '\n' + out + '\n'+ '#' * 80)
 
