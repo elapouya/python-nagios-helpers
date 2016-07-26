@@ -1110,7 +1110,7 @@ class PluginResponse(object):
             synopsis_start += '...'
 
         out = self.escape_msg(synopsis_start)
-        out +=  '|%s\n' % self.perf_items[0] if self.perf_items else '\n'
+        out += '|%s\n' % self.perf_items[0] if self.perf_items else '\n'
 
         if synopsis_first_line[synopsis_maxlen:]:
             out += '... %s\n' % self.escape_msg(synopsis_first_line[synopsis_maxlen:])
@@ -1127,7 +1127,7 @@ class PluginResponse(object):
         body += '\n'.join(self.end_msgs)
 
         out += self.escape_msg(body)
-        out +=  '|%s' % '\n'.join(self.perf_items[1:]) if len(self.perf_items)>1 else ''
+        out += '|%s' % ' ' + ' '.join(self.perf_items[1:]) if len(self.perf_items)>1 else ''
         return out
 
     def __str__(self):
