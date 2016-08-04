@@ -1,3 +1,7 @@
+0.1.8 (2016-08-04)
+------------------
+Perf data in plugin output are now space separated
+
 0.1.7 (2016-04-14)
 ------------------
 Add Execution date for active plugins in plugin informations section
