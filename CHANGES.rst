@@ -1,3 +1,7 @@
+0.1.9 (2016-08-26)
+------------------
+Map all options in host object (not only host__*)
+
 0.1.8 (2016-08-04)
 ------------------
 Perf data in plugin output are now space separated

@@ -745,8 +745,8 @@ class ActivePlugin(Plugin):
         This create :class:`optparse.OptionParser` instance and add some basic options
 
         It also add options corresponding to Host parameters. The host parameters will be stored
-        first into OptionParse's options object (``plugin.options``) at ``host__<parameter>`` attribute, later it is
-        set to host object at attribute ``<parameter>``
+        first into OptionParse's options object (``plugin.options``), later it is
+        set to host object.
 
         This method is automatically called when the plugin is run.
         Avoid to override this method, prefer to customize :meth:`add_cmd_options`
@@ -757,7 +757,7 @@ class ActivePlugin(Plugin):
         if host_params_desc:
             group = OptionGroup(self._cmd_parser, 'Host attributes','To be used to force host attributes values')
             for param,desc in host_params_desc.items():
-                group.add_option('--%s' % param, action='store', type='string', dest="host__%s" % param, metavar=param.upper(), help=desc)
+                group.add_option('--%s' % param, action='store', type='string', dest=param, metavar=param.upper(), help=desc)
             self._cmd_parser.add_option_group(group)
 
         self._cmd_parser.add_option('-n', action='store_true', dest='in_nagios_env',
