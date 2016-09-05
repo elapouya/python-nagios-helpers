@@ -578,30 +578,32 @@ class ActivePlugin(Plugin):
     It is highly recommended to use the following parameters name as their description has been
     already defined by the method :meth:`get_plugin_host_params_tab` :
 
-    ==================  ==================================================
-     NAME                DESCRIPTION
-    ==================  ==================================================
-     name               Hostname
-     ip                 Host IP address
-     subtype            Plugin subtype (usually host model)
-     user               User
-     passwd             Password
-     console_ip         Console or controller IP address
-     snmpversion        SNMP protocal version (1,2 or 3)
-     community          SNMP community
-     community_alt      SNMP community for other device
-     authpp             SNMP authentification passphrase
-     authproto          SNMP authentification protocal (md5 or sha)
-     privpp             SNMP privacy passphrase
-     privproto          SNMP privacy protocal (des or aes)
-     protocol           ssh or telnet
-     port               Port number
-     maxwarn            Gauge max value for a warning status
-     maxcrit            Gauge max value for a critical status
-     minwarn            Gauge min value for a warning status
-     mincrit            Gauge min value for a critical status
-     options            Additionnal options
-    ==================  ==================================================
+    ====================  ==================================================
+     NAME                  DESCRIPTION
+    ====================  ==================================================
+     name                 Hostname
+     ip                   Host IP address
+     subtype              Plugin subtype (usually host model)
+     user                 User
+     passwd               Password
+     console_ip           Console or controller IP address
+     snmpversion          SNMP protocal version (1,2 or 3)
+     community            SNMP community
+     community_alt        SNMP community for other device
+     authpp               SNMP authentification passphrase
+     authproto            SNMP authentification protocal (md5 or sha)
+     privpp               SNMP privacy passphrase
+     privproto            SNMP privacy protocal (des or aes)
+     protocol             ssh or telnet
+     port                 Port number
+     collect_cmd_timeout  Maximum time allowed for one collect command
+     collect_all_timeout  Maximum time allowed for the whole collect process
+     maxwarn              Gauge max value for a warning status
+     maxcrit              Gauge max value for a critical status
+     minwarn              Gauge min value for a warning status
+     mincrit              Gauge min value for a critical status
+     options              Additionnal options
+    ====================  ==================================================
 
     Note that ``name`` and ``ip`` are hard coded :
     you must use them for Nagios hostname and hostaddress.
@@ -706,26 +708,28 @@ class ActivePlugin(Plugin):
         If you want to create specific parameters, add them in the dictionary with their description
         by overriding this method in a subclass.
         """
-        return  {   'name'           : 'Hostname',
-                    'ip'             : 'Host IP address',
-                    'subtype'        : 'Plugin subtype (usually host model)',
-                    'user'           : 'User',
-                    'passwd'         : 'Password',
-                    'console_ip'     : 'Console or controller IP address',
-                    'snmpversion'    : 'SNMP protocal version (1,2 or 3)',
-                    'community'      : 'SNMP community',
-                    'community_alt'  : 'SNMP community for other device',
-                    'authpp'         : 'SNMP authentification passphrase',
-                    'authproto'      : 'SNMP authentification protocal (md5 or sha)',
-                    'privpp'         : 'SNMP privacy passphrase',
-                    'privproto'      : 'SNMP privacy protocal (des or aes)',
-                    'protocol'       : 'ssh or telnet',
-                    'port'           : 'Port number',
-                    'maxwarn'        : 'Gauge max value for a warning status',
-                    'maxcrit'        : 'Gauge max value for a critical status',
-                    'minwarn'        : 'Gauge min value for a warning status',
-                    'mincrit'        : 'Gauge min value for a critical status',
-                    'options'        : 'Additionnal options',
+        return  {   'name'                  : 'Hostname',
+                    'ip'                    : 'Host IP address',
+                    'subtype'               : 'Plugin subtype (usually host model)',
+                    'user'                  : 'User',
+                    'passwd'                : 'Password',
+                    'console_ip'            : 'Console or controller IP address',
+                    'snmpversion'           : 'SNMP protocal version (1,2 or 3)',
+                    'community'             : 'SNMP community',
+                    'community_alt'         : 'SNMP community for other device',
+                    'authpp'                : 'SNMP authentification passphrase',
+                    'authproto'             : 'SNMP authentification protocal (md5 or sha)',
+                    'privpp'                : 'SNMP privacy passphrase',
+                    'privproto'             : 'SNMP privacy protocal (des or aes)',
+                    'protocol'              : 'ssh or telnet',
+                    'port'                  : 'Port number',
+                    'collect_cmd_timeout'   : 'Maximum time allowed for one collect command',
+                    'collect_all_timeout'   : 'Maximum time allowed for the whole collect process',
+                    'maxwarn'               : 'Gauge max value for a warning status',
+                    'maxcrit'               : 'Gauge max value for a critical status',
+                    'minwarn'               : 'Gauge min value for a warning status',
+                    'mincrit'               : 'Gauge min value for a critical status',
+                    'options'               : 'Additionnal options',
                 }
 
     def get_plugin_host_params_desc(self):

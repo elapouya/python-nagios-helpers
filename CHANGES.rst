@@ -1,3 +1,7 @@
+0.1.10 (2016-09-05)
+-------------------
+add collect_* options
+
 0.1.9 (2016-08-26)
 ------------------
 Map all options in host object (not only host__*)
