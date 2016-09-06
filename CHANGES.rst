@@ -1,6 +1,7 @@
 0.1.10 (2016-09-05)
 -------------------
 add collect_* options
+add timeout for collect_data()
 
 0.1.9 (2016-08-26)
 ------------------

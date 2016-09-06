@@ -26,6 +26,8 @@ import socket
 #
 pp = pprint.PrettyPrinter(indent=4)
 
+COLLECT_ALL_TIMEOUT = 900
+
 __all__ = [ 'ActivePlugin' ]
 
 class Plugin(object):
@@ -638,7 +640,7 @@ class ActivePlugin(Plugin):
     :attr:`cmd_params` are required.
     """
 
-    forced_params = 'name,ip'
+    forced_params = 'name,ip,collect_cmd_timeout,collect_all_timeout'
     """Attribute you can set to force all your plugins to have some default :class:`~naghelp.Host`
     parameters.
     These parameters are automatically added to the plugin attribute :attr:`cmd_params`.
@@ -760,7 +762,7 @@ class ActivePlugin(Plugin):
         host_params_desc = self.get_plugin_host_params_desc()
         if host_params_desc:
             group = OptionGroup(self._cmd_parser, 'Host attributes','To be used to force host attributes values')
-            for param,desc in host_params_desc.items():
+            for param,desc in sorted(host_params_desc.items()):
                 group.add_option('--%s' % param, action='store', type='string', dest=param, metavar=param.upper(), help=desc)
             self._cmd_parser.add_option_group(group)
 
@@ -1113,8 +1115,11 @@ class ActivePlugin(Plugin):
                 self.info('Collected data are restored')
             else:
                 try:
-                    self.collect_data(self.data)
+                    collect_timeout = int(self.host.collect_all_timeout or COLLECT_ALL_TIMEOUT)
+                    with naghelp.Timeout(seconds=collect_timeout, error_message='Collect process timeout'):
+                        self.collect_data(self.data)
                 except Exception,e:
+                    self.debug('Collect exception : %s',e)
                     if self.get_tcp_ports():
                         self.info('Checking TCP ports %s ...' % self.get_tcp_ports())
                         self.check_ports()
