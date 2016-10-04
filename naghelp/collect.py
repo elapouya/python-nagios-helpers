@@ -56,6 +56,13 @@ class UnexpectedResultError(CollectError):
     """
     pass
 
+class InvalidCommandError(CollectError):
+    """Exception raised when a command to be run is invalid
+
+    Usually, this is raised for empty command
+    """
+    pass
+
 def search_invalid_port(ip,ports):
     """Returns the first invalid port encountered or None if all are reachable
 
@@ -87,7 +94,7 @@ def search_invalid_port(ip,ports):
             return port
     return None
 
-def is_ping_ok(ip,timeout=5):
+def is_ping_ok(ip,timeout=10):
     """Returns True if the ip pings OK
 
     Args:
@@ -100,8 +107,8 @@ def is_ping_ok(ip,timeout=5):
         True if ping is OK.
     """
     try:
-        with Timeout(seconds = timeout):
-            return os.system('ping -c 1 %s > /dev/null 2>&1' % ip) == 0
+        out,err,rc = runshex('ping -c 1 %s' % ip,timeout=timeout)
+        return rc == 0
     except TimeoutError:
         return False
 
@@ -217,9 +224,11 @@ def runsh(cmd, context = {}, timeout = 30, expected_pattern=r'\S', unexpected_pa
         >>> print l
         ['ls: cannot access /etc/does_not_exist: No such file or directory']
     """
-    with Timeout(seconds=timeout, error_message='Timeout (%ss) for command : %s' % (timeout,cmd)):
-        result = textops.run(cmd, context).l
-        return _filter_result(result, key, cmd, expected_pattern, unexpected_pattern, filter)
+    stdout, stderr, rc = runshex(cmd, context = context, timeout = timeout, 
+                               expected_pattern = expected_pattern, 
+                               unexpected_pattern = unexpected_pattern, filter=filter, key=key,
+                               unexpected_stderr = False )
+    return stdout.splitlines() 
 
 def runshex(cmd, context = {}, timeout = 30, expected_pattern=r'\S', unexpected_pattern=None,filter=None, key='',unexpected_stderr=True ):
     r"""Run a local command with a timeout
@@ -256,14 +265,19 @@ def runshex(cmd, context = {}, timeout = 30, expected_pattern=r'\S', unexpected_
 
         It returns **ONLY** stdout. If you want to get stderr, you need to redirect it to stdout.
     """
+    if not cmd:
+        raise InvalidCommandError('Command is empty')
+                
     with Timeout(seconds=timeout, error_message='Timeout (%ss) for command : %s' % (timeout,cmd)):
         if isinstance(cmd, basestring):
             if context:
                 cmd = cmd.format(**context)
-            p=subprocess.Popen(['sh','-c',cmd],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            p=subprocess.Popen(['timeout','%ss' % timeout,'sh','-c',cmd],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         elif isinstance(cmd, list):
             if context:
                 cmd = [ i.format(**context) for i in cmd ]
+            if cmd[0] != 'timeout':
+                cmd[0:0] = ['timeout','%ss' % timeout]
             p=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         stdout_msg = ''
         stderr_msg = ''
