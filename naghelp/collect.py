@@ -20,7 +20,8 @@ import errno
 import os
 from .tools import Timeout, TimeoutError
 
-__all__ = ['search_invalid_port', 'runsh', 'runshex', 'mrunsh', 'mrunshex', 'Expect', 'Telnet', 'Ssh', 'Snmp', 'Http',
+__all__ = ['search_invalid_port', 'is_ping_ok', 'runsh', 'runshex', 'mrunsh', 'mrunshex', 
+           'Expect', 'Telnet', 'Ssh', 'Snmp', 'Http',
            'CollectError', 'ConnectionError', 'NotConnected', 'UnexpectedResultError']
 
 class CollectError(Exception):
@@ -85,6 +86,24 @@ def search_invalid_port(ip,ports):
         except:
             return port
     return None
+
+def is_ping_ok(ip,timeout=5):
+    """Returns True if the ip pings OK
+
+    Args:
+
+        ip (str): ip address to test
+        timeout (int): timeout after witch the ping is considerated as bad.
+
+    Returns:
+
+        True if ping is OK.
+    """
+    try:
+        with Timeout(seconds = timeout):
+            return os.system('ping -c 1 %s > /dev/null 2>&1' % ip) == 0
+    except TimeoutError:
+        return False
 
 def _raise_unexpected_result(result, key, cmd, help_str=''):
     if isinstance(result,textops.ListExt):
