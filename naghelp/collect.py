@@ -20,8 +20,8 @@ import errno
 import os
 from .tools import Timeout, TimeoutError
 
-__all__ = ['search_invalid_port', 'is_ping_ok', 'runsh', 'runshex', 'mrunsh', 'mrunshex', 
-           'Expect', 'Telnet', 'Ssh', 'Snmp', 'Http',
+__all__ = ['search_invalid_port', 'is_ping_ok', 'runsh', 'runshex', 'mrunsh', 'mrunshex',
+           'Expect', 'Telnet', 'Ssh', 'Sftp', 'Snmp', 'Http',
            'CollectError', 'ConnectionError', 'NotConnected', 'UnexpectedResultError']
 
 class CollectError(Exception):
@@ -224,11 +224,11 @@ def runsh(cmd, context = {}, timeout = 30, expected_pattern=r'\S', unexpected_pa
         >>> print l
         ['ls: cannot access /etc/does_not_exist: No such file or directory']
     """
-    stdout, stderr, rc = runshex(cmd, context = context, timeout = timeout, 
-                               expected_pattern = expected_pattern, 
+    stdout, stderr, rc = runshex(cmd, context = context, timeout = timeout,
+                               expected_pattern = expected_pattern,
                                unexpected_pattern = unexpected_pattern, filter=filter, key=key,
                                unexpected_stderr = False )
-    return stdout.splitlines() 
+    return stdout.splitlines()
 
 def runshex(cmd, context = {}, timeout = 30, expected_pattern=r'\S', unexpected_pattern=None,filter=None, key='',unexpected_stderr=True ):
     r"""Run a local command with a timeout
@@ -267,7 +267,7 @@ def runshex(cmd, context = {}, timeout = 30, expected_pattern=r'\S', unexpected_
     """
     if not cmd:
         raise InvalidCommandError('Command is empty')
-                
+
     with Timeout(seconds=timeout, error_message='Timeout (%ss) for command : %s' % (timeout,cmd)):
         if isinstance(cmd, basestring):
             if context:
@@ -1311,6 +1311,109 @@ class Ssh(object):
         if auto_close:
             self.close()
         return dct
+
+class Sftp(object):
+    r"""Sftp class helper
+
+    This class is a wrapper around the paramiko sftp client, see
+    `sftp client documentation <http://docs.paramiko.org/en/2.0/api/sftp.html>`_ for available methods.
+
+    Args:
+
+        host (str): IP address or hostname to connect to
+        user (str): The username to use for login
+        password (str): The password
+        timeout (int): Time in seconds before raising an error or a None value
+        prompt_pattern (str): None by Default. If defined, the way to run commands is to capture
+            the command output up to the prompt pattern. If not defined, it uses paramiko exec_command()
+            method (preferred way).
+        get_pty (bool): Create a pty, this is useful for some ssh connection (Default: False)
+        expected_pattern (str or regex): raise UnexpectedResultError if the pattern is not found
+            in methods that collect data (like run,mrun,get,mget,walk,mwalk...)
+            if None, there is no test. By default, tests the result is not empty.
+        unexpected_pattern (str or regex): raise UnexpectedResultError if the pattern is found
+            if None, there is no test. By default, it tests <timeout>.
+        filter (callable): call a filter function with ``result, key, cmd`` parameters.
+            The function should return the modified result (if there is no return statement,
+            the original result is used).
+            The filter function is also the place to do some other checks : ``cmd`` is the command
+            that generated the ``result`` and ``key`` the key in the dictionary for ``mrun``,
+            ``mget`` and ``mwalk``.
+            By Default, there is no filter.
+        add_stderr (bool): If True, the stderr will be added at the end of results (Default: True)
+        port (int): port number to use (Default : 0 = 22)
+        pkey (PKey): an optional private key to use for authentication
+        key_filename (str):
+            the filename, or list of filenames, of optional private key(s) to
+            try for authentication
+        allow_agent (bool): set to False to disable connecting to the SSH agent
+        look_for_keys (bool): set to False to disable searching for discoverable private key
+            files in ``~/.ssh/``
+        compress (bool): set to True to turn on compression
+        sock (socket): an open socket or socket-like object (such as a `.Channel`) to use
+            for communication to the target host
+        gss_auth (bool): ``True`` if you want to use GSS-API authentication
+        gss_kex (bool):  Perform GSS-API Key Exchange and user authentication
+        gss_deleg_creds (bool): Delegate GSS-API client credentials or not
+        gss_host (str): The targets name in the kerberos database. default: hostname
+        banner_timeout (float): an optional timeout (in seconds) to wait
+            for the SSH banner to be presented.
+
+        Example:
+
+            s=Sftp('localhost','mylogin','mypasswd')
+            s.chdir('remotedir')
+            os.chdir('localdir')
+            s.get('remotefile','mylocalfile')
+            s.close()
+    """
+    def __init__(self,host, user, password=None, timeout=30, auto_accept_new_host=True,
+                 prompt_pattern=None, get_pty=False, *args,**kwargs):
+        #import is done only on demand, because it takes some little time
+        import paramiko
+        self.in_with = False
+        self.is_connected = False
+        self.prompt_pattern = prompt_pattern
+        self.get_pty = get_pty
+        self.client = paramiko.SSHClient()
+        if not host:
+            raise ConnectionError('No host specified for Ssh')
+        if not user:
+            raise ConnectionError('No user specified for Ssh')
+        if auto_accept_new_host:
+            self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.client.load_system_host_keys()
+        naghelp.logger.debug('collect -> #### Sftp( %s@%s ) ###############',user, host)
+        try:
+            self.client.connect(host,username=user,password=password, timeout=timeout, **kwargs)
+            self.sftp = self.client.open_sftp()
+        except Exception,e:
+            raise ConnectionError(e)
+        naghelp.logger.debug('collect -> is_connected = True')
+        self.is_connected = True
+
+    def __enter__(self):
+        self.in_with = True
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.in_with = False
+        self.close()
+
+    def __getattr__(self, attr):
+        meth = getattr(self.sftp,attr,None)
+        if callable(meth):
+            if not self.is_connected:
+                raise NotConnected('No sftp connection to run your command.')
+            return meth
+        raise AttributeError
+
+    def close(self):
+        if not self.in_with:
+            self.client.close()
+            self.is_connected = False
+            naghelp.logger.debug('collect -> #### Sftp : Connection closed ###############')
+
 
 class Snmp(object):
     r"""Snmp class helper
