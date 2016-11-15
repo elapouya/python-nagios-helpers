@@ -16,6 +16,10 @@ To install::
 
     pip install python-nagios-helpers
 
+You may have to install some linux package::
+
+    sudo apt-get install libffi-dev
+
 Quickstart
 ----------
 
