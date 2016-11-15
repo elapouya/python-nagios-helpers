@@ -20,6 +20,10 @@ You may have to install some linux package::
 
     sudo apt-get install libffi-dev
 
+    or
+
+    sudo yum install libffi-devel
+
 Quickstart
 ----------
 
