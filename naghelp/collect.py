@@ -149,7 +149,7 @@ def _filter_result(result, key, cmd, expected_pattern=r'\S', unexpected_pattern=
             else:
                 _raise_unexpected_result(result, key, cmd, '-> cannot find the pattern "%s"' % expected_pattern.pattern)
 
-    return result
+    return textops.extend_type(result)
 
 def _debug_caller_info():
     if naghelp.logger.getEffectiveLevel() == naghelp.logging.DEBUG:

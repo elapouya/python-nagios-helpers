@@ -1,3 +1,7 @@
+0.1.11 (2017-09-05)
+-------------------
+runsh* now return extended type for textops operations
+
 0.1.10 (2016-09-05)
 -------------------
 add collect_* options
