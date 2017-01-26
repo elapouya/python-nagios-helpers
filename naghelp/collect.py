@@ -1238,9 +1238,9 @@ class Ssh(object):
             out = '<timeout>'
         if auto_close:
             self.close()
-        return textops.StrExt(_filter_result(out,'',cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+        return _filter_result(out,'',cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
                                                          unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
-                                                         filter if filter != 0 else self.filter))
+                                                         filter if filter != 0 else self.filter)
 
     def mrun(self, cmds, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
         r"""Execute many commands at the same time
@@ -1849,9 +1849,9 @@ class Http(object):
             str: The page or NoAttr if URL is reachable but returned a Http Error
         """
         out = self._get(url,*args,**kwargs)
-        return textops.UnicodeExt(_filter_result(out,'','GET %s' % url, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+        return _filter_result(out,'','GET %s' % url, expected_pattern if expected_pattern != 0 else self.expected_pattern,
                                                          unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
-                                                         filter if filter != 0 else self.filter))
+                                                         filter if filter != 0 else self.filter)
 
     def mget(self,urls, expected_pattern=0, unexpected_pattern=0, filter=0,*args,**kwargs):
         """Get multiple URLs at the same time
@@ -1872,7 +1872,7 @@ class Http(object):
         for k,cmd in cmds:
             if k:
                 out = self._get(url,*args,**kwargs)
-                dct[k] = textops.UnicodeExt(_filter_result(out,k,url, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                dct[k] = _filter_result(out,k,url, expected_pattern if expected_pattern != 0 else self.expected_pattern,
                                                                  unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
-                                                                 filter if filter != 0 else self.filter))
+                                                                 filter if filter != 0 else self.filter)
         return dct

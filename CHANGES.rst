@@ -1,4 +1,8 @@
-0.1.11 (2017-09-05)
+0.1.12 (2017-01-26)
+-------------------
+remove unusefull code
+
+0.1.11 (2017-01-26)
 -------------------
 runsh* now return extended type for textops operations
 
