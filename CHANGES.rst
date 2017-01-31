@@ -1,4 +1,4 @@
-0.1.13 (2017-01-31)
+0.1.14 (2017-01-31)
 -------------------
 Remove version limitation over sphinx package in setup.py
 
