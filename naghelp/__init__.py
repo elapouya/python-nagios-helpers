@@ -4,9 +4,9 @@
 # Copyright (C) 2015 Eric Lapouyade
 #
 
-__version__ = '0.1.12'
+__version__ = '0.1.14'
 __author__ = 'Eric Lapouyade'
-__copyright__ = 'Copyright 2015-2016, python-nagios-helpers project'
+__copyright__ = 'Copyright 2015-2017, python-nagios-helpers project'
 __credits__ = ['Eric Lapouyade']
 __license__ = 'LGPL'
 __maintainer__ = 'Eric Lapouyade'

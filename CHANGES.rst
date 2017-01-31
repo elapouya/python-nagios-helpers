@@ -1,3 +1,7 @@
+0.1.13 (2017-01-31)
+-------------------
+Remove version limitation over sphinx package in setup.py
+
 0.1.12 (2017-01-26)
 -------------------
 remove unusefull code
