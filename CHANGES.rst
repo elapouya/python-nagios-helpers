@@ -1,3 +1,7 @@
+0.1.15 (2017-03-20)
+-------------------
+Fix case where there is no docstring for a plugin
+
 0.1.14 (2017-01-31)
 -------------------
 Remove version limitation over sphinx package in setup.py

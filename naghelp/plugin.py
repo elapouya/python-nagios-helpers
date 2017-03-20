@@ -218,10 +218,10 @@ class Plugin(object):
                                             'name'  : member.__name__,
                                             'module': cls.plugins_basemodule + module_name,
                                             'path'  : os.sep.join(module_name.split('.'))+'.py',
-                                            'desc'  : doc.splitlines()[0]
+                                            'desc'  : doc.splitlines()[0] if doc else 'No description'
                                         }
                                 except Exception,e:
-                                    #print e
+                                    #traceback.print_exc()
                                     pass
                         except Exception,e:
                             #print e
@@ -259,7 +259,7 @@ class Plugin(object):
     @classmethod
     def get_plugin_desc(cls):
         """Returns the plugin description. By default return the class docstring. """
-        return cls.__doc__.strip() or ''
+        return cls.__doc__.strip() if cls.__doc__ else ''
 
     def init_cmd_options(self):
         """Create OptionParser instance and add some basic options
