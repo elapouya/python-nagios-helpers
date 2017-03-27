@@ -1,3 +1,7 @@
+0.1.16 (2017-03-27)
+-------------------
+Now possible to instanciate a plugin with extra options
+
 0.1.15 (2017-03-20)
 -------------------
 Fix case where there is no docstring for a plugin

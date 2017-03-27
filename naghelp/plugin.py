@@ -68,7 +68,7 @@ class Plugin(object):
     """Log file backup file number"""
 
     @classmethod
-    def get_instance(cls, plugin_name):
+    def get_instance(cls, plugin_name,**extra_options):
         """Generate a plugin instance from its name string
 
         This method is useful when you only know at execution time the name of
@@ -114,7 +114,7 @@ class Plugin(object):
         plugin_class = cls.get_plugin_class(plugin_name)
         if not plugin_class:
             return None
-        return plugin_class()
+        return plugin_class(**extra_options)
 
     @classmethod
     def get_plugin(cls,plugin_name):
@@ -351,7 +351,7 @@ class Plugin(object):
         The parsed options are stored in ``self.options`` and arguments in ``self.args``
         """
         (options, args) = self._cmd_parser.parse_args()
-        self.options = options
+        self.options = NoAttrDict(vars(options))
         self.args = args
         if self.options.show_description:
             print self.get_plugin_desc()
@@ -695,9 +695,10 @@ class ActivePlugin(Plugin):
     In some situation, one may prefer to send an ``UKNOWN`` state by default.
     """
 
-    def __init__(self):
+    def __init__(self,**extra_options):
         self.starttime = datetime.datetime.now()
         self.response = self.response_class(default_level=self.default_level)
+        self.extra_options = extra_options
 
     def get_plugin_host_params_tab(self):
         """Returns a dictionary of Host parameters description
@@ -793,6 +794,7 @@ class ActivePlugin(Plugin):
         plugin main part.
         """
         super(ActivePlugin,self).handle_cmd_options()
+        self.options.update(self.extra_options)
         if self.options.show_description:
             print self.get_plugin_desc()
             UNKNOWN.exit()
@@ -1079,6 +1081,12 @@ class ActivePlugin(Plugin):
     def send_response(self):
         self.response.send()
 
+    def load_host_data(self):
+        self.manage_cmd_options()
+        self.host = self.host_class(self)
+        self.init_logger()
+        self.host.load_data()
+
     def run(self):
         """Run the plugin
 
@@ -1100,10 +1108,7 @@ class ActivePlugin(Plugin):
 
         """
         try:
-            self.manage_cmd_options()
-            self.host = self.host_class(self)
-            self.init_logger()
-            self.host.load_data()
+            self.load_host_data()
 
             self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
 

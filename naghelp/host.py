@@ -326,7 +326,7 @@ class Host(dict):
         return self._plugin.load_data(self._get_persistent_filename()) or DictExt()
 
     def _get_params_from_cmd_options(self):
-        return dict([(k,v) for k,v in vars(self._plugin.options).items() if v is not None])
+        return dict([(k,v) for k,v in self._plugin.options.items() if v is not None])
 
     def _pprint(self):
         lst = []
