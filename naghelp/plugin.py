@@ -325,8 +325,8 @@ class Plugin(object):
             fh.setLevel(self.get_logger_file_level())
             formatter = logging.Formatter(self.logger_format)
             fh.setFormatter(formatter)
-            naghelp.logger.addHandler(fh)
-            textops.logger.addHandler(fh)
+            for logger in self.get_loggers():
+                logger.addHandler(fh)
             self.debug('Debug log file = %s' % logfile)
 
     def add_logger_console_handler(self):
@@ -335,13 +335,17 @@ class Plugin(object):
         ch.setLevel(self.get_logger_console_level())
         formatter = logging.Formatter(self.logger_format)
         ch.setFormatter(formatter)
-        naghelp.logger.addHandler(ch)
-        textops.logger.addHandler(ch)
+        for logger in self.get_loggers():
+            logger.addHandler(ch)
+
+    def get_loggers(self):
+        return [naghelp.logger,naghelp.logger]
 
     def init_logger(self):
         """Initialize logging """
-        naghelp.logger.setLevel(logging.DEBUG)
-        textops.logger.setLevel(logging.DEBUG)
+        level = self.get_logger_level()
+        for logger in self.get_loggers():
+            logger.setLevel(level)
         self.add_logger_console_handler()
         self.add_logger_file_handler()
 
@@ -699,6 +703,7 @@ class ActivePlugin(Plugin):
         self.starttime = datetime.datetime.now()
         self.response = self.response_class(default_level=self.default_level)
         self.extra_options = extra_options
+        self.feature='monitoring'
 
     def get_plugin_host_params_tab(self):
         """Returns a dictionary of Host parameters description
@@ -1013,6 +1018,12 @@ class ActivePlugin(Plugin):
         """
         pass
 
+    def get_plugin_informations_monitoring(self):
+        out = 'Ports used : tcp = %s, udp = %s\n' % (self.get_tcp_ports() or 'none',self.get_udp_ports() or 'none')
+        level = self.response.get_current_level()
+        out += 'Exit code : %s (%s), __sublevel__=%s' % (level.exit_code,level.name,self.response.sublevel)
+        return out
+
     def get_plugin_informations(self):
         r"""Get plugin informations
 
@@ -1036,12 +1047,10 @@ class ActivePlugin(Plugin):
         out = '\n' + self.response.section_format('Plugin Informations') + '\n'
         out += 'Plugin name : %s.%s\n' % (self.__class__.__module__,self.__class__.__name__)
         out += 'Description : %s\n' % ( self.__class__.__doc__ or 'no description.' ).splitlines()[0].strip()
-        out += 'Ports used : tcp = %s, udp = %s\n' % (self.get_tcp_ports() or 'none',self.get_udp_ports() or 'none')
         out += 'Execution date : %s\n' % datetime.datetime.now()
         delta = datetime.datetime.now() - self.starttime
         out += 'Execution time : %s\n' % delta
-        level = self.response.get_current_level()
-        out += 'Exit code : %s (%s), __sublevel__=%s' % (level.exit_code,level.name,self.response.sublevel)
+        out += getattr(self,'get_plugin_informations_%s' % self.feature)()
         return out
 
     def check_host_required_fields(self):
@@ -1087,16 +1096,11 @@ class ActivePlugin(Plugin):
         self.init_logger()
         self.host.load_data()
 
-    def run(self):
-        """Run the plugin
+    def do_monitoring(self):
+        """Run the monitoring feature of the plugin
 
-        This is the only method to call in your plugin script once you have define your own plugin class.
         It will take care of everything in that order :
 
-            #. Manage command line options (uses :attr:`cmd_params`)
-            #. Create the :class:`~naghelp.Host` object (store it in attribute :attr:`host`)
-            #. Activate logging (if asked in command line options with ``-v`` or ``-d``)
-            #. Load persistent data into :attr:`host`
             #. Collect monitoring informations with :meth:`collect_data`
             #. Check ports if an error occured while collecting data
             #. Parse collected data with :meth:`parse_data`
@@ -1107,64 +1111,83 @@ class ActivePlugin(Plugin):
                with appropriate exit code)
 
         """
-        try:
-            self.load_host_data()
+        self.load_host_data()
 
-            self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
+        self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
 
-            self.host.debug()
-            self.check_host_required_fields()
+        self.host.debug()
+        self.check_host_required_fields()
 
-            if self.options.restore_collected:
-                self.restore_collected_data()
-                self.info('Collected data are restored')
-            else:
-                try:
-                    collect_timeout = int(self.host.collect_all_timeout or COLLECT_ALL_TIMEOUT)
-                    with naghelp.Timeout(seconds=collect_timeout, error_message='Collect process timeout'):
-                        self.collect_data(self.data)
-                except Exception,e:
-                    self.debug('Collect exception : %s',e)
-                    if self.get_tcp_ports():
-                        self.info('Checking TCP ports %s ...' % self.get_tcp_ports())
-                        self.check_ports()
-                        self.info('All TCP ports are reachable')
-                    else:
-                        self.info('No port to check')
-                    msg = 'Failed to collect data : %s\n' % e
-                    self.error(msg, sublevel=1, exception=e)
+        if self.options.restore_collected:
+            self.restore_collected_data()
+            self.info('Collected data are restored')
+        else:
+            try:
+                collect_timeout = int(self.host.collect_all_timeout or COLLECT_ALL_TIMEOUT)
+                with naghelp.Timeout(seconds=collect_timeout, error_message='Collect process timeout'):
+                    self.collect_data(self.data)
+            except Exception,e:
+                self.debug('Collect exception : %s',e)
+                if self.get_tcp_ports():
+                    self.info('Checking TCP ports %s ...' % self.get_tcp_ports())
+                    self.check_ports()
+                    self.info('All TCP ports are reachable')
+                else:
+                    self.info('No port to check')
+                msg = 'Failed to collect data : %s\n' % e
+                self.error(msg, sublevel=1, exception=e)
 
-                self.info('Data are collected')
-            self.debug('Collected Data = \n%s' % pp.pformat(self.data).replace('\\n','\n'))
-            collected_keys = self.data.keys()
+            self.info('Data are collected')
+        self.debug('Collected Data = \n%s' % pp.pformat(self.data).replace('\\n','\n'))
+        collected_keys = self.data.keys()
 
-            if self.options.save_collected:
-                self.save_collected_data()
-                self.info('Collected data are saved')
+        if self.options.save_collected:
+            self.save_collected_data()
+            self.info('Collected data are saved')
 
-            if self.options.collect_and_print or self.options.parse_and_print:
-                print 'Collected Data ='
-                print pp.pformat(self.data).replace('\\n','\n')
-                if not self.options.parse_and_print:
-                    exit(0)
-
-            self.parse_data(self.data)
-            self.info('Data are parsed')
-            self.debug('Parsed Data = \n%s' % pp.pformat(self.data.exclude_keys(collected_keys)).replace('\\n','\n'))
-
-            if self.options.parse_and_print:
-                print 'Parsed Data ='
-                print pp.pformat(self.data.exclude_keys(collected_keys)).replace('\\n','\n')
+        if self.options.collect_and_print or self.options.parse_and_print:
+            print 'Collected Data ='
+            print pp.pformat(self.data).replace('\\n','\n')
+            if not self.options.parse_and_print:
                 exit(0)
 
-            self.build_response(self.data)
-            self.save_host_data()
-            self.response.add_end(self.get_plugin_informations())
-            self.send_response()
-        except Exception,e:
-            self.error('Plugin internal error : %s' % e, exception=e)
+        self.parse_data(self.data)
+        self.info('Data are parsed')
+        self.debug('Parsed Data = \n%s' % pp.pformat(self.data.exclude_keys(collected_keys)).replace('\\n','\n'))
+
+        if self.options.parse_and_print:
+            print 'Parsed Data ='
+            print pp.pformat(self.data.exclude_keys(collected_keys)).replace('\\n','\n')
+            exit(0)
+
+        self.build_response(self.data)
+        self.save_host_data()
+        self.response.add_end(self.get_plugin_informations())
+        self.send_response()
 
         self.error('Should never reach this point')
+
+    def do_feature(self):
+        """Run the appropriate feature depending on the options given"""
+        self.do_monitoring()
+
+    def run(self):
+        """Run the plugin with options given in command line, database or plugin initial extra_options
+
+        It will take care of everything in that order :
+
+            #. Manage command line options (uses :attr:`cmd_params`)
+            #. Create the :class:`~naghelp.Host` object (store it in attribute :attr:`host`)
+            #. Activate logging (if asked in command line options with ``-v`` or ``-d``)
+            #. Load persistent data into :attr:`host`
+            #. call do_feature() method
+        """
+        try:
+            self.load_host_data()
+            self.do_feature()
+        except Exception, e:
+            self.error('Plugin internal error : %s' % e, exception=e)
+
 
 def datetime_handler(obj):
     if isinstance(obj, (datetime.datetime,datetime.date)):
