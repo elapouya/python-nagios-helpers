@@ -320,23 +320,29 @@ class Plugin(object):
         """Activate logging to the log file """
         logfile = self.get_logger_file_logfile()
         if logfile:
-            fh = logging.handlers.RotatingFileHandler(logfile, maxBytes=self.logger_logsize,
-                                                           backupCount=self.logger_logbackup)
+            if not hasattr(Plugin,'_logger_file_handle'):
+                fh = logging.handlers.RotatingFileHandler(logfile, maxBytes=self.logger_logsize,
+                                                               backupCount=self.logger_logbackup)
+                formatter = logging.Formatter(self.logger_format)
+                fh.setFormatter(formatter)
+                for logger in self.get_loggers():
+                    logger.addHandler(fh)
+                Plugin._logger_file_handle = fh
+            fh = Plugin._logger_file_handle
             fh.setLevel(self.get_logger_file_level())
-            formatter = logging.Formatter(self.logger_format)
-            fh.setFormatter(formatter)
-            for logger in self.get_loggers():
-                logger.addHandler(fh)
             self.debug('Debug log file = %s' % logfile)
 
     def add_logger_console_handler(self):
         """Activate logging to the console """
-        ch = logging.StreamHandler()
+        if not hasattr(Plugin, '_logger_console_handler'):
+            ch = logging.StreamHandler()
+            formatter = logging.Formatter(self.logger_format)
+            ch.setFormatter(formatter)
+            for logger in self.get_loggers():
+                logger.addHandler(ch)
+            Plugin._logger_console_handler = ch
+        ch = Plugin._logger_console_handler
         ch.setLevel(self.get_logger_console_level())
-        formatter = logging.Formatter(self.logger_format)
-        ch.setFormatter(formatter)
-        for logger in self.get_loggers():
-            logger.addHandler(ch)
 
     def get_loggers(self):
         return [naghelp.logger,naghelp.logger]

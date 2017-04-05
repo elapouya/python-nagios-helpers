@@ -1,3 +1,7 @@
+0.1.17 (2017-04-05)
+-------------------
+do not add logger handler more than once
+
 0.1.16 (2017-03-27)
 -------------------
 Now possible to instanciate a plugin with extra options
