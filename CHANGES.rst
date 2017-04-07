@@ -1,3 +1,7 @@
+0.1.18 (2017-04-07)
+-------------------
+add post and session handling in Http() class
+
 0.1.17 (2017-04-05)
 -------------------
 do not add logger handler more than once

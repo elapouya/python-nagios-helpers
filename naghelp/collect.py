@@ -1820,7 +1820,9 @@ class Http(object):
     def __init__(self, expected_pattern=r'\S', unexpected_pattern=r'<timeout>',
                  filter=None,*args,**kwargs):
         import requests
+        requests.packages.urllib3.disable_warnings()
         self.requests = requests
+        self.session = requests
         self.expected_pattern = expected_pattern
         self.unexpected_pattern = unexpected_pattern
         self.filter = filter
@@ -1831,7 +1833,7 @@ class Http(object):
         params = dict(self.kwargs)
         params.update(kwargs)
         try:
-            r = self.requests.get(url,**params)
+            r = self.session.get(url,**params)
         except self.requests.Timeout,e:
             raise ConnectionError(e)
         return r.text if r.status_code==200 else ''
@@ -1876,3 +1878,84 @@ class Http(object):
                                                                  unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
                                                                  filter if filter != 0 else self.filter)
         return dct
+
+    def _post(self,url,*args,**kwargs):
+        naghelp.logger.debug('collect -> post("%s") %s',url,naghelp.debug_caller())
+        params = dict(self.kwargs)
+        params.update(kwargs)
+        try:
+            r = self.session.post(url,**params)
+        except self.requests.Timeout,e:
+            raise ConnectionError(e)
+        return r.text if r.status_code==200 else ''
+
+    def post(self,url, expected_pattern=0, unexpected_pattern=0, filter=0,*args,**kwargs):
+        """post one URL
+
+        Args:
+
+            url (str): The url to get
+            timeout (int): Time in seconds before raising an error or a None value
+
+        Returns:
+
+            str: The page or NoAttr if URL is reachable but returned a Http Error
+        """
+        out = self._post(url,*args,**kwargs)
+        return _filter_result(out,'','POST %s' % url, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                         unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                         filter if filter != 0 else self.filter)
+
+    def mpost(self,urls, expected_pattern=0, unexpected_pattern=0, filter=0,*args,**kwargs):
+        """Post multiple URLs at the same time
+
+        Args:
+
+            urls (dict): The urls to get
+            timeout (int): Time in seconds before raising an error or a None value
+
+        Returns:
+
+            :class:`textops.DictExt`: List of pages or NoAttr if not availables
+        """
+        naghelp.logger.debug('collect -> mpost(...) %s',naghelp.debug_caller())
+        dct = textops.DictExt()
+        if isinstance(cmds,dict):
+            cmds = cmds.items()
+        for k,cmd in cmds:
+            if k:
+                out = self._post(url,*args,**kwargs)
+                dct[k] = _filter_result(out,k,url, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                                 unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                                 filter if filter != 0 else self.filter)
+        return dct
+
+    def start_session(self):
+        self.session = self.requests.Session()
+
+    def close_session(self):
+        self.session.close()
+        self.session = self.requests
+
+    def __enter__(self):
+        """open a session when using a 'with' block
+
+        Usage exemple ::
+
+        with Http() as http:
+            # goto login page
+            r=http.get('https://mysite.tld/accounts/login/',verify=False)
+            # get csrf token if any (ex: Django website)
+            csrf=r.find_pattern(r"name='csrfmiddlewaretoken' value='([^']*)'")
+            # log in
+            http.post('https://mysite.tld/accounts/login/',verify=False,
+                       data={'next':'/','username':'mylogin','password':'mypassword','csrfmiddlewaretoken':csrf},
+                       headers={'Referer':'https://mysite.tld/accounts/login/'})
+            # get the wanted page
+            r=http.get('https://mysite.tld/config/',verify=False)
+        """
+        self.start_session()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close_session()
