@@ -67,6 +67,9 @@ class Plugin(object):
     logger_logbackup = 5
     """Log file backup file number"""
 
+    found_plugins = {}
+    """Plugins discovered during find_plugins() method"""
+
     @classmethod
     def get_instance(cls, plugin_name,**extra_options):
         """Generate a plugin instance from its name string
@@ -199,34 +202,37 @@ class Plugin(object):
             desc     the plugin description (first docstring line)
             =======  ==============================================
         """
-        plugins = {}
-        basedir = os.path.normpath(cls.plugins_basedir)
-        for root,dirs,files in os.walk(basedir):
-            if '/.' not in root and '__init__.py' in files:
-                for f in files:
-                    if f.endswith('.py') and not f.startswith('__'):
-                        path = os.path.join(root,f)
-                        try:
-                            module_name = path[len(basedir)+1:-3].replace(os.sep,'.')
-                            module = __import__(cls.plugins_basemodule + module_name,fromlist=[''])
-                            for name,member in module.__dict__.items():
-                                try:
-                                    if hasattr(member,'plugin_type') and getattr(member,'plugin_type') == cls.plugin_type and  not member.__dict__.get('abstract',False):
-                                        doc = member.get_plugin_desc()
-                                        plugins[member.__name__.lower()] = {
-                                            'class' : member,
-                                            'name'  : member.__name__,
-                                            'module': cls.plugins_basemodule + module_name,
-                                            'path'  : os.sep.join(module_name.split('.'))+'.py',
-                                            'desc'  : doc.splitlines()[0] if doc else 'No description'
-                                        }
-                                except Exception,e:
-                                    #traceback.print_exc()
-                                    pass
-                        except Exception,e:
-                            #print e
-                            pass
-        return plugins
+        # Discovered plugins are cached into found_plugins class attribute
+        if not cls.found_plugins:
+            plugins = {}
+            basedir = os.path.normpath(cls.plugins_basedir)
+            for root,dirs,files in os.walk(basedir):
+                if '/.' not in root and '__init__.py' in files:
+                    for f in files:
+                        if f.endswith('.py') and not f.startswith('__'):
+                            path = os.path.join(root,f)
+                            try:
+                                module_name = path[len(basedir)+1:-3].replace(os.sep,'.')
+                                module = __import__(cls.plugins_basemodule + module_name,fromlist=[''])
+                                for name,member in module.__dict__.items():
+                                    try:
+                                        if hasattr(member,'plugin_type') and getattr(member,'plugin_type') == cls.plugin_type and  not member.__dict__.get('abstract',False):
+                                            doc = member.get_plugin_desc()
+                                            plugins[member.__name__.lower()] = {
+                                                'class' : member,
+                                                'name'  : member.__name__,
+                                                'module': cls.plugins_basemodule + module_name,
+                                                'path'  : os.sep.join(module_name.split('.'))+'.py',
+                                                'desc'  : doc.splitlines()[0] if doc else 'No description'
+                                            }
+                                    except Exception,e:
+                                        #traceback.print_exc()
+                                        pass
+                            except Exception,e:
+                                #print e
+                                pass
+            cls.found_plugins = plugins
+        return cls.found_plugins
 
     @classmethod
     def find_plugins_import_errors(cls):

@@ -1,3 +1,7 @@
+0.1.19 (2017-04-22)
+-------------------
+Cache discovered plugins in find_plugins()
+
 0.1.18 (2017-04-07)
 -------------------
 add post and session handling in Http() class
