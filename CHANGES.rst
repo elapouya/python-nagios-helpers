@@ -1,3 +1,7 @@
+0.1.20 (2017-04-26)
+-------------------
+moving host debug traces into load_host_data()
+
 0.1.19 (2017-04-22)
 -------------------
 Cache discovered plugins in find_plugins()

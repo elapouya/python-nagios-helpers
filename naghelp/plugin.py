@@ -1107,6 +1107,7 @@ class ActivePlugin(Plugin):
         self.host = self.host_class(self)
         self.init_logger()
         self.host.load_data()
+        self.host.debug()
 
     def do_monitoring(self):
         """Run the monitoring feature of the plugin
@@ -1123,11 +1124,8 @@ class ActivePlugin(Plugin):
                with appropriate exit code)
 
         """
-        self.load_host_data()
+        self.info('Start do_monitoring() plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
 
-        self.info('Start plugin %s.%s for %s' % (self.__module__,self.__class__.__name__,self.host.name))
-
-        self.host.debug()
         self.check_host_required_fields()
 
         if self.options.restore_collected:
