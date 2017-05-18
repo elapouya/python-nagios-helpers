@@ -351,7 +351,7 @@ class Plugin(object):
         ch.setLevel(self.get_logger_console_level())
 
     def get_loggers(self):
-        return [naghelp.logger,naghelp.logger]
+        return [naghelp.logger,textops.logger]
 
     def init_logger(self):
         """Initialize logging """
