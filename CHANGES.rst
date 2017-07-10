@@ -1,3 +1,7 @@
+0.1.22 (2017-07-07)
+-------------------
+Add Ssh run_script(), get() and put() methods
+
 0.1.21 (2017-04-26)
 -------------------
 Add textops.logger as managed logger

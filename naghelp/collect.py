@@ -1125,6 +1125,7 @@ class Ssh(object):
         self.filter = filter
         self.add_stderr = add_stderr
         self.client = paramiko.SSHClient()
+        self.scpclient = None
         if not host:
             raise ConnectionError('No host specified for Ssh')
         if not user:
@@ -1241,6 +1242,47 @@ class Ssh(object):
         return _filter_result(out,'',cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
                                                          unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
                                                          filter if filter != 0 else self.filter)
+
+    def run_script(self, script, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, auto_strip=True, format_dict={}, **kwargs):
+        r"""Execute a script
+
+        Return:
+
+            :class:`textops.StrExt` : The script output or None on timeout
+
+        """
+        if not self.is_connected:
+            raise NotConnected('No ssh connection to run your command.')
+        try:
+            out = ''
+            for cmd in script.splitlines():
+                if auto_strip:
+                    cmd = cmd.strip()
+                if cmd:
+                    out += self._run_cmd(cmd.format(**format_dict),timeout=timeout)
+        except socket.timeout:
+            out = '<timeout>'
+        if auto_close:
+            self.close()
+        return _filter_result(out,'',cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
+                                                         unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
+                                                         filter if filter != 0 else self.filter)
+
+    def get(self,*args,**kwargs):
+        if not self.is_connected:
+            raise NotConnected('No ssh connection to do a scp.')
+        if not self.scpclient:
+            from scp import SCPClient
+            self.scpclient = SCPClient(self.client.get_transport())
+        return self.scpclient.get(*args,**kwargs)
+
+    def put(self,*args,**kwargs):
+        if not self.is_connected:
+            raise NotConnected('No ssh connection to do a scp.')
+        if not self.scpclient:
+            from scp import SCPClient
+            self.scpclient = SCPClient(self.client.get_transport())
+        return self.scpclient.put(*args,**kwargs)
 
     def mrun(self, cmds, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
         r"""Execute many commands at the same time
