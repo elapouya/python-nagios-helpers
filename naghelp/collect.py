@@ -1269,6 +1269,7 @@ class Ssh(object):
                                                          filter if filter != 0 else self.filter)
 
     def get(self,*args,**kwargs):
+        naghelp.logger.debug('collect -> get(%s,%s)',args,kwargs)
         if not self.is_connected:
             raise NotConnected('No ssh connection to do a scp.')
         if not self.scpclient:
@@ -1277,6 +1278,7 @@ class Ssh(object):
         return self.scpclient.get(*args,**kwargs)
 
     def put(self,*args,**kwargs):
+        naghelp.logger.debug('collect -> put(%s,%s)',args,kwargs)
         if not self.is_connected:
             raise NotConnected('No ssh connection to do a scp.')
         if not self.scpclient:
