@@ -1,3 +1,7 @@
+0.1.23 (2017-09-08)
+-------------------
+Move save_host_data() in plugin run() method
+
 0.1.22 (2017-07-07)
 -------------------
 Add Ssh run_script(), get() and put() methods
