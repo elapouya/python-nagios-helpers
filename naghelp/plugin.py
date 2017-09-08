@@ -1171,7 +1171,6 @@ class ActivePlugin(Plugin):
             exit(0)
 
         self.build_response(self.data)
-        self.save_host_data()
         self.response.add_end(self.get_plugin_informations())
         self.send_response()
 
@@ -1191,10 +1190,12 @@ class ActivePlugin(Plugin):
             #. Activate logging (if asked in command line options with ``-v`` or ``-d``)
             #. Load persistent data into :attr:`host`
             #. call do_feature() method
+            #. save host persistent data
         """
         try:
             self.load_host_data()
             self.do_feature()
+            self.save_host_data()
         except Exception, e:
             self.error('Plugin internal error : %s' % e, exception=e)
 
