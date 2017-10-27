@@ -254,6 +254,7 @@ class Plugin(object):
                             module_name = path[len(basedir)+1:-3].replace(os.sep,'.')
                             module = __import__(cls.plugins_basemodule + module_name,fromlist=[''])
                         except Exception,e:
+                            print traceback.format_exc()
                             plugin_files.append((os.sep.join(module_name.split('.'))+'.py',e))
                             pass
         return plugin_files
@@ -1172,6 +1173,9 @@ class ActivePlugin(Plugin):
 
         self.build_response(self.data)
         self.response.add_end(self.get_plugin_informations())
+        # need to save host data here in addition to run() method because
+        # send_response() will exit the program before otherwise
+        self.save_host_data()
         self.send_response()
 
         self.error('Should never reach this point')
