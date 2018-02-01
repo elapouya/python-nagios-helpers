@@ -1048,13 +1048,14 @@ class ActivePlugin(Plugin):
             Here an output::
 
                 >>> p = ActivePlugin()
-                >>> print p.get_plugin_informations() #doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+                >>> print p.get_plugin_informations() # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
                 <BLANKLINE>
                 ============================[ Plugin Informations ]=============================
                 Plugin name : naghelp.plugin.ActivePlugin
                 Description : Python base class for active nagios plugins
+                Execution date : ...
+                Execution time : ...
                 Ports used : tcp = none, udp = none
-                Execution time :...
                 Exit code : 0 (OK), __sublevel__=0
         """
         out = '\n' + self.response.section_format('Plugin Informations') + '\n'

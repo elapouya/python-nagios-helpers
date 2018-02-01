@@ -1,3 +1,7 @@
+0.2.0 (2018-02-01)
+------------------
+Add Winrm collect class
+
 0.1.23 (2017-09-08)
 -------------------
 Move save_host_data() in plugin run() method

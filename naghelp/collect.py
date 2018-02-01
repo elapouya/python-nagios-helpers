@@ -21,7 +21,7 @@ import os
 from .tools import Timeout, TimeoutError
 
 __all__ = ['search_invalid_port', 'is_ping_ok', 'runsh', 'runshex', 'mrunsh', 'mrunshex',
-           'Expect', 'Telnet', 'Ssh', 'Sftp', 'Snmp', 'Http',
+           'Expect', 'Telnet', 'Ssh', 'Sftp', 'Snmp', 'Http', 'Winrm',
            'CollectError', 'ConnectionError', 'NotConnected', 'UnexpectedResultError']
 
 class CollectError(Exception):
@@ -2003,3 +2003,158 @@ class Http(object):
 
     def __exit__(self, type, value, traceback):
         self.close_session()
+
+class Winrm(object):
+    """Winrm use Protocol of pywinrm.
+    Winrm can connect to windows cmd and execute command.
+    Configuration on Windows is necessary across PowerShell
+    Windows PowerShell version 3 is preferable
+    add by jean pinguet"""
+    def __init__(self, addr_ip='', user='', passwd='', transport='ssl'):
+        # import is done only on demand, because it takes some little time
+        from winrm.protocol import Protocol
+        self.Protocol = Protocol
+        self.addr_ip = addr_ip
+        self.user = user
+        self.passwd = passwd
+        self.transport = transport
+
+    def execlink(self,cmd=''):
+        """ for execlinkute winrm command  with user,passwd and ip
+            * *cmd* format is tuple (command, paramsOfCommand)"""
+        if cmd:
+            self.cmd = cmd
+        p = self.Protocol(
+            endpoint='https://{}:5986/wsman'.format(self.addr_ip),
+            transport=self.transport,
+            username=self.user,
+            password=self.passwd,
+            server_cert_validation='ignore')
+        try:
+            shell_id = p.open_shell()
+        except Exception, e:
+            raise Exception('Failed run_command: %s' % ('\n'.join(str(e).split('\n')[-10:])))
+        else:
+            try:
+                cmd, listparam = self.cmd
+                if not listparam:
+                    listparam = []
+                command_id = p.run_command(shell_id, cmd, listparam)
+            except Exception, e:
+                raise Exception('Failed run_command: %s' % ('\n'.join(str(e).split('\n')[-10:])))
+            else:
+                try:
+                    std_out, std_err, status_code = p.get_command_output(shell_id, command_id)
+                except Exception, e:
+                    raise Exception('Failed run_command: %s' % ('\n'.join(str(e).split('\n')[-10:])))
+                    p.close_shell(shell_id)
+                    return False, False, False
+                else:
+                    p.close_shell(shell_id)
+                    return std_out, std_err, status_code
+
+    def lstlecteur(self):
+        """create list of machine drives"""
+        self.cmd = ('fsutil', ['fsinfo', 'drives'])
+        std_out, std_err, status_code = self.execlink()
+        if status_code == 0:
+            lstlecteur = std_out.split() | textops.grepi('^\w{1}:').tolist()
+            return lstlecteur
+
+    def search_file(self,file,prefrep=''):
+        """search file, verify if file is in prefrep before
+        *prefrep* are str or list"""
+        if prefrep and isinstance(prefrep, basestring):
+            # test si file se trouve dans prefrep
+            self.cmd = ('dir',['"'+prefrep+'\\'+file+'"'])
+            std_out, std_err, status_code = self.execlink()
+            if status_code == 0:
+                return [prefrep]
+        if prefrep and isinstance(prefrep, list):
+            # verify if all list elements are in list
+            present = True
+            for rep in prefrep:
+                self.cmd = ('dir', ['"' + rep + '\\' + file + '"'])
+                std_out, std_err, status_code = self.execlink()
+                if status_code != 0:
+                    present = False
+                    break
+            if present:
+                return prefrep
+        lstfile = []
+        for lecteur in self.lstlecteur():
+            self.cmd = ('dir', ['{}{}'.format(lecteur,file), '/s', '| find "\\"'])
+            std_out, std_err, status_code = self.execlink()
+            if status_code == 0:
+                lstfile = lstfile + (textops.parseki.op(std_out,r'.*\s*(?P<msg>\w:\\.*)','msg'))
+        return lstfile
+
+    def move_existfile_to(self, file, rep):
+        """move existing file in rep that you want"""
+        chemin = self.search_file(file,rep)
+        if len(chemin) > 0:
+            if not [True for i in chemin if rep in i]:
+                repdep = chemin[0] # on prend le premier trouvé
+                return self.copy_file(file, repdep, rep)
+            else:
+                return 'file exist',0
+        else:
+            return 'error: file not exist',1
+
+    def copy_file(self, file, repdep, repdest):
+        """copy file of repdep to repdest"""
+        self.cmd = ('copy', ['"{}\\{}"'.format(repdep,file), '"{}"'.format(repdest)])
+        std_out, std_err, status_code = self.execlink()
+        if status_code != 0 and std_err:
+            raise ValueError(std_err)
+        return std_out, status_code
+
+
+    def exec_file(self,fileexe,arg,prefrep=''):
+        """run file.exe with the argument anywhere is the file.exe
+        *arg* is str - *exemple*  '"{repexe}\conrep.exe" -s'"""
+        chemin = self.search_file(fileexe,prefrep)
+        if len(chemin) > 0:
+            if prefrep and prefrep in chemin:
+                self.repexe = prefrep
+            else:
+                self.repexe = chemin[0]
+            self.cmd = (arg.format(repexe=self.repexe,fileexe=fileexe),[])
+            std_out, std_err, status_code = self.execlink()
+            if status_code != 0 and std_err:
+                raise ValueError(std_err)
+            return std_out,status_code,self.repexe
+        else:
+            return 'error: {} not exist'.format(fileexe), 1
+
+    def get_filetxt(self,filetxt,replocal,namefile):
+        """read txt file to put on file in replocal
+        filetxt : name file on server
+        replocal : name directory on sebox
+        namefile : name file on sebox"""
+        status_code = 1
+        chemin = self.search_file(filetxt,self.repexe)
+        if len(chemin) > 0:
+            self.cmd = ('type', ['"{}\\{}"'.format(chemin[0],filetxt)])
+            std_out, std_err, status_code = self.execlink()
+            if status_code != 0 and std_err:
+                raise ValueError(std_err)
+        if status_code == 0:
+            self.txt_to_file(std_out,replocal, namefile)
+            return replocal, namefile
+        else:
+            return None, None
+
+    def txt_to_file(self,text,replocal,namefile):
+        """copy text in file namefile in replocal
+        text : text to put in the file
+        replocal : name directory on sebox
+        namefile : name file on sebox"""
+        if not os.path.isdir(replocal):
+            os.mkdir(replocal)
+        fileloc = '{}/{}'.format(replocal, namefile)
+        fileconrep = open(fileloc, "w")
+        fileconrep.write(text)
+        fileconrep.close()
+        return replocal, namefile
+

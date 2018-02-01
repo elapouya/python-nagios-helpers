@@ -860,9 +860,7 @@ class PluginResponse(object):
             >>> print r
             OK|filesystem_/=55%;95;98;0;100
             Begin
-            End|filesystem_/usr=34%;95;98;0;100
-            cpu_wait=88%;40;60;0;100
-            cpu_user=12%;80;95;0;100
+            End| filesystem_/usr=34%;95;98;0;100 cpu_wait=88%;40;60;0;100 cpu_user=12%;80;95;0;100
         """
         naghelp.logger.debug('response -> add_perf_data("%s") %s',data,naghelp.debug_caller())
         if not isinstance(data,basestring):
