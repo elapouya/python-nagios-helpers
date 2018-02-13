@@ -2024,6 +2024,7 @@ class Winrm(object):
             * *cmd* format is tuple (command, paramsOfCommand)"""
         if cmd:
             self.cmd = cmd
+            naghelp.logger.debug('\n(collect.winrm.execlink) -->  self.cmd = %s' % str(self.cmd))
         p = self.Protocol(
             endpoint='https://{}:5986/wsman'.format(self.addr_ip),
             transport=self.transport,
@@ -2037,14 +2038,17 @@ class Winrm(object):
         else:
             try:
                 cmd, listparam = self.cmd
+                naghelp.logger.debug('\n(collect.winrm.execlink)--->  self.cmd = %s' % str(self.cmd))
                 if not listparam:
                     listparam = []
+                naghelp.logger.debug('\n(collect.winrm.execlink)--->  shell_id = %s ; listparam = %s' % (str(shell_id),str(listparam)))
                 command_id = p.run_command(shell_id, cmd, listparam)
             except Exception, e:
                 raise Exception('Failed run_command: %s' % ('\n'.join(str(e).split('\n')[-10:])))
             else:
                 try:
                     std_out, std_err, status_code = p.get_command_output(shell_id, command_id)
+                    naghelp.logger.debug('\n(collect.winrm.execlink)--->  status_code = [%s] ; std_err = %s ; \nstd_out = [%s] ' % (str(status_code),str(std_err),str(std_out)))
                 except Exception, e:
                     raise Exception('Failed run_command: %s' % ('\n'.join(str(e).split('\n')[-10:])))
                     p.close_shell(shell_id)
@@ -2055,19 +2059,34 @@ class Winrm(object):
 
     def lstlecteur(self):
         """create list of machine drives"""
+        lstlectfix = []
         self.cmd = ('fsutil', ['fsinfo', 'drives'])
+        naghelp.logger.debug('\n(collect.winrm.lstlecteur)--->   self.cmd = %s' % str(self.cmd))
         std_out, std_err, status_code = self.execlink()
+        naghelp.logger.debug('\n(collect.winrm.lstlecteur)--->  status_code = [%s] ; std_err = %s ; \nstd_out = [%s] ' % (str(status_code),str(std_err),str(std_out)))
         if status_code == 0:
-            lstlecteur = std_out.split() | textops.grepi('^\w{1}:').tolist()
-            return lstlecteur
+            lstlecteurs = std_out.split() | textops.grepi('^\w{1}:').tolist()
+            # tri des lecteurs utilisables
+            for lecteur in lstlecteurs:
+                self.cmd = ('fsutil fsinfo', ['drivetype', lecteur])
+                naghelp.logger.debug('\n(collect.winrm.lstlecteur)--->   self.cmd = %s' % str(self.cmd))
+                std_out, std_err, status_code = self.execlink()
+                naghelp.logger.debug('\n(collect.winrm.lstlecteur)--->  status_code = [%s] ; std_err = %s ; \nstd_out = [%s] ' % (str(status_code), str(std_err), str(std_out)))
+                if textops.haspatterni.op(std_out,'fixed|fixe') and textops.haspatterni.op(std_out,'drive|lecteur'):
+                    lstlectfix += [lecteur]
+            naghelp.logger.debug('\n(collect.winrm.lstlecteur)--->   lstlectfix = %s' % str(lstlectfix))
+            return lstlectfix
 
     def search_file(self,file,prefrep=''):
         """search file, verify if file is in prefrep before
         *prefrep* are str or list"""
+        naghelp.logger.debug('\n(collect.winrm.search_file)--->   file = %s ; prefrep = %s' % (str(file),str(prefrep)))
         if prefrep and isinstance(prefrep, basestring):
             # test si file se trouve dans prefrep
             self.cmd = ('dir',['"'+prefrep+'\\'+file+'"'])
+            naghelp.logger.debug('\n(collect.winrm.search_file)--->   self.cmd = %s' % str(self.cmd))
             std_out, std_err, status_code = self.execlink()
+            naghelp.logger.debug('\n(collect.winrm.search_file)--->  status_code = [%s] ; std_err = %s ; \nstd_out = [%s] ' % (str(status_code),str(std_err),str(std_out)))
             if status_code == 0:
                 return [prefrep]
         if prefrep and isinstance(prefrep, list):
@@ -2075,7 +2094,9 @@ class Winrm(object):
             present = True
             for rep in prefrep:
                 self.cmd = ('dir', ['"' + rep + '\\' + file + '"'])
+                naghelp.logger.debug('\n(collect.winrm.search_file)---> (present=True)   self.cmd = %s' % str(self.cmd))
                 std_out, std_err, status_code = self.execlink()
+                naghelp.logger.debug('\n(collect.winrm.search_file)---> (present=True)  status_code = [%s] ; std_err = %s ; \nstd_out = [%s] ' % (str(status_code),str(std_err),str(std_out)))
                 if status_code != 0:
                     present = False
                     break
@@ -2084,7 +2105,9 @@ class Winrm(object):
         lstfile = []
         for lecteur in self.lstlecteur():
             self.cmd = ('dir', ['{}{}'.format(lecteur,file), '/s', '| find "\\"'])
+            naghelp.logger.debug('\n(collect.winrm.search_file) -->  self.cmd = %s' % str(self.cmd))
             std_out, std_err, status_code = self.execlink()
+            naghelp.logger.debug('\n(collect.winrm.search_file) -->  status_code = [%s] ; std_err = %s ; \nstd_out = [%s] ' % (str(status_code),str(std_err),str(std_out)))
             if status_code == 0:
                 lstfile = lstfile + (textops.parseki.op(std_out,r'.*\s*(?P<msg>\w:\\.*)','msg'))
         return lstfile
@@ -2092,6 +2115,7 @@ class Winrm(object):
     def move_existfile_to(self, file, rep):
         """move existing file in rep that you want"""
         chemin = self.search_file(file,rep)
+        # naghelp.logger.debug('\n(collect.winrm.move_existfile_to)--->   chemin = %s ; file = %s ; rep = %s' % (str(chemin),str(file),str(rep)))
         if len(chemin) > 0:
             if not [True for i in chemin if rep in i]:
                 repdep = chemin[0] # on prend le premier trouvé
@@ -2104,7 +2128,9 @@ class Winrm(object):
     def copy_file(self, file, repdep, repdest):
         """copy file of repdep to repdest"""
         self.cmd = ('copy', ['"{}\\{}"'.format(repdep,file), '"{}"'.format(repdest)])
+        naghelp.logger.debug('\n(collect.winrm.copy_file)--->   self.cmd = %s' % str(self.cmd))
         std_out, std_err, status_code = self.execlink()
+        naghelp.logger.debug('\n(collect.winrm.copy_file)--->   status_code = [%s] ; std_err = %s ; \nstd_out = [%s] ' % (str(status_code),str(std_err),str(std_out)))
         if status_code != 0 and std_err:
             raise ValueError(std_err)
         return std_out, status_code
@@ -2113,13 +2139,16 @@ class Winrm(object):
     def exec_file(self,fileexe,arg,prefrep=''):
         """run file.exe with the argument anywhere is the file.exe
         *arg* is str - *exemple*  '"{repexe}\conrep.exe" -s'"""
+        naghelp.logger.debug('(collect.winrm.exec_file)--->   fileexe = %s ; prefrep = %s' % (str(fileexe),str(prefrep)))
         chemin = self.search_file(fileexe,prefrep)
+        naghelp.logger.debug('(collect.winrm.exec_file)--->   chemin = %s' % str(chemin))
         if len(chemin) > 0:
             if prefrep and prefrep in chemin:
                 self.repexe = prefrep
             else:
                 self.repexe = chemin[0]
             self.cmd = (arg.format(repexe=self.repexe,fileexe=fileexe),[])
+            naghelp.logger.debug('(collect.winrm.exec_file)--->   self.cmd = %s' % str(self.cmd))
             std_out, std_err, status_code = self.execlink()
             if status_code != 0 and std_err:
                 raise ValueError(std_err)
@@ -2136,7 +2165,9 @@ class Winrm(object):
         chemin = self.search_file(filetxt,self.repexe)
         if len(chemin) > 0:
             self.cmd = ('type', ['"{}\\{}"'.format(chemin[0],filetxt)])
+            naghelp.logger.debug('\n(collect.winrm.get_filetxt)--->   self.cmd = %s' % str(self.cmd))
             std_out, std_err, status_code = self.execlink()
+            naghelp.logger.debug('\n(collect.winrm.get_filetxt)--->   status_code = [%s] ; std_err = %s ; \nstd_out = [%s] ' % (str(status_code),str(std_err),str(std_out)))
             if status_code != 0 and std_err:
                 raise ValueError(std_err)
         if status_code == 0:
@@ -2153,6 +2184,7 @@ class Winrm(object):
         if not os.path.isdir(replocal):
             os.mkdir(replocal)
         fileloc = '{}/{}'.format(replocal, namefile)
+        naghelp.logger.debug('\n(collect.winrm.txt_to_file)--->   fileloc = %s ; replocal= %s' % (str(fileloc),str(replocal)))
         fileconrep = open(fileloc, "w")
         fileconrep.write(text)
         fileconrep.close()

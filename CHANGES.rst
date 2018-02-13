@@ -1,3 +1,7 @@
+0.2.1 (2018-02-01)
+------------------
+Update Winrm collect class
+
 0.2.0 (2018-02-01)
 ------------------
 Add Winrm collect class
