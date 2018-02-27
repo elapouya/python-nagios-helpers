@@ -1,3 +1,8 @@
+0.2.2 (2018-02-27)
+------------------
+Add object_identity_to_string option in Snmp class
+Add ignore_errors option in Snmp.*walk methods
+
 0.2.1 (2018-02-01)
 ------------------
 Update Winrm collect class

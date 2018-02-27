@@ -1480,16 +1480,26 @@ class Snmp(object):
         priv_protocol (str): snmp v3 privacy protocol ('des' or 'aes')
     """
     def __init__(self,host, community='public', version=None, timeout=30, port=161, user=None,
-                 auth_passwd=None, auth_protocol='', priv_passwd=None, priv_protocol='', *args,**kwargs):
-        #import is done only on demand, because it takes some little time
+                 auth_passwd=None, auth_protocol='', priv_passwd=None, priv_protocol='',
+                 object_identity_to_string=True, *args,**kwargs):
+        #import is done only on demand, because it takes some time
         from pysnmp.entity.rfc3413.oneliner import cmdgen
         from pysnmp.proto.api import v2c
         from pysnmp.smi.exval import noSuchInstance
+        from pysnmp.smi.rfc1902 import ObjectIdentity
+        from pysnmp.hlapi.context import ContextData
+        from pyasn1.compat.octets import null
+        from pysnmp.hlapi.asyncore import sync
         self.cmdgen = cmdgen
         self.v2c = v2c
         self.noSuchInstance = noSuchInstance
         self.cmdGenerator = cmdgen.CommandGenerator()
+        self.ContextData = ContextData
+        self.null = null
+        self.sync = sync
+        self.ObjectIdentity = ObjectIdentity
         self.version = version
+        self.object_identity_to_string = object_identity_to_string
         self.cmd_args = []
 
         if not version:
@@ -1520,7 +1530,7 @@ class Snmp(object):
 
         self.cmd_args.append(cmdgen.UdpTransportTarget((host, port),timeout = timeout/3, retries=2))
 
-    def to_native_type(self,oval):
+    def to_native_type(self, oval):
         v2c = self.v2c
         if isinstance(oval, v2c.Integer):
             val = int(oval.prettyPrint())
@@ -1540,6 +1550,8 @@ class Snmp(object):
             val = textops.StrExt(oval.prettyPrint())
         elif isinstance(oval, v2c.IpAddress):
             val = textops.StrExt(oval.prettyPrint())
+        elif self.object_identity_to_string and isinstance(oval, self.ObjectIdentity):
+            val = textops.StrExt(oval)
         else:
             val = oval
         return val
@@ -1618,7 +1630,31 @@ class Snmp(object):
                 raise CollectError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
         return self.to_native_type(varBinds[0][1])
 
-    def walk(self,oid_or_mibvar):
+    def nextCmd(self, authData, transportTarget, *varNames, **kwargs):
+        if 'lookupNames' not in kwargs:
+            kwargs['lookupNames'] = False
+        if 'lookupValues' not in kwargs:
+            kwargs['lookupValues'] = False
+        if 'lexicographicMode' not in kwargs:
+            kwargs['lexicographicMode'] = False
+        errorIndication, errorStatus, errorIndex = None, 0, 0
+        varBindTable = []
+        for errorIndication, \
+                errorStatus, errorIndex, \
+                varBinds \
+                in self.sync.nextCmd(self.cmdGenerator.snmpEngine, authData, transportTarget,
+                                self.ContextData(kwargs.get('contextEngineId'),
+                                            kwargs.get('contextName', self.null)),
+                                *[(x, self.cmdGenerator._null) for x in varNames],
+                                **kwargs):
+            if errorIndication or errorStatus:
+                return errorIndication, errorStatus, errorIndex, varBindTable
+
+            varBindTable.append(varBinds)
+
+        return errorIndication, errorStatus, errorIndex, varBindTable
+
+    def walk(self, oid_or_mibvar, ignore_errors=False):
         """Walk from a OID root path
 
         Args:
@@ -1646,22 +1682,23 @@ class Snmp(object):
         lst = textops.ListExt()
         args = list(self.cmd_args)
         args.append(oid_or_mibvar)
-        errorIndication, errorStatus, errorIndex, varBindTable = self.cmdGenerator.nextCmd(*args)
-        if errorIndication:
-            raise CollectError(errorIndication)
-        else:
-            if errorStatus:
-                try:
-                    err_at = errorIndex and varBindTable[-1][int(errorIndex)-1] or '?'
-                except:
-                    err_at = '?'
-                raise CollectError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
+        errorIndication, errorStatus, errorIndex, varBindTable = self.nextCmd(*args)
+        if not ignore_errors:
+            if errorIndication:
+                raise CollectError(errorIndication)
+            else:
+                if errorStatus:
+                    try:
+                        err_at = errorIndex and varBindTable[-1][int(errorIndex)-1] or '?'
+                    except:
+                        err_at = '?'
+                    raise CollectError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
         for varBindTableRow in varBindTable:
             for name, val in varBindTableRow:
                 lst.append((str(name),self.to_native_type(val)))
         return lst
 
-    def mwalk(self,vars_oids):
+    def mwalk(self, vars_oids, ignore_errors=False):
         """Walk from multiple OID root pathes
 
         Args:
@@ -1687,11 +1724,11 @@ class Snmp(object):
         """
         dct = textops.DictExt()
         for var,oid in vars_oids.items():
-            dct[var] = self.walk(oid)
+            dct[var] = self.walk(oid, ignore_errors)
         return dct
 
-    def dwalk(self,oid_or_mibvar,irow=-2,icol=-1,cols=None):
-        walk_data = self.walk(oid_or_mibvar)
+    def dwalk(self,oid_or_mibvar,irow=-2,icol=-1,cols=None, ignore_errors=False):
+        walk_data = self.walk(oid_or_mibvar, ignore_errors)
         dct={}
         for oid,val in walk_data:
             oid_bits = str(oid).split('.')
@@ -1700,8 +1737,8 @@ class Snmp(object):
             dct.setdefault(row,{}).setdefault(col,val)
         return textops.DictExt(dct)
 
-    def twalk(self,oid_or_mibvar,irow=-2,icol=-1,cols=None):
-        walk_data = self.walk(oid_or_mibvar)
+    def twalk(self,oid_or_mibvar,irow=-2,icol=-1,cols=None, ignore_errors=False):
+        walk_data = self.walk(oid_or_mibvar, ignore_errors)
         dct={}
         table=textops.ListExt()
         for oid,val in walk_data:
@@ -1720,9 +1757,10 @@ class Snmp(object):
                 table.append( dict([ (k,rec_dct.get(v,NoAttr)) for k,v in cols.items() ],_row=row_id) )
         return table
 
-    def jwalk(self,*twalks_args):
+    def jwalk(self, *twalks_args, **kwargs):
+        ignore_errors = kwargs.get('ignore_errors',False)
         dct={}
-        tables = textops.ListExt([ self.twalk(*twalk_args) for twalk_args in twalks_args ])
+        tables = textops.ListExt([ self.twalk(*twalk_args,ignore_errors=ignore_errors) for twalk_args in twalks_args ])
         if isinstance(twalks_args[0][-1],(list,tuple,type(None))):
             for args in twalks_args:
                 assert isinstance(args[-1],(list,tuple,type(None))), 'All wanted columns specifications must be lists/tuples/None'
@@ -1913,9 +1951,9 @@ class Http(object):
         """
         naghelp.logger.debug('collect -> mget(...) %s',naghelp.debug_caller())
         dct = textops.DictExt()
-        if isinstance(cmds,dict):
-            cmds = cmds.items()
-        for k,cmd in cmds:
+        if isinstance(urls,dict):
+            urls = urls.items()
+        for k,url in urls:
             if k:
                 out = self._get(url,*args,**kwargs)
                 dct[k] = _filter_result(out,k,url, expected_pattern if expected_pattern != 0 else self.expected_pattern,
@@ -1964,9 +2002,9 @@ class Http(object):
         """
         naghelp.logger.debug('collect -> mpost(...) %s',naghelp.debug_caller())
         dct = textops.DictExt()
-        if isinstance(cmds,dict):
-            cmds = cmds.items()
-        for k,cmd in cmds:
+        if isinstance(urls,dict):
+            urls = urls.items()
+        for k,url in urls:
             if k:
                 out = self._post(url,*args,**kwargs)
                 dct[k] = _filter_result(out,k,url, expected_pattern if expected_pattern != 0 else self.expected_pattern,
