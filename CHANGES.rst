@@ -1,7 +1,8 @@
-0.2.2 (2018-02-27)
+0.2.2 (2018-02-28)
 ------------------
 Add object_identity_to_string option in Snmp class
 Add ignore_errors option in Snmp.*walk methods
+Add SnmpWalkError exception to get truncated result
 
 0.2.1 (2018-02-01)
 ------------------

@@ -22,7 +22,8 @@ from .tools import Timeout, TimeoutError
 
 __all__ = ['search_invalid_port', 'is_ping_ok', 'runsh', 'runshex', 'mrunsh', 'mrunshex',
            'Expect', 'Telnet', 'Ssh', 'Sftp', 'Snmp', 'Http', 'Winrm',
-           'CollectError', 'ConnectionError', 'NotConnected', 'UnexpectedResultError']
+           'CollectError', 'ConnectionError', 'NotConnected', 'UnexpectedResultError',
+           'SnmpWalkError', ]
 
 class CollectError(Exception):
     """Exception raised when a collect is unsuccessful
@@ -31,6 +32,13 @@ class CollectError(Exception):
     some internal timeout exception.
     """
     pass
+
+class SnmpWalkError(Exception):
+    """Exception raised when Snmp.walk() failed
+    """
+    def __init__(self,truncated_result,*args,**kwargs):
+        self.truncated_result = truncated_result
+        super(SnmpWalkError, self).__init__(*args, **kwargs)
 
 class NotConnected(CollectError):
     """Exception raised when trying to collect data on an already close connection
@@ -1683,19 +1691,19 @@ class Snmp(object):
         args = list(self.cmd_args)
         args.append(oid_or_mibvar)
         errorIndication, errorStatus, errorIndex, varBindTable = self.nextCmd(*args)
+        for varBindTableRow in varBindTable:
+            for name, val in varBindTableRow:
+                lst.append((str(name),self.to_native_type(val)))
         if not ignore_errors:
             if errorIndication:
-                raise CollectError(errorIndication)
+                raise SnmpWalkError(lst,errorIndication)
             else:
                 if errorStatus:
                     try:
                         err_at = errorIndex and varBindTable[-1][int(errorIndex)-1] or '?'
                     except:
                         err_at = '?'
-                    raise CollectError('%s at %s' % (errorStatus.prettyPrint(),err_at) )
-        for varBindTableRow in varBindTable:
-            for name, val in varBindTableRow:
-                lst.append((str(name),self.to_native_type(val)))
+                    raise SnmpWalkError(lst,'%s at %s' % (errorStatus.prettyPrint(),err_at) )
         return lst
 
     def mwalk(self, vars_oids, ignore_errors=False):
