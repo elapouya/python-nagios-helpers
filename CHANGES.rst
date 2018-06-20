@@ -1,3 +1,7 @@
+0.2.3 (2018-06-20)
+------------------
+fix priv_protocol argument for collect.Snmp
+
 0.2.2 (2018-02-28)
 ------------------
 Add object_identity_to_string option in Snmp class
