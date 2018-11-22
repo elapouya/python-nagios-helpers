@@ -205,9 +205,16 @@ class Plugin(object):
         # Discovered plugins are cached into found_plugins class attribute
         if not cls.found_plugins:
             plugins = {}
+            excluded_dirs = []
             basedir = os.path.normpath(cls.plugins_basedir)
             for root,dirs,files in os.walk(basedir):
                 if '/.' not in root and '__init__.py' in files:
+                    if '.pypa_excluded' in files:
+                        excluded_dirs.append(root)
+                        continue
+                    for pth in excluded_dirs:
+                        if pth in root:
+                            continue
                     for f in files:
                         if f.endswith('.py') and not f.startswith('__'):
                             path = os.path.join(root,f)
