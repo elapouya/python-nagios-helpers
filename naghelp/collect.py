@@ -1196,6 +1196,15 @@ class Ssh(object):
             naghelp.debug_listing(cmd_out)
             return cmd_out
 
+    def _run_cmd_channels(self,cmd,timeout):
+        naghelp.logger.debug('collect -> run_channels("%s") %s',cmd,naghelp.debug_caller())
+        stdin, stdout, stderr = self.client.exec_command(cmd,timeout=timeout,get_pty=self.get_pty)
+        out = stdout.read()
+        err = stderr.read()
+        status = stdout.channel.recv_exit_status()
+        naghelp.debug_listing(out + err)
+        return out, err, status
+
     def run(self, cmd, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, **kwargs):
         r"""Execute one command
 
@@ -1250,6 +1259,53 @@ class Ssh(object):
         return _filter_result(out,'',cmd, expected_pattern if expected_pattern != 0 else self.expected_pattern,
                                                          unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
                                                          filter if filter != 0 else self.filter)
+
+    def run_channels(self, cmd, timeout=30, auto_close=True, **kwargs):
+        r"""Execute one command
+
+        Runs a single command at the usual prompt and then close the connection. Timeout
+        will not raise any error but will return None.
+        If you want to execute many commands without closing the connection, use ``with`` syntax.
+        This function returns 3 values : stdout dump, stderr dump and exit status.
+        Pattern testing and filtering is not available in this method
+        (see ``run()`` method if you want them)
+
+        Args:
+
+            cmd (str): The command to be executed
+            timeout (int): A timeout in seconds after which the result will be None
+            auto_close (bool): Automatically close the connection.
+
+        Return:
+
+            out (str), err (str), status (int): output on stdout, errors on stderr and exit status
+
+        Examples:
+
+            SSH with default login/password/prompt::
+
+                ssh = Ssh('localhost','www','wwwpassword')
+                out, err, status =  ssh.run_channels('ls -la')
+                print 'out = %s\nerr = %s\nstatus=%s' % (out, err, status)
+
+            SSH with multiple commands (use ``with`` to keep connection opened). This is
+            usefull when one command depend on another one::
+
+                with Ssh('localhost','www','wwwpassword') as ssh:
+                    cur_dir, err, status = ssh.run_channels('pwd').strip()
+                    if not err:
+                        big_files_full_path = ssh.run('find %s -type f -size +10000' % cur_dir)
+                print big_files_full_path
+        """
+        if not self.is_connected:
+            raise NotConnected('No ssh connection to run your command.')
+        try:
+            out, err, status = self._run_cmd_channels(cmd,timeout=timeout)
+        except socket.timeout:
+            out = '<timeout>'
+        if auto_close:
+            self.close()
+        return out, err, status
 
     def run_script(self, script, timeout=30, auto_close=True, expected_pattern=0, unexpected_pattern=0, filter=0, auto_strip=True, format_dict={}, **kwargs):
         r"""Execute a script
