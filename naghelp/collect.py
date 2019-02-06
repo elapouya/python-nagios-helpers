@@ -1260,7 +1260,7 @@ class Ssh(object):
                                                          unexpected_pattern if unexpected_pattern != 0 else self.unexpected_pattern,
                                                          filter if filter != 0 else self.filter)
 
-    def run_channels(self, cmd, timeout=30, auto_close=True, **kwargs):
+    def run_channels(self, cmd, timeout=30, auto_close=True):
         r"""Execute one command
 
         Runs a single command at the usual prompt and then close the connection. Timeout
@@ -1302,7 +1302,9 @@ class Ssh(object):
         try:
             out, err, status = self._run_cmd_channels(cmd,timeout=timeout)
         except socket.timeout:
-            out = '<timeout>'
+            out = ''
+            err = '<timeout>'
+            status = 124
         if auto_close:
             self.close()
         return out, err, status
@@ -1419,6 +1421,70 @@ class Ssh(object):
         if auto_close:
             self.close()
         return dct
+
+    def mrun_channels(self, cmds, timeout=30, auto_close=True):
+        r"""Execute many commands at the same time
+
+        Runs a dictionary of commands at the specified prompt and then close the connection.
+        Timeout will not raise any error but will return None for the running command.
+        It returns a dictionary where keys are the same as the ``cmds`` dict and the values are
+        the commmands output, error and status channels.
+
+        Args:
+
+            cmds (dict or list of items): The commands to be executed by remote host
+            timeout (int): A timeout in seconds after which the result will be None
+            auto_close (bool): Automatically close the connection.
+
+        Return:
+
+            :class:`textops.DictExt` : The commands output, error and status channels.
+
+        Example:
+
+            SSH with multiple commands::
+
+                ssh = Ssh('localhost','www','wwwpassword')
+                print ssh.mrun_channels({'cur_dir':'pwd','big_files':'find . -type f -size +10000'})
+
+            Will return something like::
+
+                {
+                    'cur_dir' : {
+                        'out' : '/home/www',
+                        'err' : '',
+                        'status': 0
+                    },
+                    'big_files' : {
+                        'out' : 'bigfile1\nbigfile2\nbigfile3\n...',
+                        'err' : '',
+                        'status': 0
+                    },
+                }
+
+            To be sure to have the commands order respected, use list of items instead of a dict::
+
+                ssh = Ssh('localhost','www','wwwpassword')
+                print ssh.mrun_channels( (('cmd','./mycommand'),('cmd_err','echo $?')) )
+
+        """
+        if not self.is_connected:
+            raise NotConnected('No ssh connection to run your command.')
+        dct = textops.DictExt()
+        if isinstance(cmds,dict):
+            cmds = cmds.items()
+        for k,cmd in cmds:
+            try:
+                out, err, status = self._run_cmd_channels(cmd,timeout=timeout)
+                if k:
+                    dct[k] = { 'out':out, 'err':err, 'status':status }
+            except socket.timeout:
+                if k:
+                    dct[k] = { 'out':'', 'err':'<timeout>', 'status':124 }
+        if auto_close:
+            self.close()
+        return dct
+
 
 class Sftp(object):
     r"""Sftp class helper
