@@ -1540,28 +1540,31 @@ class Snmp(object):
 
     def to_native_type(self, oval):
         v2c = self.v2c
-        if isinstance(oval, v2c.Integer):
-            val = int(oval.prettyPrint())
-        elif isinstance(oval, v2c.Integer32):
-            val = int(oval.prettyPrint())
-        elif isinstance(oval, v2c.Unsigned32):
-            val = int(oval.prettyPrint())
-        elif isinstance(oval, v2c.Counter32):
-            val = int(oval.prettyPrint())
-        elif isinstance(oval, v2c.Counter64):
-            val = int(oval.prettyPrint())
-        elif isinstance(oval, v2c.Gauge32):
-            val = int(oval.prettyPrint())
-        elif isinstance(oval, v2c.TimeTicks):
-            val = int(oval.prettyPrint())
-        elif isinstance(oval, v2c.OctetString):
-            val = textops.StrExt(oval.prettyPrint())
-        elif isinstance(oval, v2c.IpAddress):
-            val = textops.StrExt(oval.prettyPrint())
-        elif self.object_identity_to_string and isinstance(oval, self.ObjectIdentity):
-            val = textops.StrExt(oval)
-        else:
-            val = oval
+        try:
+            if isinstance(oval, v2c.Integer):
+                val = int(oval.prettyPrint())
+            elif isinstance(oval, v2c.Integer32):
+                val = int(oval.prettyPrint())
+            elif isinstance(oval, v2c.Unsigned32):
+                val = int(oval.prettyPrint())
+            elif isinstance(oval, v2c.Counter32):
+                val = int(oval.prettyPrint())
+            elif isinstance(oval, v2c.Counter64):
+                val = int(oval.prettyPrint())
+            elif isinstance(oval, v2c.Gauge32):
+                val = int(oval.prettyPrint())
+            elif isinstance(oval, v2c.TimeTicks):
+                val = int(oval.prettyPrint())
+            elif isinstance(oval, v2c.OctetString):
+                val = textops.StrExt(oval.prettyPrint())
+            elif isinstance(oval, v2c.IpAddress):
+                val = textops.StrExt(oval.prettyPrint())
+            elif self.object_identity_to_string and isinstance(oval, self.ObjectIdentity):
+                val = textops.StrExt(oval)
+            else:
+                val = oval
+        except ValueError:
+            val = oval.prettyPrint()
         return val
 
     def normalize_oid(self,oid):
