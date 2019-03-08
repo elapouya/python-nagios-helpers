@@ -1,3 +1,7 @@
+0.2.4 (2019-02-06)
+------------------
+Add Ssh.run_channels() and Ssh.mrun_channels() methods
+
 0.2.3 (2018-06-20)
 ------------------
 fix priv_protocol argument for collect.Snmp

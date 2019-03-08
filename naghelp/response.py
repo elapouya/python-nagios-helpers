@@ -233,7 +233,19 @@ class PluginResponse(object):
             msg = msg % args
         if kwargs:
             msg = msg.format(**kwargs)
+
+        # if a string, ensure it can be utf-8 decoded
+        if isinstance(msg, str):
+            try:
+                msg.decode('utf-8')
+            except UnicodeDecodeError:
+                try:
+                    # try another french usual encoding...
+                    msg = msg.decode('ISO-8859-1').encode('utf-8')
+                except UnicodeDecodeError:
+                    msg = msg.decode('utf-8','replace').encode('utf-8')
         return msg
+
 
     def add_begin(self,msg,*args,**kwargs):
         r"""Add a message in begin section
@@ -779,15 +791,7 @@ class PluginResponse(object):
             naghelp.logger.debug('response -> add_more("%s") %s',msg,naghelp.debug_caller())
 
         if msg:
-            if isinstance(msg,(list,tuple)):
-                msg = '\n'.join(msg)
-            elif not isinstance(msg,basestring):
-                msg = str(msg)
-            if args:
-                msg = msg % args
-            if kwargs:
-                msg = msg.format(**kwargs)
-            self.more_msgs.append(msg)
+            self.more_msgs.append(self._reformat_msg(msg,*args,**kwargs))
 
     def add_end(self,msg,*args,**kwargs):
         r"""Add a message in end section
@@ -827,16 +831,8 @@ class PluginResponse(object):
             ========================================
             Date : 2105-12-18, Time : 14:55:11
         """
-        naghelp.logger.debug('response -> add_more("%s") %s',msg,naghelp.debug_caller())
-        if isinstance(msg,(list,tuple)):
-            msg = '\n'.join(msg)
-        elif not isinstance(msg,basestring):
-            msg = str(msg)
-        if args:
-            msg = msg % args
-        if kwargs:
-            msg = msg.format(**kwargs)
-        self.end_msgs.append(msg)
+        naghelp.logger.debug('response -> add_end("%s") %s',msg,naghelp.debug_caller())
+        self.end_msgs.append(self._reformat_msg(msg, *args, **kwargs))
 
 
     def add_perf_data(self,data):
@@ -906,13 +902,7 @@ class PluginResponse(object):
             This is critical !
             <BLANKLINE>
         """
-        if not isinstance(msg,basestring):
-            msg = str(msg)
-        if args:
-            msg = msg % args
-        if kwargs:
-            msg = msg.format(**kwargs)
-        self.synopsis = msg
+        self.synopsis = self._reformat_msg(msg, *args, **kwargs)
 
     def get_default_synopsis(self):
         """Returns the default synopsis
